@@ -1,0 +1,809 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[hidden]{display:none!important}</style></head><body>
+<title>Eitan's Home Page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400&family=Cousine:wght@400;700&family=VT323&display=swap">
+<style>
+/* Layout: a 1998 desktop. One browser window holds the site, a taskbar switches views,
+   and the editor is two Win98 windows side by side. The page inside the browser is quiet:
+   black serif headings, Verdana body, one navy accent. Single light theme by choice. */
+:root {
+  color-scheme: light;
+  --desk: #008080;
+  --chrome: #c0c0c0;
+  --chrome-hi: #ffffff;
+  --chrome-mid: #dfdfdf;
+  --chrome-lo: #808080;
+  --chrome-dk: #0a0a0a;
+  --title-a: #000080;
+  --title-b: #1084d0;
+  --page: #ffffff;
+  --text: #1a1a1a;
+  --muted: #5c5c5c;
+  --rule: #c8c8c8;
+  --tint: #f4f4f4;
+  --link: #0000cc;
+  --visited: #551a8b;
+  --navy: #000060;
+  --f-ui: Tahoma, "Segoe UI", "DejaVu Sans", Verdana, sans-serif;
+  --f-body: Verdana, "DejaVu Sans", Geneva, sans-serif;
+  --f-head: "Tinos", "Times New Roman", Times, serif;
+  --f-mono: "Cousine", "Courier New", monospace;
+  --f-lcd: "VT323", "Courier New", monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--desk); color: var(--text); font-family: var(--f-ui); font-size: 13px; min-height: 100vh; }
+.desktop { padding: 16px 16px 64px; max-width: 1180px; margin: 0 auto; }
+
+/* Win98 bevels */
+.raised { background: var(--chrome); box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid); }
+.sunken { box-shadow: inset -1px -1px var(--chrome-hi), inset 1px 1px var(--chrome-lo), inset -2px -2px var(--chrome-mid), inset 2px 2px var(--chrome-dk); }
+.window { padding: 3px; display: grid; grid-template-rows: auto auto 1fr; min-width: 0; }
+.titlebar { display: flex; align-items: center; gap: 6px; padding: 3px 3px 3px 6px; color: #fff; background: linear-gradient(90deg, var(--title-a), var(--title-b)); font: 700 13px var(--f-ui); }
+.titlebar.inactive { background: linear-gradient(90deg, #808080, #b5b5b5); }
+.titlebar .ttl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titlebar .ico { width: 16px; height: 16px; flex: none; }
+.ctl { width: 18px; height: 16px; display: grid; place-items: center; font: 700 11px/1 var(--f-ui); color: #000; padding: 0; border: 0; }
+.menubar { display: flex; gap: 2px; padding: 2px; flex-wrap: wrap; }
+.menubar span { padding: 2px 7px; }
+.menubar span:first-letter { text-decoration: underline; }
+.toolbar { display: flex; gap: 4px; padding: 4px; flex-wrap: wrap; border-top: 1px solid var(--chrome-lo); box-shadow: inset 0 1px var(--chrome-hi); }
+.tb { display: grid; justify-items: center; gap: 2px; min-width: 58px; padding: 4px 6px; cursor: pointer; font: 12px var(--f-ui); color: #000; border: 0; background: var(--chrome); }
+.tb:hover { box-shadow: inset -1px -1px var(--chrome-lo), inset 1px 1px var(--chrome-hi); }
+.tb:active, .tb[aria-current] { box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+.tb:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.tb .g { font-size: 20px; line-height: 1; color: #222; }
+.tb.disabled { color: var(--chrome-lo); text-shadow: 1px 1px var(--chrome-hi); cursor: default; }
+.tb.disabled .g { color: var(--chrome-lo); }
+.logo { margin-left: auto; width: 46px; height: 46px; display: block; flex: none; cursor: pointer; }
+.logo .wave { animation: swell 1.4s linear infinite paused; }
+.logo .wave.back { animation-duration: 2.2s; animation-direction: reverse; }
+.logo:hover .wave, .logo.busy .wave { animation-play-state: running; }
+@keyframes swell { to { transform: translateX(23px); } }
+@media (prefers-reduced-motion: reduce) { .logo .wave { animation: none; } }
+.location { display: flex; align-items: center; gap: 6px; padding: 4px; }
+.location label { font-weight: 700; }
+.location .field { flex: 1; min-width: 0; background: #fff; padding: 3px 6px; font: 13px var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.viewport { background: var(--page); margin-top: 3px; min-width: 0; }
+.status { display: flex; gap: 3px; padding-top: 3px; font: 12px var(--f-ui); }
+.status > span { padding: 2px 6px; }
+.status .grow { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* The page inside the browser */
+.page { font-family: var(--f-body); font-size: 15px; line-height: 1.65; color: var(--text); }
+.page a { color: var(--link); } .page a:visited { color: var(--visited); }
+.page-grid { display: grid; grid-template-columns: 196px minmax(0, 1fr); }
+.nav { background: var(--navy); color: #fff; padding: 20px 16px 28px; display: grid; gap: 22px; align-content: start; }
+.nav h3 { margin: 0 0 8px; font: 700 11px var(--f-ui); color: #b8b8d8; text-transform: uppercase; letter-spacing: .12em; }
+.nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.nav a, .nav button.lnk { color: #fff; font: 14px var(--f-body); text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.nav a:visited { color: #fff; }
+.nav a:hover, .nav button.lnk:hover { color: #c8c8ff; }
+.nav button.lnk:focus-visible, .nav a:focus-visible { outline: 1px dotted #fff; outline-offset: 2px; }
+.social a { display: inline-flex; align-items: center; gap: 8px; }
+.social svg { width: 15px; height: 15px; flex: none; }
+.nav .social li::before { content: none; }
+.counter { display: grid; gap: 6px; justify-items: start; }
+.lcd { display: inline-flex; gap: 2px; background: #000; padding: 3px; border: 2px inset #888; }
+.lcd b { font: 26px/1 var(--f-lcd); color: #38ff38; background: #0a1a0a; padding: 0 3px; text-shadow: 0 0 6px rgba(56,255,56,.6); }
+.counter small { font: 11px var(--f-ui); color: #b8b8d8; }
+
+.main { padding: 28px clamp(16px, 4vw, 44px) 36px; min-width: 0; }
+.masthead { max-width: 66ch; }
+.masthead h1 {
+  margin: 0; font: 700 clamp(44px, 7vw, 68px)/1 var(--f-head); color: var(--text); letter-spacing: -.02em;
+  text-shadow: 1px 1px 0 var(--chrome-hi), 3px 3px 0 var(--chrome);
+}
+.masthead h1 .sub { display: block; margin-top: 4px; font: 400 clamp(13px, 1.8vw, 17px)/1.3 var(--f-mono); letter-spacing: .2em; margin-top: 8px; text-transform: uppercase; color: var(--navy); text-shadow: none; }
+.masthead .bar { height: 6px; margin: 14px 0 0; background: linear-gradient(90deg, var(--title-a), var(--title-b)); }
+.masthead p { margin: 12px 0 0; font: 18px/1.4 var(--f-head); color: var(--muted); }
+.intro { max-width: 66ch; margin: 18px 0 0; }
+.intro p { margin: 0 0 10px; }
+.page h2 { font: 700 22px/1.2 var(--f-head); color: var(--text); margin: 34px 0 12px; }
+
+table.posts { width: 100%; border-collapse: collapse; font-size: 14.5px; border: 1px solid var(--rule); }
+table.posts th { background: var(--tint); color: var(--muted); text-align: left; padding: 7px 10px; font: 700 11px var(--f-ui); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--rule); }
+table.posts td { padding: 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.posts tr:last-child td { border-bottom: 0; }
+table.posts td.date { white-space: nowrap; font: 13px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+table.posts .ttl { font-weight: 700; }
+table.posts .ex { display: block; color: var(--muted); font-size: 13.5px; margin-top: 3px; max-width: 70ch; }
+table.posts .topic { white-space: nowrap; font-size: 13px; color: var(--muted); }
+.new { margin-left: 6px; font: 700 10px var(--f-ui); color: var(--navy); text-transform: uppercase; letter-spacing: .08em; vertical-align: 1px; }
+.tablewrap { overflow-x: auto; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 28px; }
+fieldset { border: 2px groove #ddd; padding: 10px 16px 14px; margin: 0; }
+legend { font: 700 15px var(--f-head); color: var(--text); padding: 0 4px; }
+fieldset ul { margin: 6px 0 0; padding-left: 18px; }
+fieldset li { margin: 4px 0; }
+.now { display: grid; align-content: start; align-self: start; gap: 8px; }
+.now-view ul { margin: 6px 0 0; padding-left: 18px; }
+.now-view li { margin: 4px 0; }
+.now-view p { margin: 6px 0 0; }
+.now-edit { display: grid; gap: 8px; }
+.now-edit textarea { width: 100%; min-height: 140px; resize: vertical; padding: 6px 8px; font: 13px/1.6 var(--f-mono); border: 0; background: #fff;
+  box-shadow: inset -1px -1px var(--chrome-hi), inset 1px 1px var(--chrome-lo), inset -2px -2px var(--chrome-mid), inset 2px 2px var(--chrome-dk); }
+.now-edit .row { display: flex; gap: 8px; justify-content: flex-end; }
+.now-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 11px var(--f-ui); color: var(--muted); }
+.now-foot .btn98 { min-width: 60px; padding: 3px 10px; }
+.surf { align-self: start; }
+.surf-body { padding: 10px 10px 12px; display: grid; gap: 10px; font: 13px var(--f-ui); }
+.readouts { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.readouts div { display: grid; gap: 3px; }
+.readouts dt { font: 700 10px var(--f-ui); text-transform: uppercase; letter-spacing: .08em; color: #333; }
+.lcd-v { margin: 0; padding: 3px 6px; background: #0a1a0a; border: 2px inset #888; font: 26px/1 var(--f-lcd); color: #38ff38; text-shadow: 0 0 6px rgba(56,255,56,.5); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lcd-v small { font-size: 15px; margin-left: 3px; color: #2fbf2f; }
+.tide { background: #fff; padding: 6px 8px 4px; }
+.tide svg { display: block; width: 100%; height: 56px; }
+.tide-legend { display: flex; justify-content: space-between; font: 11px var(--f-mono); color: var(--muted); }
+.rating b { font-weight: 700; }
+.surf-note { font-size: 11px; color: var(--muted); }
+@media (max-width: 420px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.webring { margin: 28px 0 0; text-align: center; padding: 10px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-size: 13.5px; color: var(--muted); }
+blog-app:not([data-owner]) .owner-only { display: none !important; }
+blog-app[data-owner] .guest-only { display: none !important; }
+.foot-note .lnk { background: none; border: 0; padding: 0; font: inherit; color: var(--link); text-decoration: underline; cursor: pointer; }
+.foot-note { margin-top: 16px; text-align: center; font: 12px var(--f-ui); color: var(--muted); }
+
+/* Post view */
+.article { max-width: 68ch; margin: 0 auto; padding: 30px clamp(16px, 4vw, 32px) 40px; }
+.crumbs { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.article h1.t { font: 700 clamp(30px, 4.5vw, 40px)/1.12 var(--f-head); color: var(--text); margin: 0 0 10px; text-wrap: balance; }
+.byline { font: 15px var(--f-head); color: var(--muted); }
+hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
+.prose { font-family: var(--f-body); font-size: 15.5px; line-height: 1.75; }
+.prose > * + * { margin-top: 1em; }
+.prose p, .prose ul, .prose ol, .prose pre, .prose blockquote { margin-bottom: 0; }
+.prose h1, .prose h2, .prose h3 { font-family: var(--f-head); color: var(--text); line-height: 1.2; margin-top: 1.6em; }
+.prose h1 { font-size: 30px; margin-top: 0; } .prose h2 { font-size: 23px; } .prose h3 { font-size: 19px; }
+.prose a { color: var(--link); }
+.prose blockquote { margin-left: 0; margin-right: 0; padding: 2px 0 2px 16px; border-left: 3px solid var(--rule); color: var(--muted); font-style: italic; }
+.prose blockquote p { margin: 0; }
+.prose code { font-family: var(--f-mono); font-size: .9em; background: var(--tint); padding: 0 3px; }
+.prose pre { background: #000; color: #d0d0d0; padding: 12px 14px; overflow-x: auto; border: 2px inset #888; font-size: 13.5px; line-height: 1.55; }
+.prose pre code { background: none; padding: 0; color: inherit; }
+.prose pre[data-lang]::before { content: "C:\\> type example." attr(data-lang); display: block; color: #fff; margin-bottom: 6px; }
+
+/* Write view */
+.write-area { background: var(--desk); padding: 16px; }
+.editor-desk { display: grid; gap: 16px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.notepad textarea { display: block; width: 100%; height: 520px; resize: vertical; border: 0; outline: none; margin: 0; padding: 8px 10px; font: 14px/1.6 var(--f-mono); color: #000; background: #fff; tab-size: 4; }
+.notepad .well, .preview-win .well { margin-top: 3px; padding: 2px; background: #fff; }
+.notepad textarea:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
+.preview-win [data-preview] { height: 520px; overflow: auto; padding: 16px 20px; }
+.dialog { max-width: 640px; justify-self: center; width: 100%; }
+.dialog-body { padding: 14px 16px 16px; display: grid; gap: 14px; }
+.dialog-body .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.dialog-body legend { font: 700 13px var(--f-ui); }
+.radio { display: flex; gap: 6px; align-items: center; cursor: pointer; font: 13px var(--f-ui); }
+.radio input { width: 13px; height: 13px; accent-color: #000080; margin: 0; }
+.btn98 { min-width: 88px; padding: 5px 14px; font: 13px var(--f-ui); color: #000; cursor: pointer; border: 0; background: var(--chrome);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid); }
+.btn98:active { box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo), inset -2px -2px var(--chrome-mid); }
+.btn98:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.btn98.default { box-shadow: 0 0 0 1px #000, inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid); font-weight: 700; }
+.fmtbar { display: flex; gap: 2px; padding: 3px; flex-wrap: wrap; }
+.fmtbar .btn98 { min-width: 30px; padding: 3px 8px; font-family: var(--f-mono); }
+.msgbox {
+  position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 60; width: min(360px, calc(100vw - 32px));
+  display: grid; grid-template-columns: 52px 1fr; align-items: center; row-gap: 14px; padding: 3px 14px 20px 3px;
+  font: 13px/1.5 var(--f-ui); color: #000; background: var(--chrome);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid), 4px 4px 0 rgba(0,0,0,.35);
+}
+.msgbox::before { content: "Publish Post"; grid-column: 1 / -1; grid-row: 1; margin-right: -11px; padding: 3px 6px; color: #fff; font-weight: 700; background: linear-gradient(90deg, var(--title-a), var(--title-b)); }
+.msgbox::after { content: "i"; grid-column: 1; grid-row: 2; justify-self: center; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #0050c8; color: #fff; font: 700 italic 20px var(--f-head); }
+
+/* Sign-in dialog */
+.overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.25); }
+.signin { width: min(400px, 100%); font: 13px var(--f-ui); }
+.signin-body { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 14px 14px 6px; }
+.signin .key { width: 32px; height: 32px; }
+.signin .fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 10px; align-items: center; }
+.signin .fields p, .signin .fields small { grid-column: 1 / -1; margin: 0; }
+.signin .fields small { color: var(--muted); font-size: 11px; }
+.signin input { font: 13px var(--f-ui); padding: 3px 5px; border: 0; background: #fff; min-width: 0; }
+.signin input[readonly] { background: var(--chrome-mid); }
+.signin input:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
+.signin .row { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 14px 14px; }
+.ctl { cursor: default; }
+
+/* Taskbar */
+.taskbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; gap: 4px; align-items: center;
+  padding: 3px 3px calc(3px + env(safe-area-inset-bottom, 0px)); background: var(--chrome); box-shadow: inset 0 1px var(--chrome-mid), inset 0 2px var(--chrome-hi); }
+.start { display: flex; align-items: center; gap: 5px; font-weight: 700; padding: 3px 8px; min-width: 0; }
+.start .flag { width: 16px; height: 14px; background: conic-gradient(#f22 0 25%, #2b2 0 50%, #fc0 0 75%, #25f 0); transform: skewX(-8deg); }
+.task { flex: 0 1 170px; min-width: 0; text-align: left; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task[aria-current] { font-weight: 700; background: repeating-conic-gradient(#fff 0 25%, var(--chrome) 0 50%) 0 0 / 2px 2px;
+  box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo), inset -2px -2px var(--chrome-mid); }
+.tray { margin-left: auto; padding: 4px 10px; font: 13px var(--f-ui); }
+
+@media (max-width: 860px) {
+  .page-grid { grid-template-columns: 1fr; }
+  .nav { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .split { grid-template-columns: 1fr; }
+  .notepad textarea, .preview-win [data-preview] { height: 380px; }
+  .logo, .menubar { display: none; }
+}
+@media (max-width: 520px) { .task { display: none; } .tb { min-width: 48px; } }
+</style>
+
+<blog-app>
+  <div class="desktop">
+    <div class="window raised">
+      <div class="titlebar">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" fill="#000"/><text x="8" y="10.5" text-anchor="middle" font-size="10" font-family="Tinos, 'Times New Roman', serif" font-weight="700" fill="#fff">E</text><path d="M2 13.2 q1.5 -1.4 3 0 t3 0 t3 0 t3 0" stroke="#fff" stroke-width="1.2" fill="none"/></svg>
+        <span class="ttl" id="ns-title">Eitan's Logbook</span>
+        <span class="ctl raised" aria-hidden="true">_</span><span class="ctl raised" aria-hidden="true">□</span><span class="ctl raised" aria-hidden="true">×</span>
+      </div>
+      <div>
+        <div class="menubar"><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Communicator</span><span>Help</span></div>
+        <div class="toolbar">
+          <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">◄</span>Back</button>
+          <button class="tb" data-goto="home" data-nav><span class="g">⌂</span>Home</button>
+          <button class="tb" data-goto="post" data-nav><span class="g">❏</span>Latest</button>
+          <button class="tb owner-only" data-goto="write" data-nav><span class="g">✎</span>Compose</button>
+          <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">⎙</span>Print</button>
+          <svg class="logo" id="logo" viewBox="0 0 46 46" role="img" aria-label="Eitan's Logbook logo">
+            <defs><clipPath id="logo-clip"><rect x="3" y="3" width="40" height="40"/></clipPath></defs>
+            <rect width="46" height="46" fill="#000"/>
+            <text x="23" y="27" text-anchor="middle" font-family="Tinos, 'Times New Roman', serif" font-weight="700" font-size="25" fill="#fff">E</text>
+            <g clip-path="url(#logo-clip)">
+              <path class="wave" d="M-46 35 q5.75 -4 11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0" stroke="#fff" stroke-width="2" fill="none"/>
+              <path class="wave back" d="M-46 40.5 q5.75 -3 11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0" stroke="#808080" stroke-width="1.5" fill="none"/>
+            </g>
+          </svg>
+        </div>
+        <div class="location"><label for="ns-loc">Location:</label><div class="field sunken" id="ns-loc">file:///home/eitan/www/index.html</div></div>
+      </div>
+      <div class="viewport sunken">
+
+        <!-- HOME -->
+        <section data-view="home" class="page page-grid">
+          <nav class="nav" aria-label="Site">
+            <div>
+              <h3>Site</h3>
+              <ul>
+                <li><button class="lnk" data-goto="home">Home</button></li>
+                <li><button class="lnk" data-goto="post">Latest post</button></li>
+                <li class="owner-only"><button class="lnk" data-goto="write">Compose</button></li>
+                <li><a href="#home">About</a></li>
+                <li><a href="#home">RSS feed</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3>Topics</h3>
+              <ul>
+                <li><a href="#home">Ethereum</a></li>
+                <li><a href="#home">Rust</a></li>
+                <li><a href="#home">Surf and snow</a></li>
+                <li><a href="#home">Jiu jitsu</a></li>
+                <li><a href="#home">Classic WoW</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3>Find me</h3>
+              <ul class="social">
+                <li><a href="#home"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>GitHub</a></li>
+                <li><a href="#home"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M12.6 1h2.3l-5 5.7L15.8 15h-4.6L7.6 10.3 3.5 15H1.2l5.3-6.1L.9 1h4.7l3.3 4.3L12.6 1Zm-.8 12.6h1.3L4.9 2.3H3.5l8.3 11.3Z"/></svg>X</a></li>
+                <li><a href="#home"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M13.5 3.1A13 13 0 0 0 10.3 2l-.4.8a12 12 0 0 0-3.8 0L5.7 2a13 13 0 0 0-3.2 1.1C.5 6.1 0 9 .2 11.9A13 13 0 0 0 4.2 14l.8-1.3a8.5 8.5 0 0 1-1.3-.6l.3-.3a9.300 9.300 0 0 0 8 0l.3.3c-.4.2-.8.4-1.3.6l.8 1.3a13 13 0 0 0 4-2.1c.3-3.4-.6-6.300-2.300-8.8ZM5.400 10.200c-.8 0-1.400-.7-1.400-1.600s.6-1.600 1.400-1.600 1.400.7 1.400 1.600-.6 1.600-1.400 1.600Zm5.200 0c-.8 0-1.400-.7-1.400-1.600s.6-1.600 1.400-1.600 1.400.7 1.400 1.600-.6 1.600-1.400 1.600Z"/></svg>Discord</a></li>
+              </ul>
+            </div>
+            <div class="counter">
+              <h3>Visitors</h3>
+              <div class="lcd" aria-label="Visitor counter 0013371"><b>0</b><b>0</b><b>1</b><b>3</b><b>3</b><b>7</b><b>1</b></div>
+              <small>since January 1998</small>
+            </div>
+          </nav>
+
+          <div class="main">
+            <header class="masthead">
+              <h1>Eitan's Logbook <span class="sub">Ethereum · Rust · Ocean</span></h1>
+              <div class="bar" aria-hidden="true"></div>
+              <p>An Ethereum core developer keeps notes on protocol work, Rust, and the time between.</p>
+            </header>
+            <div class="intro">
+              <p>I work on Ethereum client software, mostly in Rust. Here I write longer notes on protocol changes and performance work. These are the things that do not fit in a call or a GitHub thread.</p>
+              <p>I also write about surfing, snowboarding, jiu jitsu, and classic WoW.</p>
+            </div>
+
+            <h2>Writing</h2>
+            <div class="tablewrap">
+              <table class="posts">
+                <thead><tr><th scope="col">Date</th><th scope="col">Title</th><th scope="col">Topic</th><th scope="col">Length</th></tr></thead>
+                <tbody id="ns-rows"></tbody>
+              </table>
+            </div>
+            <post-list target="ns-rows" date-style="us">
+              <template>
+                <tr>
+                  <td class="date" data-f="date"></td>
+                  <td><a href="#post" class="ttl" data-goto="post" data-f="title"></a><span class="new" data-cls="new" hidden>New</span><span class="ex" data-f="excerpt"></span></td>
+                  <td class="topic" data-f="topic"></td>
+                  <td class="date"><span data-f="mins"></span> min</td>
+                </tr>
+              </template>
+            </post-list>
+
+            <div class="two">
+              <fieldset class="now" id="now">
+                <legend>Now</legend>
+                <div class="now-view" id="now-view"></div>
+                <div class="now-edit" id="now-edit" hidden>
+                  <textarea id="now-text" aria-label="Edit the Now section (markdown)"></textarea>
+                  <div class="row"><button class="btn98" id="now-cancel">Cancel</button><button class="btn98 default" id="now-save">Save</button></div>
+                </div>
+                <div class="now-foot"><span id="now-date">Updated October 1, 2026</span><button class="btn98 owner-only" id="now-open">Edit</button></div>
+              </fieldset>
+              <div class="window raised surf">
+                <div class="titlebar"><span class="ttl">Surf Report - Home break</span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="surf-body">
+                  <dl class="readouts">
+                    <div><dt>Swell</dt><dd class="lcd-v">4.2<small>ft</small></dd></div>
+                    <div><dt>Period</dt><dd class="lcd-v">12<small>s</small></dd></div>
+                    <div><dt>Wind</dt><dd class="lcd-v">5<small>kt off</small></dd></div>
+                    <div><dt>Water</dt><dd class="lcd-v">17<small>°C</small></dd></div>
+                  </dl>
+                  <div class="tide sunken">
+                    <svg viewBox="0 0 240 56" preserveAspectRatio="none" role="img" aria-label="Tide chart: low tide at 6:10 AM, high tide at 12:40 PM">
+                      <line x1="0" y1="28" x2="240" y2="28" stroke="#c8c8c8" stroke-dasharray="2 3"/>
+                      <path d="M0 16 C 30 16, 40 48, 70 48 S 120 8, 150 8 S 210 40, 240 40" fill="none" stroke="#000060" stroke-width="2"/>
+                      <circle cx="70" cy="48" r="4" fill="#ffffff" stroke="#000060" stroke-width="2"/>
+                    </svg>
+                    <div class="tide-legend"><span>Low 6:10 AM</span><span>High 12:40 PM</span></div>
+                  </div>
+                  <div class="rating"><b>Fair to good.</b> Clean lines on the morning low.</div>
+                  <div class="surf-note">Sample data. The live site reads a marine forecast API.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="webring">Rust Webring · <a href="#home">Previous</a> · <a href="#home">Random</a> · <a href="#home">Next</a></div>
+            <p class="foot-note">Last updated October 1, 2026. Best viewed at 800 × 600. Design mockup: posts are sample content. · <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
+          </div>
+        </section>
+
+        <!-- POST -->
+        <section data-view="post" class="page" hidden>
+          <article class="article">
+            <div class="crumbs"><a href="#home" data-goto="home">Home</a> › <a href="#home">Ethereum</a></div>
+            <h1 class="t">Block-level access lists and parallel execution</h1>
+            <div class="byline">September 28, 2026 · 9 min read</div>
+            <hr class="rule">
+            <md-render class="prose"></md-render>
+            <hr class="rule">
+            <p class="foot-note"><a href="#home" data-goto="home">Back to home</a></p>
+          </article>
+        </section>
+
+        <!-- WRITE -->
+        <section data-view="write" class="page write-area" hidden>
+          <md-editor class="editor-desk" data-visibility="private">
+            <div class="split">
+              <div class="window raised notepad">
+                <div class="titlebar"><span class="ttl">epbs-client-view.md - Notepad <span data-dirty hidden>*</span></span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="fmtbar">
+                  <button class="btn98" data-md="**" aria-label="Bold"><b>B</b></button>
+                  <button class="btn98" data-md="*" aria-label="Italic"><i>I</i></button>
+                  <button class="btn98" data-md="## " aria-label="Heading">H2</button>
+                  <button class="btn98" data-md="- " aria-label="List">•</button>
+                  <button class="btn98" data-md="`" aria-label="Code">&lt;/&gt;</button>
+                  <button class="btn98" data-md="link" aria-label="Link">URL</button>
+                </div>
+                <div class="well sunken"><textarea id="ns-draft" aria-label="Post markdown" spellcheck="true"></textarea></div>
+              </div>
+              <div class="window raised preview-win">
+                <div class="titlebar inactive"><span class="ttl">Preview</span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="status"><span class="grow sunken" data-words="Document: Done · {w} words · {m} min read"></span></div>
+                <div class="well sunken"><div class="prose" data-preview></div></div>
+              </div>
+            </div>
+            <div class="window raised dialog">
+              <div class="titlebar"><span class="ttl">Publish Post</span><span class="ctl raised" aria-hidden="true">?</span><span class="ctl raised" aria-hidden="true">×</span></div>
+              <div class="dialog-body">
+                <fieldset>
+                  <legend>Visibility</legend>
+                  <div class="row">
+                    <label class="radio"><input type="radio" name="ns-vis" id="ns-vis-pub" data-vis="public"> Public: anyone can read it</label>
+                    <label class="radio"><input type="radio" name="ns-vis" id="ns-vis-priv" data-vis="private"> Private: only you</label>
+                  </div>
+                </fieldset>
+                <div class="row" style="justify-content:flex-end">
+                  <button class="btn98" data-save>Save Draft</button>
+                  <button class="btn98 default" data-publish>Publish</button>
+                </div>
+              </div>
+            </div>
+            <div class="msgbox" data-toast hidden data-public="Post published. Anyone can read it now." data-private="Saved as private. Only you can see this post." data-saved="Draft saved."></div>
+          </md-editor>
+        </section>
+
+      </div>
+      <div class="status">
+        <span class="grow sunken">Document: Done</span>
+        <span class="sunken owner-only">Signed in as eitan</span>
+        <span class="sunken">🔓</span>
+        <span class="sunken">100%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="signin" hidden>
+    <form class="window raised signin" id="signin-form" autocomplete="off">
+      <div class="titlebar"><span class="ttl">Sign In</span><button type="button" class="ctl raised" id="signin-x" aria-label="Close">×</button></div>
+      <div class="signin-body">
+        <svg class="key" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="16" r="7" fill="#ffd84a" stroke="#000" stroke-width="1.5"/><circle cx="9" cy="16" r="2" fill="#fff" stroke="#000"/><path d="M18 14.5h11v3h-2v3h-3v-3h-6z" fill="#ffd84a" stroke="#000" stroke-width="1.5"/></svg>
+        <div class="fields">
+          <p>Only the owner of this site can sign in. Signing in shows Compose and your private drafts.</p>
+          <label for="signin-user">User name:</label><input id="signin-user" class="sunken" value="eitan" readonly>
+          <label for="signin-pass">Password:</label><input id="signin-pass" class="sunken" type="password">
+          <small>Mockup: any password works. The real site uses a passkey.</small>
+        </div>
+      </div>
+      <div class="row"><button class="btn98 default" type="submit">OK</button><button class="btn98" type="button" id="signin-cancel">Cancel</button></div>
+    </form>
+  </div>
+
+  <div class="taskbar">
+    <button class="btn98 start" data-goto="home"><span class="flag"></span>Start</button>
+    <button class="btn98 task" data-goto="home" data-nav>Home</button>
+    <button class="btn98 task" data-goto="post" data-nav>Latest post</button>
+    <button class="btn98 task owner-only" data-goto="write" data-nav>Notepad</button>
+    <span class="tray sunken" id="ns-clock">12:00 PM</span>
+  </div>
+</blog-app>
+
+<script>
+/* Shared blog runtime: sample data, a tiny markdown renderer, and native web components.
+   Every design uses the same components. Only the markup and CSS change. */
+
+(() => {
+  const st = document.createElement('style');
+  st.textContent = 'blog-app, md-editor, post-list, md-render { display: block; }';
+  document.head.prepend(st);
+})();
+
+const POSTS = [
+  { id: 'bal', title: 'Block-level access lists and parallel execution', slug: 'block-level-access-lists.md',
+    date: '2026-09-28', kind: 'eth', topic: 'Ethereum', tags: ['glamsterdam', 'eip-7928', 'clients'],
+    mins: 9, words: 1980, vis: 'public', isNew: true,
+    excerpt: 'EIP-7928 makes each block declare the accounts and storage slots it touches. What this gives clients, and what it costs builders.' },
+  { id: 'ssz', title: 'Zero-copy SSZ decoding in Rust', slug: 'zero-copy-ssz.md',
+    date: '2026-09-14', kind: 'rust', topic: 'Rust', tags: ['rust', 'ssz', 'performance'],
+    mins: 12, words: 2640, vis: 'public', isNew: true,
+    excerpt: 'Decoding beacon state without allocations: borrowing from the input buffer, the lifetime problems that follow, and where the change paid off.' },
+  { id: 'ui', title: 'What classic WoW addons got right about interfaces', slug: 'classic-wow-interfaces.md',
+    date: '2026-09-02', kind: 'wow', topic: 'Classic WoW', tags: ['design', 'wow'],
+    mins: 7, words: 1530, vis: 'public',
+    excerpt: 'Raid frames and threat meters solved information density problems that many dashboards still get wrong.' },
+  { id: 'bjj', title: 'Four years of jiu jitsu', slug: 'four-years-of-jiu-jitsu.md',
+    date: '2026-08-19', kind: 'bjj', topic: 'Jiu jitsu', tags: ['bjj'],
+    mins: 5, words: 1120, vis: 'public',
+    excerpt: 'Notes on training consistently while working on a protocol, and on what the mat teaches about hard problems.' },
+  { id: 'surf', title: 'Surf log, summer 2026', slug: 'surf-log-summer-2026.md',
+    date: '2026-07-30', kind: 'surf', topic: 'Surf', tags: ['surf'],
+    mins: 3, words: 610, vis: 'public',
+    excerpt: 'Conditions, a new board, and why I keep my mornings free of calls.' },
+  { id: 'split', title: 'Splitboarding: end of season notes', slug: 'end-of-season.md',
+    date: '2026-04-11', kind: 'snow', topic: 'Snowboarding', tags: ['snow', 'backcountry'],
+    mins: 6, words: 1290, vis: 'public',
+    excerpt: 'Route, gear, and conditions from the last backcountry tour of the season.' },
+  { id: 'epbs', title: "ePBS from a client's perspective", slug: 'epbs-client-view.md',
+    date: '2026-10-01', kind: 'eth', topic: 'Ethereum', tags: ['glamsterdam', 'epbs'],
+    mins: 4, words: 412, vis: 'private', draft: true,
+    excerpt: 'Draft. Fork choice now has to track the payload, not only the block.' },
+];
+
+const POST_MD = `An execution client receives a block today with no information about the state it touches. It must execute the transactions in order, because any transaction can depend on the result of the one before it.
+
+EIP-7928 changes this. Each block carries a **block-level access list** (BAL): every account and storage slot that the block reads or writes, with the values after each transaction.
+
+## What clients gain
+
+- Clients can load state from disk in parallel, before execution starts.
+- Transactions with separate access sets can execute in parallel.
+- Some sync paths can apply state changes without full re-execution.
+
+## What it costs
+
+The list adds data to every block. Builders must produce it, and clients must make sure that it matches the result of execution. A block with a wrong list is invalid.
+
+## A rough shape
+
+This is not the spec type. It is a simplified version for discussion:
+
+\`\`\`rust
+pub struct AccountChanges {
+    pub address: Address,
+    pub storage_writes: Vec<SlotWrites>,
+    pub storage_reads: Vec<B256>,
+    pub balance_changes: Vec<(u16, U256)>,
+}
+\`\`\`
+
+## Why it matters
+
+Block validation time is one of the main limits on the gas limit. If clients validate blocks faster, the network can raise the limit safely.`;
+
+const DRAFT_MD = `# ePBS from a client's perspective
+
+Glamsterdam splits the block in two. The proposer commits to a builder bid. The builder reveals the payload later.
+
+## What changes for fork choice
+
+- Fork choice now tracks **payload presence**, not only the block.
+- The payload timeliness committee (PTC) votes on whether the payload arrived on time.
+- An *empty* slot is now different from a *missed* slot.
+
+## First pass at the type
+
+\`\`\`rust
+pub enum PayloadStatus {
+    Pending,
+    Revealed { block_hash: Hash256 },
+    Withheld,
+}
+\`\`\`
+
+> TODO: add the fork choice diagram before publishing.`;
+
+/* Tiny markdown renderer. It covers headings, paragraphs, lists, quotes, fences, rules,
+   bold, italic, inline code, and links. A real build swaps in a full parser. */
+function md(src) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const inline = s => esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+|#[^)\s]*)\)/g, '<a href="$2">$1</a>');
+  const block = /^(#{1,4}\s|```|>|[-*]\s|\d+\.\s|---+\s*$)/;
+  const lines = src.replace(/\r/g, '').split('\n');
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const l = lines[i];
+    if (l.startsWith('```')) {
+      const lang = l.slice(3).trim(), buf = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) buf.push(lines[i++]);
+      i++;
+      out.push(`<pre data-lang="${esc(lang)}"><code>${esc(buf.join('\n'))}</code></pre>`);
+      continue;
+    }
+    const h = l.match(/^(#{1,4})\s+(.*)/);
+    if (h) { out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); i++; continue; }
+    if (/^>/.test(l)) {
+      const buf = [];
+      while (i < lines.length && /^>/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''));
+      out.push(`<blockquote><p>${inline(buf.join(' '))}</p></blockquote>`);
+      continue;
+    }
+    const list = /^[-*]\s+/.test(l) ? ['ul', /^[-*]\s+/] : /^\d+\.\s+/.test(l) ? ['ol', /^\d+\.\s+/] : null;
+    if (list) {
+      const buf = [];
+      while (i < lines.length && list[1].test(lines[i])) buf.push(`<li>${inline(lines[i++].replace(list[1], ''))}</li>`);
+      out.push(`<${list[0]}>${buf.join('')}</${list[0]}>`);
+      continue;
+    }
+    if (/^---+\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+    if (!l.trim()) { i++; continue; }
+    const buf = [];
+    while (i < lines.length && lines[i].trim() && !block.test(lines[i])) buf.push(lines[i++]);
+    out.push(`<p>${inline(buf.join(' '))}</p>`);
+  }
+  return out.join('\n');
+}
+
+const fmtDate = (iso, style) => {
+  const d = new Date(iso + 'T12:00:00');
+  if (style === 'short') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (style === 'us') return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+/* <blog-app>: switches between [data-view] sections. Any [data-goto] element changes the view. */
+customElements.define('blog-app', class extends HTMLElement {
+  connectedCallback() {
+    this.addEventListener('click', e => {
+      const t = e.target.closest('[data-goto]');
+      if (!t) return;
+      e.preventDefault();
+      if (t.dataset.post) this.dataset.post = t.dataset.post;
+      this.show(t.dataset.goto);
+    });
+    const start = (location.hash || '').slice(1);
+    this.show(this.querySelector(`[data-view="${start}"]`) ? start : 'home', true);
+  }
+  show(view, quiet) {
+    this.querySelectorAll('[data-view]').forEach(s => { s.hidden = s.dataset.view !== view; });
+    this.querySelectorAll('[data-goto]').forEach(b => {
+      if (b.dataset.nav !== undefined) b.toggleAttribute('aria-current', b.dataset.goto === view);
+    });
+    this.dataset.current = view;
+    this.dispatchEvent(new CustomEvent('viewchange', { detail: view }));
+    if (!quiet) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+});
+
+/* <post-list>: stamps its <template> once per post. Fields: [data-f], classes: [data-cls]. */
+customElements.define('post-list', class extends HTMLElement {
+  connectedCallback() {
+    if (this._done) return;
+    this._done = true;
+    const tpl = this.querySelector('template');
+    const drafts = this.hasAttribute('drafts');
+    const limit = +this.getAttribute('limit') || Infinity;
+    const skip = +this.getAttribute('skip') || 0;
+    const style = this.getAttribute('date-style');
+    const target = document.getElementById(this.getAttribute('target')) || this;
+    POSTS.filter(p => drafts || !p.draft).slice(skip, skip + limit).forEach((p, idx) => {
+      const n = tpl.content.cloneNode(true);
+      n.querySelectorAll('[data-f]').forEach(el => {
+        const f = el.dataset.f;
+        if (f === 'date') el.textContent = fmtDate(p.date, el.dataset.style || style);
+        else if (f === 'tags') el.innerHTML = p.tags.map(t => `<span class="tag">${t}</span>`).join(el.dataset.sep || ' ');
+        else if (f === 'index') el.textContent = String(idx + 1 + skip).padStart(2, '0');
+        else el.textContent = p[f] ?? '';
+      });
+      n.querySelectorAll('[data-cls]').forEach(el => el.dataset.cls.split(' ').forEach(k => {
+        if (k === 'new') { if (p.isNew) el.classList.add('is-new'); }
+        else el.classList.add(`${k}-${p[k]}`);
+      }));
+      n.querySelectorAll('[data-goto]').forEach(el => { el.dataset.post = p.id; });
+      n.firstElementChild && (n.firstElementChild.dataset.id = p.id);
+      target.appendChild(n);
+    });
+  }
+});
+
+/* <md-render>: renders the sample post, or its own <template> text, as HTML. */
+customElements.define('md-render', class extends HTMLElement {
+  connectedCallback() {
+    const t = this.querySelector('template');
+    this.innerHTML = md(t ? t.innerHTML : POST_MD);
+  }
+});
+
+/* <md-editor>: markdown on one side, live preview on the other.
+   Parts: textarea, [data-preview], [data-words], [data-gutter], [data-md] buttons,
+   [data-vis] buttons, [data-publish], [data-save], [data-toast]. */
+customElements.define('md-editor', class extends HTMLElement {
+  connectedCallback() {
+    const $ = s => this.querySelector(s);
+    const ta = $('textarea'), pv = $('[data-preview]'), gutter = $('[data-gutter]');
+    if (!ta.value.trim()) ta.value = DRAFT_MD;
+    this.dataset.visibility ||= 'private';
+
+    const render = () => {
+      pv.innerHTML = md(ta.value);
+      const w = (ta.value.match(/\S+/g) || []).length;
+      this.querySelectorAll('[data-words]').forEach(el => {
+        el.textContent = (el.dataset.words || '{w} words · {m} min read')
+          .replace('{w}', w).replace('{m}', Math.max(1, Math.round(w / 220)));
+      });
+      if (gutter) gutter.textContent = ta.value.split('\n').map((_, i) => i + 1).join('\n');
+      this.querySelectorAll('[data-dirty]').forEach(el => { el.hidden = !this._dirty; });
+    };
+    ta.addEventListener('input', () => { this._dirty = true; render(); });
+    ta.addEventListener('scroll', () => {
+      const r = ta.scrollTop / Math.max(1, ta.scrollHeight - ta.clientHeight);
+      pv.scrollTop = r * (pv.scrollHeight - pv.clientHeight);
+      if (gutter) gutter.scrollTop = ta.scrollTop;
+    });
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); ta.setRangeText('    ', ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input')); }
+    });
+
+    this.querySelectorAll('[data-md]').forEach(b => b.addEventListener('click', () => {
+      const mark = b.dataset.md, s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.slice(s, e);
+      if (mark.endsWith(' ')) {
+        const ls = ta.value.lastIndexOf('\n', s - 1) + 1;
+        ta.setRangeText(mark, ls, ls, 'end');
+      } else if (mark === 'link') {
+        ta.setRangeText(`[${sel || 'link text'}](https://)`, s, e, 'end');
+      } else {
+        ta.setRangeText(mark + (sel || 'text') + mark, s, e, 'end');
+      }
+      ta.focus();
+      ta.dispatchEvent(new Event('input'));
+    }));
+
+    const syncVis = () => this.querySelectorAll('[data-vis]').forEach(x => {
+      const on = x.dataset.vis === this.dataset.visibility;
+      x.setAttribute('aria-pressed', on);
+      if ('checked' in x) x.checked = on;
+    });
+    this.querySelectorAll('[data-vis]').forEach(b => b.addEventListener('click', () => {
+      this.dataset.visibility = b.dataset.vis;
+      syncVis();
+    }));
+    syncVis();
+
+    const toast = $('[data-toast]');
+    const say = key => {
+      if (!toast) return;
+      toast.textContent = toast.dataset[key] || key;
+      toast.hidden = false;
+      toast.classList.remove('pop'); void toast.offsetWidth; toast.classList.add('pop');
+      clearTimeout(this._t);
+      this._t = setTimeout(() => { toast.hidden = true; }, 2800);
+    };
+    $('[data-publish]')?.addEventListener('click', () => {
+      this._dirty = false; render();
+      say(this.dataset.visibility === 'public' ? 'public' : 'private');
+    });
+    $('[data-save]')?.addEventListener('click', () => { this._dirty = false; render(); say('saved'); });
+    render();
+  }
+});
+
+</script>
+<script>
+(() => {
+  const app = document.querySelector('blog-app');
+  const views = {
+    home: ["Eitan's Logbook", 'file:///home/eitan/www/index.html'],
+    post: ['Block-level access lists and parallel execution', 'file:///home/eitan/www/posts/block-level-access-lists.html'],
+    write: ['Compose - epbs-client-view.md', 'file:///home/eitan/www/drafts/epbs-client-view.md'],
+  };
+  const sync = v => {
+    document.getElementById('ns-title').textContent = views[v][0];
+    const logo = document.getElementById('logo');
+    logo.classList.add('busy');
+    clearTimeout(sync.t);
+    sync.t = setTimeout(() => logo.classList.remove('busy'), 1400);
+    document.getElementById('ns-loc').textContent = views[v][1];
+  };
+  app.addEventListener('viewchange', e => sync(e.detail));
+  sync(app.dataset.current || 'home');
+  // Owner mode. In the real build the server decides this from a session cookie,
+  // and the editor route and draft API reject every request without one.
+  const signin = document.getElementById('signin');
+  const setOwner = on => {
+    app.toggleAttribute('data-owner', on);
+    if (!on && app.dataset.current === 'write') app.show('home');
+    if (!on) editNow(false);
+  };
+  app.addEventListener('viewchange', e => {
+    if (e.detail === 'write' && !app.hasAttribute('data-owner')) app.show('home', true);
+  });
+  if (app.dataset.current === 'write') app.show('home', true);
+  const closeSignin = () => { signin.hidden = true; };
+  document.querySelector('[data-signin]').addEventListener('click', () => {
+    signin.hidden = false;
+    document.getElementById('signin-pass').focus();
+  });
+  document.querySelector('[data-signout]').addEventListener('click', () => setOwner(false));
+  document.getElementById('signin-form').addEventListener('submit', e => {
+    e.preventDefault();
+    closeSignin();
+    setOwner(true);
+  });
+  document.getElementById('signin-cancel').addEventListener('click', closeSignin);
+  document.getElementById('signin-x').addEventListener('click', closeSignin);
+  signin.addEventListener('keydown', e => { if (e.key === 'Escape') closeSignin(); });
+
+  // The Now section: markdown that only the owner can edit.
+  let nowMd = '- Working on Glamsterdam.\n- Write your own lines here: sign in, then click Edit.';
+  const nowView = document.getElementById('now-view'), nowEdit = document.getElementById('now-edit');
+  const nowText = document.getElementById('now-text'), nowOpen = document.getElementById('now-open');
+  const renderNow = () => { nowView.innerHTML = md(nowMd); };
+  const editNow = on => { nowEdit.hidden = !on; nowView.hidden = on; nowOpen.hidden = on; if (on) { nowText.value = nowMd; nowText.focus(); } };
+  nowOpen.addEventListener('click', () => editNow(true));
+  document.getElementById('now-cancel').addEventListener('click', () => editNow(false));
+  document.getElementById('now-save').addEventListener('click', () => {
+    nowMd = nowText.value;
+    document.getElementById('now-date').textContent = 'Updated ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    renderNow();
+    editNow(false);
+  });
+  renderNow();
+
+  // Show the "New" label only on new posts.
+  document.querySelectorAll('.new.is-new').forEach(el => { el.hidden = false; });
+  const clock = () => { document.getElementById('ns-clock').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+  clock(); setInterval(clock, 30000);
+})();
+</script>
+</body></html>
