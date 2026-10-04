@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eitan's Logbook</title>
+<meta name="description" content="An Ethereum core developer keeps notes on protocol work, Rust, and the time between.">
+<link rel="stylesheet" href="/static/css/logbook.css">
+<script src="/static/js/sample.js" defer></script>
+<script src="/static/js/components.js" defer></script>
+<script src="/static/js/app.js" defer></script>
+</head>
+<body>
+<noscript><p class="noscript">This site needs JavaScript.</p></noscript>
+<blog-app>
+  <div class="desktop">
+    <div class="window raised">
+      <div class="titlebar">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" fill="#000"/><text x="8" y="10.5" text-anchor="middle" font-size="10" font-family="Tinos, 'Times New Roman', serif" font-weight="700" fill="#fff">E</text><path d="M2 13.2 q1.5 -1.4 3 0 t3 0 t3 0 t3 0" stroke="#fff" stroke-width="1.2" fill="none"/></svg>
+        <span class="ttl" id="ns-title">Eitan's Logbook</span>
+        <span class="ctl raised" aria-hidden="true">_</span><span class="ctl raised" aria-hidden="true">□</span><span class="ctl raised" aria-hidden="true">×</span>
+      </div>
+      <div>
+        <div class="menubar"><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Bookmarks</span><span>Help</span></div>
+        <div class="toolbar">
+          <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">◄</span>Back</button>
+          <button class="tb" data-goto="home" data-nav><span class="g">⌂</span>Home</button>
+          <button class="tb" data-goto="post" data-nav><span class="g">❏</span>Latest</button>
+          <button class="tb owner-only" data-goto="write" data-nav><span class="g">✎</span>Compose</button>
+          <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">⎙</span>Print</button>
+          <svg class="logo" id="logo" viewBox="0 0 46 46" role="img" aria-label="Eitan's Logbook logo">
+            <defs><clipPath id="logo-clip"><rect x="3" y="3" width="40" height="40"/></clipPath></defs>
+            <rect width="46" height="46" fill="#000"/>
+            <text x="23" y="27" text-anchor="middle" font-family="Tinos, 'Times New Roman', serif" font-weight="700" font-size="25" fill="#fff">E</text>
+            <g clip-path="url(#logo-clip)">
+              <path class="wave" d="M-46 35 q5.75 -4 11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0" stroke="#fff" stroke-width="2" fill="none"/>
+              <path class="wave back" d="M-46 40.5 q5.75 -3 11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0 t11.5 0" stroke="#808080" stroke-width="1.5" fill="none"/>
+            </g>
+          </svg>
+        </div>
+        <div class="location"><label for="ns-loc">Location:</label><div class="field sunken" id="ns-loc">file:///home/eitan/www/index.html</div></div>
+      </div>
+      <div class="viewport sunken">
+
+        <!-- HOME -->
+        <section data-view="home" class="page page-grid">
+          <nav class="nav" aria-label="Site">
+            <div>
+              <h3>Site</h3>
+              <ul>
+                <li><button class="lnk" data-goto="home">Home</button></li>
+                <li><button class="lnk" data-goto="post">Latest post</button></li>
+                <li class="owner-only"><button class="lnk" data-goto="write">Compose</button></li>
+                <li><a href="#home">About</a></li>
+                <li><a href="#home">RSS feed</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3>Topics</h3>
+              <ul>
+                <li><a href="#home">Ethereum</a></li>
+                <li><a href="#home">Rust</a></li>
+                <li><a href="#home">Surf</a></li>
+                <li><a href="#home">Snowboarding</a></li>
+                <li><a href="#home">Jiu jitsu</a></li>
+                <li><a href="#home">Classic WoW</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3>Find me</h3>
+              <ul class="social">
+                <li><a href="#home"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>GitHub</a></li>
+                <li><a href="#home"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M12.6 1h2.3l-5 5.7L15.8 15h-4.6L7.6 10.3 3.5 15H1.2l5.3-6.1L.9 1h4.7l3.3 4.3L12.6 1Zm-.8 12.6h1.3L4.9 2.3H3.5l8.3 11.3Z"/></svg>X</a></li>
+                <li><a href="#home"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M13.5 3.1A13 13 0 0 0 10.3 2l-.4.8a12 12 0 0 0-3.8 0L5.7 2a13 13 0 0 0-3.2 1.1C.5 6.1 0 9 .2 11.9A13 13 0 0 0 4.2 14l.8-1.3a8.5 8.5 0 0 1-1.3-.6l.3-.3a9.300 9.300 0 0 0 8 0l.3.3c-.4.2-.8.4-1.3.6l.8 1.3a13 13 0 0 0 4-2.1c.3-3.4-.6-6.300-2.300-8.8ZM5.400 10.200c-.8 0-1.400-.7-1.400-1.600s.6-1.600 1.400-1.600 1.400.7 1.400 1.600-.6 1.600-1.400 1.600Zm5.200 0c-.8 0-1.400-.7-1.400-1.600s.6-1.600 1.400-1.600 1.400.7 1.400 1.600-.6 1.600-1.400 1.600Z"/></svg>Discord</a></li>
+              </ul>
+            </div>
+            <div class="counter">
+              <h3>Visitors</h3>
+              <div class="lcd" aria-label="Visitor counter 0013371"><b>0</b><b>0</b><b>1</b><b>3</b><b>3</b><b>7</b><b>1</b></div>
+              <small>since January 1998</small>
+            </div>
+          </nav>
+
+          <div class="main">
+            <header class="masthead">
+              <h1>Eitan's Logbook <span class="sub">Ethereum · Rust · Ocean</span></h1>
+              <div class="bar" aria-hidden="true"></div>
+              <p>An Ethereum core developer keeps notes on protocol work, Rust, and the time between.</p>
+            </header>
+            <div class="intro">
+              <p>I work on Ethereum client software, mostly in Rust. Here I write longer notes on protocol changes and performance work. These are the things that do not fit in a call or a GitHub thread.</p>
+              <p>I also write about surfing, snowboarding, jiu jitsu, and classic WoW.</p>
+            </div>
+
+            <h2>Writing</h2>
+            <div class="tablewrap">
+              <table class="posts">
+                <thead><tr><th scope="col">Date</th><th scope="col">Title</th><th scope="col">Topic</th><th scope="col">Length</th></tr></thead>
+                <tbody id="ns-rows"></tbody>
+              </table>
+            </div>
+            <post-list target="ns-rows" date-style="us">
+              <template>
+                <tr>
+                  <td class="date" data-f="date"></td>
+                  <td><a href="#post" class="ttl" data-goto="post" data-f="title"></a><span class="new" data-cls="new" hidden>New</span><span class="ex" data-f="excerpt"></span></td>
+                  <td class="topic" data-f="topic"></td>
+                  <td class="date"><span data-f="mins"></span> min</td>
+                </tr>
+              </template>
+            </post-list>
+
+            <div class="two">
+              <fieldset class="now" id="now">
+                <legend>Now</legend>
+                <div class="now-view" id="now-view"></div>
+                <div class="now-edit" id="now-edit" hidden>
+                  <textarea id="now-text" aria-label="Edit the Now section (markdown)"></textarea>
+                  <div class="row"><button class="btn98" id="now-cancel">Cancel</button><button class="btn98 default" id="now-save">Save</button></div>
+                </div>
+                <div class="now-foot"><span id="now-date">Updated October 1, 2026</span><button class="btn98 owner-only" id="now-open">Edit</button></div>
+              </fieldset>
+              <div class="window raised surf">
+                <div class="titlebar"><span class="ttl">Surf Report - Home break</span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="surf-body">
+                  <dl class="readouts">
+                    <div><dt>Swell</dt><dd class="lcd-v">4.2<small>ft</small></dd></div>
+                    <div><dt>Period</dt><dd class="lcd-v">12<small>s</small></dd></div>
+                    <div><dt>Wind</dt><dd class="lcd-v">5<small>kt off</small></dd></div>
+                    <div><dt>Water</dt><dd class="lcd-v">17<small>°C</small></dd></div>
+                  </dl>
+                  <div class="tide sunken">
+                    <svg viewBox="0 0 240 56" preserveAspectRatio="none" role="img" aria-label="Tide chart: low tide at 6:10 AM, high tide at 12:40 PM">
+                      <line x1="0" y1="28" x2="240" y2="28" stroke="#c8c8c8" stroke-dasharray="2 3"/>
+                      <path d="M0 16 C 30 16, 40 48, 70 48 S 120 8, 150 8 S 210 40, 240 40" fill="none" stroke="#000060" stroke-width="2"/>
+                      <circle cx="70" cy="48" r="4" fill="#ffffff" stroke="#000060" stroke-width="2"/>
+                    </svg>
+                    <div class="tide-legend"><span>Low 6:10 AM</span><span>High 12:40 PM</span></div>
+                  </div>
+                  <div class="rating"><b>Fair to good.</b> Clean lines on the morning low.</div>
+                  <div class="surf-note">Sample data. The live site reads a marine forecast API.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="webring">Rust Webring · <a href="#home">Previous</a> · <a href="#home">Random</a> · <a href="#home">Next</a></div>
+            <p class="foot-note">Last updated October 1, 2026. Best viewed at 800 × 600. Design mockup: posts are sample content. · <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
+          </div>
+        </section>
+
+        <!-- POST -->
+        <section data-view="post" class="page" hidden>
+          <article class="article">
+            <div class="crumbs"><a href="#home" data-goto="home">Home</a> › <a href="#home">Ethereum</a></div>
+            <h1 class="t">Block-level access lists and parallel execution</h1>
+            <div class="byline">September 28, 2026 · 9 min read</div>
+            <hr class="rule">
+            <md-render class="prose"></md-render>
+            <hr class="rule">
+            <p class="foot-note"><a href="#home" data-goto="home">Back to home</a></p>
+          </article>
+        </section>
+
+        <!-- WRITE -->
+        <section data-view="write" class="page write-area" hidden>
+          <md-editor class="editor-desk" data-visibility="private">
+            <div class="split">
+              <div class="window raised notepad">
+                <div class="titlebar"><span class="ttl">epbs-client-view.md - Notepad <span data-dirty hidden>*</span></span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="fmtbar">
+                  <button class="btn98" data-md="**" aria-label="Bold"><b>B</b></button>
+                  <button class="btn98" data-md="*" aria-label="Italic"><i>I</i></button>
+                  <button class="btn98" data-md="## " aria-label="Heading">H2</button>
+                  <button class="btn98" data-md="- " aria-label="List">•</button>
+                  <button class="btn98" data-md="`" aria-label="Code">&lt;/&gt;</button>
+                  <button class="btn98" data-md="link" aria-label="Link">URL</button>
+                </div>
+                <div class="well sunken"><textarea id="ns-draft" aria-label="Post markdown" spellcheck="true"></textarea></div>
+              </div>
+              <div class="window raised preview-win">
+                <div class="titlebar inactive"><span class="ttl">Preview</span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="status"><span class="grow sunken" data-words="Document: Done · {w} words · {m} min read"></span></div>
+                <div class="well sunken"><div class="prose" data-preview></div></div>
+              </div>
+            </div>
+            <div class="window raised dialog">
+              <div class="titlebar"><span class="ttl">Publish Post</span><span class="ctl raised" aria-hidden="true">?</span><span class="ctl raised" aria-hidden="true">×</span></div>
+              <div class="dialog-body">
+                <fieldset>
+                  <legend>Visibility</legend>
+                  <div class="row">
+                    <label class="radio"><input type="radio" name="ns-vis" id="ns-vis-pub" data-vis="public"> Public: anyone can read it</label>
+                    <label class="radio"><input type="radio" name="ns-vis" id="ns-vis-priv" data-vis="private"> Private: only you</label>
+                  </div>
+                </fieldset>
+                <div class="row row-end">
+                  <button class="btn98" data-save>Save Draft</button>
+                  <button class="btn98 default" data-publish>Publish</button>
+                </div>
+              </div>
+            </div>
+            <div class="msgbox" data-toast hidden data-public="Post published. Anyone can read it now." data-private="Saved as private. Only you can see this post." data-saved="Draft saved."></div>
+          </md-editor>
+        </section>
+
+      </div>
+      <div class="status">
+        <span class="grow sunken">Document: Done</span>
+        <span class="sunken owner-only">Signed in as eitan</span>
+        <span class="sunken">🔓</span>
+        <span class="sunken">100%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="signin" hidden>
+    <form class="window raised signin" id="signin-form" autocomplete="off">
+      <div class="titlebar"><span class="ttl">Sign In</span><button type="button" class="ctl raised" id="signin-x" aria-label="Close">×</button></div>
+      <div class="signin-body">
+        <svg class="key" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="16" r="7" fill="#ffd84a" stroke="#000" stroke-width="1.5"/><circle cx="9" cy="16" r="2" fill="#fff" stroke="#000"/><path d="M18 14.5h11v3h-2v3h-3v-3h-6z" fill="#ffd84a" stroke="#000" stroke-width="1.5"/></svg>
+        <div class="fields">
+          <p>Only the owner of this site can sign in. Signing in shows Compose and your private drafts.</p>
+          <label for="signin-user">User name:</label><input id="signin-user" class="sunken" value="eitan" readonly>
+          <label for="signin-pass">Password:</label><input id="signin-pass" class="sunken" type="password">
+          <small>Mockup: any password works. The real site uses a passkey.</small>
+        </div>
+      </div>
+      <div class="row"><button class="btn98 default" type="submit">OK</button><button class="btn98" type="button" id="signin-cancel">Cancel</button></div>
+    </form>
+  </div>
+
+  <div class="taskbar">
+    <button class="btn98 start" data-goto="home"><span class="flag"></span>Start</button>
+    <button class="btn98 task" data-goto="home" data-nav>Home</button>
+    <button class="btn98 task" data-goto="post" data-nav>Latest post</button>
+    <button class="btn98 task owner-only" data-goto="write" data-nav>Notepad</button>
+    <span class="tray sunken" id="ns-clock">12:00 PM</span>
+  </div>
+</blog-app>
+</body>
+</html>
