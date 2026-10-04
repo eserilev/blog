@@ -29,6 +29,16 @@ deploy/restore-test.sh                                       # needs Docker
 (cd fuzz && cargo +nightly fuzz run render -- -max_total_time=60)
 ```
 
+## Proofs
+
+Charon and Aeneas turn `crates/logbook-core` into Lean. The theorems are in `proofs/Logbook/`.
+
+```bash
+proofs/tools.sh          # pinned Charon + Aeneas
+proofs/extract.sh        # regenerate proofs/LogbookCore from the Rust code
+cd proofs && lake exe cache get && lake build Logbook
+```
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE). Fonts in `static/fonts/` use the SIL Open Font License.

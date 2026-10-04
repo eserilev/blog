@@ -1,5 +1,5 @@
-# CI (spec 7.9): fmt, clippy, cargo-deny, tests, fuzz smoke, restore test, browser tests.
-# Later steps add proofs and mutants.
+# CI (spec 7.9): fmt, clippy, cargo-deny, tests, fuzz smoke, restore test, browser tests, proofs.
+# A later step adds mutants.
 #
 # Actions are pinned to commits. The toolchain comes from rust-toolchain.toml.
 # This repo is public: never use pull_request_target here.
@@ -108,3 +108,28 @@ jobs:
         with:
           name: playwright-traces
           path: e2e/test-results
+
+  proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install elan (Lean toolchain manager)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/227caca133724d5516bee25c2aeb3e609478f2d8/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Charon and Aeneas (pinned, checksummed)
+        run: proofs/tools.sh
+      - name: The Lean model matches the Rust code
+        run: |
+          proofs/extract.sh
+          git diff --exit-code -- proofs/LogbookCore
+      - name: Mathlib cache
+        working-directory: proofs
+        run: lake exe cache get
+      - name: Check the proofs
+        working-directory: proofs
+        run: |
+          set -o pipefail
+          lake build Logbook 2>&1 | tee build.log
+          if grep -q "declaration uses 'sorry'" build.log; then echo "a proof uses sorry"; exit 1; fi

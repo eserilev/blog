@@ -3,8 +3,9 @@
 //! The server names each upload `<sha256 hex>.<ext>`. `/media/{key}` accepts exactly
 //! that shape, so no key can leave its folder in the bucket.
 
+// Plain comparisons, not `is_ascii_digit` or ranges: Aeneas has no model for those.
 fn is_lower_hex(c: u8) -> bool {
-    c.is_ascii_digit() || (b'a'..=b'f').contains(&c)
+    (c >= b'0' && c <= b'9') || (c >= b'a' && c <= b'f')
 }
 
 /// `key[at..]` equals `ext` exactly.
