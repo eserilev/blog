@@ -1,5 +1,5 @@
-# CI (spec 7.9): fmt, clippy, cargo-deny, tests, fuzz smoke, restore test.
-# Later steps add Playwright, proofs, and mutants.
+# CI (spec 7.9): fmt, clippy, cargo-deny, tests, fuzz smoke, restore test, browser tests.
+# Later steps add proofs and mutants.
 #
 # Actions are pinned to commits. The toolchain comes from rust-toolchain.toml.
 # This repo is public: never use pull_request_target here.
@@ -89,3 +89,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: deploy/restore-test.sh
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Browser tests
+        working-directory: e2e
+        run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-traces
+          path: e2e/test-results

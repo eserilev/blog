@@ -1,132 +1,16 @@
 //! HTTP tests against the real router, in process, with a temporary SQLite file.
 
-use std::path::PathBuf;
+mod common;
 
-use axum::{
-    Router,
-    body::Body,
-    http::{Request, StatusCode, header},
-};
-use http_body_util::BodyExt;
+use axum::http::{StatusCode, header};
+use common::*;
 use logbook_core::{State, Topic};
 use logbook_server::{
-    AppState, Config, app, db,
+    db,
     headers::{CSP, SECURITY_HEADERS},
     posts::{self, NewPost},
-    routes::{Access, Kind, ROUTES},
+    routes::{Access, Kind, ROUTES, Verb},
 };
-use tower::ServiceExt;
-
-fn static_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../static")
-}
-
-/// A secret marker in every non-public post. No guest response may contain one.
-const SECRET: &str = "SECRETMARKER";
-
-struct Fixture {
-    app: Router,
-    _dir: tempfile::TempDir,
-}
-
-/// Slugs of the fixture posts, in the order they are created.
-const PUBLIC_SLUG: &str = "a-public-post-with-quotes-script";
-const OLDER_SLUG: &str = "an-older-public-post";
-const DRAFT_SLUG: &str = "a-draft";
-const PRIVATE_SLUG: &str = "a-private-post";
-
-async fn fixture() -> Fixture {
-    let dir = tempfile::tempdir().unwrap();
-    let config = Config {
-        addr: "127.0.0.1:0".parse().unwrap(),
-        static_dir: static_dir(),
-        db_path: dir.path().join("test.db"),
-        origin: "https://logbook.test".into(),
-    };
-    let pool = db::connect(&config.db_path).await.unwrap();
-    let new = |title, topic, state, body, at| NewPost {
-        title,
-        summary: "summary",
-        topic,
-        tags: &["t1", "t2"],
-        body_md: body,
-        state,
-        published_at: at,
-    };
-    for p in [
-        new(
-            "An older public post",
-            Topic::Surf,
-            State::Public,
-            "Older.",
-            Some("2026-01-01T00:00:00Z"),
-        ),
-        new(
-            "A public post with \"quotes\" & <script>",
-            Topic::Rust,
-            State::Public,
-            "# Hi\n\n```rust\nfn x() {}\n```\n",
-            Some("2026-02-01T00:00:00Z"),
-        ),
-        new(
-            "A draft",
-            Topic::Rust,
-            State::Draft,
-            "SECRETMARKER draft body",
-            None,
-        ),
-        new(
-            "A private post",
-            Topic::Rust,
-            State::Private,
-            "SECRETMARKER private body",
-            None,
-        ),
-    ] {
-        posts::create(&pool, &p).await.unwrap();
-    }
-    // Put the marker in the titles and summaries of the hidden posts too.
-    sqlx::query("UPDATE posts SET title = title || ' SECRETMARKER', summary = 'SECRETMARKER' WHERE state != 'public'")
-        .execute(&pool)
-        .await
-        .unwrap();
-    let state = AppState::new(&config, pool).unwrap();
-    Fixture {
-        app: app(&config, state),
-        _dir: dir,
-    }
-}
-
-struct Reply {
-    status: StatusCode,
-    headers: axum::http::HeaderMap,
-    body: String,
-}
-
-impl Fixture {
-    async fn get(&self, path: &str) -> Reply {
-        let res = self
-            .app
-            .clone()
-            .oneshot(Request::get(path).body(Body::empty()).unwrap())
-            .await
-            .unwrap();
-        let status = res.status();
-        let headers = res.headers().clone();
-        let bytes = res.into_body().collect().await.unwrap().to_bytes();
-        Reply {
-            status,
-            headers,
-            body: String::from_utf8_lossy(&bytes).into_owned(),
-        }
-    }
-
-    async fn json(&self, path: &str) -> serde_json::Value {
-        let r = self.get(path).await;
-        assert_eq!(r.status, StatusCode::OK, "{path}: {}", r.body);
-        serde_json::from_str(&r.body).unwrap()
-    }
-}
 
 /// Every concrete path to try for a route pattern.
 fn paths(pattern: &str) -> Vec<String> {
@@ -151,32 +35,83 @@ fn paths(pattern: &str) -> Vec<String> {
         .collect()
 }
 
-/// The first access test (spec 7.4). Step 3 extends it to the owner and sessions.
-/// Every public route, with every fixture slug: no secret marker in the response.
+/// The access matrix (spec 7.4). Every route in the table, every fixture slug, four
+/// viewers. A route that is not covered here does not compile into the table.
 #[tokio::test]
-async fn no_public_route_leaks_a_hidden_post() {
+async fn access_matrix() {
     let f = fixture().await;
+    let revoked = f.revoked_session().await;
+    let expired = f.session(-1).await;
     let mut checked = 0;
+
     for route in ROUTES {
-        assert_eq!(
-            route.access,
-            Access::Public,
-            "step 2 has public routes only: {}",
-            route.path
-        );
         for path in paths(route.path) {
-            let r = f.get(&path).await;
-            let all_headers = format!("{:?}", r.headers);
-            assert!(
-                !r.body.contains(SECRET),
-                "{path} leaks a hidden post: {}",
-                r.body
-            );
-            assert!(!all_headers.contains(SECRET), "{path} leaks in headers");
-            checked += 1;
+            // A fresh owner session for every request, because `/auth/logout` ends one.
+            let owner = f.session(30).await;
+            let viewers: [(&str, Option<&str>); 4] = [
+                ("guest", None),
+                ("revoked", Some(&revoked)),
+                ("expired", Some(&expired)),
+                ("owner", Some(&owner)),
+            ];
+            let mut replies = Vec::new();
+            for (who, cookie) in viewers {
+                let req = match route.verb {
+                    Verb::Get => Req::get(&path),
+                    Verb::Post => Req::post(&path, serde_json::json!({})),
+                    Verb::Delete => Req::delete(&path),
+                };
+                let r = f.send(req.cookie(cookie)).await;
+                let cache = r
+                    .headers
+                    .get(header::CACHE_CONTROL)
+                    .map(|v| v.to_str().unwrap().to_string());
+                let is_owner = who == "owner";
+
+                // No hidden post reaches anyone but the owner, in body or headers.
+                if !is_owner {
+                    assert!(
+                        !r.body.contains(SECRET),
+                        "{who} {path}: leaks a hidden post: {}",
+                        r.body
+                    );
+                    assert!(
+                        !format!("{:?}", r.headers).contains(SECRET),
+                        "{who} {path}: leaks in headers"
+                    );
+                }
+                match route.access {
+                    Access::Owner => {
+                        if is_owner {
+                            assert_ne!(r.status, StatusCode::UNAUTHORIZED, "{who} {path}");
+                        } else {
+                            assert_eq!(
+                                r.status,
+                                StatusCode::UNAUTHORIZED,
+                                "{who} {path}: {}",
+                                r.body
+                            );
+                        }
+                        assert_eq!(cache.as_deref(), Some("no-store"), "{who} {path}");
+                    }
+                    Access::Session | Access::Auth => {
+                        assert_eq!(cache.as_deref(), Some("no-store"), "{who} {path}");
+                    }
+                    Access::Public => {}
+                }
+                replies.push((r.status, r.body));
+                checked += 1;
+            }
+            // A public response never depends on the session.
+            if route.access == Access::Public {
+                assert!(
+                    replies.windows(2).all(|w| w[0] == w[1]),
+                    "{path}: public response changes with the session"
+                );
+            }
         }
     }
-    assert!(checked > 20);
+    assert!(checked > 80, "only {checked} requests");
 }
 
 #[tokio::test]

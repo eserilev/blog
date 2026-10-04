@@ -292,7 +292,7 @@ The server does not build page layout (option A, [decided]).
 | Web | axum, tokio |
 | DB | SQLite, sqlx. WAL mode. |
 | Markdown | comrak → syntect (`fancy-regex`) → ammonia |
-| Passkeys | webauthn-rs |
+| Passkeys | webauthn-rs 0.5 (needs OpenSSL at build and run time) |
 | Sessions | Own small table, token hashes only (6.6) |
 | S3 | aws-sdk-s3 or object_store, virtual-host addressing |
 | Backups | Litestream, pinned version |
@@ -327,6 +327,7 @@ Pages (return `index.html`):
 | `/posts/{slug}` | 6.3 |
 | `/topics/{topic}` | |
 | `/write`, `/write/{id}` | Same page for everyone. Data needs a session. |
+| `/setup` | Passkey registration with a setup token in the URL fragment (6.6) |
 
 Public API:
 
@@ -426,12 +427,14 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
 - One owner. No sign-up.
 - **Setup token** (first passkey, or a lost passkey):
   - Only from the CLI: `docker compose exec logbook-app logbook setup-link`.
-  - Prints a link once. Never written to logs.
+  - Prints `<origin>/setup#<token>` once, to stdout. Never written to logs.
+  - The token is in the URL fragment, so the browser never sends it in a request line, a server log, or a `Referer` header. The page posts it in a JSON body.
   - Valid 15 min. Single use. Marked used in the same transaction that adds the passkey.
   - Only the hash is stored.
 - More passkeys: from a session, in the editor.
 - Revoke: `DELETE /api/owner/passkeys/{id}`. The last passkey cannot be revoked. Use the CLI for a full reset.
-- RP ID = `DOMAIN` (the registrable domain). Passkeys then work on its subdomains too (drill, 6.12).
+- RP ID = the host of `LOGBOOK_ORIGIN`. Subdomains are allowed, so passkeys also work on `drill.<DOMAIN>` (6.12).
+- The RP ID cannot be an IP address. Local development uses `http://localhost:8080`.
 - Session cookie: random 32 bytes. `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, 30 days. The DB stores only its SHA-256.
 - CSRF, for every write:
   - `SameSite=Strict` cookie.
@@ -439,7 +442,9 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
   - `Content-Type: application/json` (uploads: `multipart/form-data` plus the `Origin` check).
   - No token needed.
 - The blog domain must not be a subdomain of a sandcastle domain, so sandcastle is never "same-site".
-- Rate limit on `/auth/*`: per client IP. The client IP is the rightmost `X-Forwarded-For` entry not added by Caddy. The app trusts that header only from the `edge` network.
+- Rate limit on `/auth/*`: 20 requests per minute per client IP (`LOGBOOK_AUTH_RATE_LIMIT`). The client IP is the rightmost `X-Forwarded-For` entry that is not a trusted proxy. The app trusts that header only when the direct peer is in `LOGBOOK_TRUSTED_PROXIES` (the `edge` network).
+- Passkey ceremonies (start → finish) live in memory for 5 minutes and work once.
+- Route access levels in `routes.rs`: `Public` (never depends on the session), `Session` (`/api/me`: depends on the session, `no-store`, never 401), `Auth` (`/auth/*`: rate limited, `no-store`), `Owner` (401 without a session, `no-store`).
 
 ### 6.7 Markdown pipeline
 
@@ -724,7 +729,8 @@ Access matrix (one test):
 - Built from `routes.rs`, so every route is covered. A route with no expected result fails the test.
 - Viewers: guest, owner, guest with a revoked session, guest with an expired session.
 - Data: posts in all three states, with unique marker strings in each title and body.
-- Checks per route: status code. No marker of a non-public post anywhere in a guest response (body and headers), page routes included. `Cache-Control: no-store` on owner routes.
+- Checks per route: status code. No marker of a non-public post anywhere in a non-owner response (body and headers), page routes included. `Cache-Control: no-store` on every non-public route. Public routes give the same response to every viewer.
+- The owner gets a fresh session for every request, because `/auth/logout` ends a session.
 
 Other integration tests:
 
