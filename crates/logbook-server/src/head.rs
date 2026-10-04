@@ -1,0 +1,132 @@
+//! `<head>` tags for page responses (spec 6.3). All values are HTML-escaped.
+
+/// Site name in titles and `og:site_name`.
+pub const SITE_NAME: &str = "Eitan's Logbook";
+/// Default description.
+pub const SITE_DESCRIPTION: &str =
+    "An Ethereum core developer keeps notes on protocol work, Rust, and the time between.";
+
+/// What the `<head>` describes.
+#[derive(Debug, Clone, Copy)]
+pub struct Head<'a> {
+    /// Page title, without the site name. `None` for the home page.
+    pub title: Option<&'a str>,
+    pub description: &'a str,
+    /// Absolute URL of the page.
+    pub url: &'a str,
+    /// `og:type` is `article` if true, else `website`.
+    pub article: bool,
+    /// Adds `<meta name="robots" content="noindex">`.
+    pub noindex: bool,
+}
+
+/// Escapes text for use in element content and double-quoted attributes.
+#[must_use]
+pub fn escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// The tags that go between `<!--head-->` and `<!--/head-->` in `index.html`.
+#[must_use]
+pub fn head_tags(h: &Head<'_>) -> String {
+    let full_title = match h.title {
+        Some(t) => format!("{t} · {SITE_NAME}"),
+        None => SITE_NAME.to_string(),
+    };
+    let og_title = h.title.unwrap_or(SITE_NAME);
+    let (title, og_title, desc, url) = (
+        escape(&full_title),
+        escape(og_title),
+        escape(h.description),
+        escape(h.url),
+    );
+    let og_type = if h.article { "article" } else { "website" };
+    let mut out = format!(
+        "<title>{title}</title>\n\
+<meta name=\"description\" content=\"{desc}\">\n\
+<meta property=\"og:site_name\" content=\"{site}\">\n\
+<meta property=\"og:title\" content=\"{og_title}\">\n\
+<meta property=\"og:description\" content=\"{desc}\">\n\
+<meta property=\"og:type\" content=\"{og_type}\">\n\
+<meta property=\"og:url\" content=\"{url}\">\n\
+<meta name=\"twitter:card\" content=\"summary\">\n",
+        site = escape(SITE_NAME),
+    );
+    if h.noindex {
+        out.push_str("<meta name=\"robots\" content=\"noindex\">\n");
+    }
+    out
+}
+
+/// Replaces the head block of `index.html` with `tags`.
+///
+/// # Panics
+///
+/// Panics if `index.html` has no `<!--head-->...<!--/head-->` block. A test checks
+/// the real file, and [`crate::AppState::new`] checks it at startup.
+#[must_use]
+pub fn inject(index_html: &str, tags: &str) -> String {
+    let start = index_html.find(START).expect("head start marker") + START.len();
+    let end = index_html.find(END).expect("head end marker");
+    format!("{}\n{tags}{}", &index_html[..start], &index_html[end..])
+}
+
+/// Start marker of the head block.
+pub const START: &str = "<!--head-->";
+/// End marker of the head block.
+pub const END: &str = "<!--/head-->";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn values_cannot_break_out_of_attributes() {
+        let h = Head {
+            title: Some("\"><script>x</script>"),
+            description: "a\" onload=\"x",
+            url: "https://e.com/\"",
+            article: true,
+            noindex: false,
+        };
+        let tags = head_tags(&h);
+        assert!(!tags.contains("<script"));
+        assert!(!tags.contains("\" onload"));
+        assert!(tags.contains("&quot;&gt;&lt;script&gt;"));
+    }
+
+    #[test]
+    fn noindex_is_added_on_request() {
+        let mut h = Head {
+            title: None,
+            description: "",
+            url: "/",
+            article: false,
+            noindex: false,
+        };
+        assert!(!head_tags(&h).contains("noindex"));
+        h.noindex = true;
+        assert!(head_tags(&h).contains("content=\"noindex\""));
+    }
+
+    #[test]
+    fn inject_replaces_only_the_block() {
+        let html = "<head><!--head--><title>old</title><!--/head--><link></head>";
+        let out = inject(html, "<title>new</title>\n");
+        assert_eq!(
+            out,
+            "<head><!--head-->\n<title>new</title>\n<!--/head--><link></head>"
+        );
+    }
+}

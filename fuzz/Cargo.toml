@@ -1,0 +1,47 @@
+[package]
+name = "logbook-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+logbook-core = { path = "../crates/logbook-core" }
+logbook-render = { path = "../crates/logbook-render" }
+logbook-server = { path = "../crates/logbook-server" }
+scraper = "0.27"
+
+# Not part of the main workspace: cargo-fuzz needs nightly and its own build.
+[workspace]
+
+[[bin]]
+name = "render"
+path = "fuzz_targets/render.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "slug"
+path = "fuzz_targets/slug.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "media_key"
+path = "fuzz_targets/media_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "head_tags"
+path = "fuzz_targets/head_tags.rs"
+test = false
+doc = false
+bench = false

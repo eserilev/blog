@@ -181,6 +181,8 @@ Reading time: `max(1, ceil(words / 220))` minutes.
 - Made once, from the title, on create. A later title change does not change it. Old links never break.
 - Rules: `a-z`, `0-9`, `-`. 1–80 bytes. No `-` at either end. No `--`.
 - A title with no ASCII letters or digits (for example, Hebrew) gets `post-<id>`.
+- If the slug is already taken, the new post gets `post-<id>`.
+- An apostrophe is dropped, not turned into `-` (`client's` → `clients`).
 
 ### 4.4 Now box
 
@@ -587,7 +589,9 @@ Public-repo CI rules: never use `pull_request_target`. Workflows from forks get 
 
 [verified 2026-10-04] Litestream v0.5 docs: `restore -if-db-not-exists`, `restore -if-replica-exists`, `restore -timestamp`, and `replicate -exec` exist with this behavior. Pin one v0.5.x version in the Dockerfile.
 
-**Litestream config** (v0.5 key names): `snapshot.interval: 24h`, `snapshot.retention: 720h` (30 days; the default is 24h), `retention.enabled: true`. S3 replica: `endpoint`, `region: auto`, `force-path-style: false`, `sign-payload: true` (defaults, set explicitly). Restore to a point in time with `-timestamp`.
+**Litestream config** (`deploy/litestream.yml`, checked against v0.5.17): a `replica:` block per database with `type: s3`, `bucket`, `path: db`, `endpoint`, `region`, `force-path-style`, `sign-payload: true`. Top level: `snapshot.interval: 24h`, `snapshot.retention: 720h` (30 days; the default is 24h).
+
+Point-in-time restore (`-timestamp`): exact only inside `l0-retention` (default 5 min). Older restore points land on compaction levels (hourly at L3) and daily snapshots, back 30 days.
 
 **Bucket safety** [verified 2026-10-04]: Hetzner supports versioning and object lock. Lifecycle rules support noncurrent-version expiry (`NoncurrentDays`) only.
 
@@ -646,10 +650,10 @@ blog/
 │                feed.rs export.rs counter.rs cli.rs
 ├── editor-wasm/               logbook-render for the browser
 ├── static/                    index.html, CSS, JS components, fonts, logo
-├── fuzz/                      cargo-fuzz targets + corpora
+├── fuzz/                      cargo-fuzz targets, seed inputs in fuzz/seeds/
 ├── proofs/                    Lean 4: Aeneas output + proofs
 ├── e2e/                       Playwright
-├── deploy/                    Dockerfile, compose.yaml, compose.test.yaml,
+├── deploy/                    Dockerfile, entrypoint.sh, restore-test.sh, compose.yaml, compose.test.yaml,
 │                              logbook.caddy, litestream.yml, *.env.example, README.md
 ├── flake.nix                  pins Charon, Aeneas, Lean, the nightly toolchain
 ├── .github/workflows/         ci.yml, deploy.yml, nightly.yml
@@ -661,7 +665,7 @@ blog/
 Each step ends working, with its tests.
 
 1. **Scaffold.** Workspace, three crates, axum serving the split mockup (no inline scripts, self-hosted fonts, CSP). CI: fmt, clippy, deny, tests.
-2. **Posts.** SQLite, `posts`, `render()`, `logbook-core` (`reveal`, slugs), public API, `<head>` tags, path router. Litestream start sequence with MinIO. First fuzz targets. Restore test.
+2. **Posts.** SQLite, `posts`, `render()`, `logbook-core` (`reveal`, slugs), public API, `<head>` tags, path router. Litestream start sequence with a local S3 (SeaweedFS). First fuzz targets. Restore test.
 3. **Sign-in.** Passkeys, sessions, CSRF checks, CLI setup link, revoke. Route table + access matrix. Playwright passkey test.
 4. **Proofs.** One-day Aeneas spike on `make_slug` and `filter_public` first. If the spike fails, cut the scope (7.6). Then the theorems and the CI job.
 5. **Editor.** Owner API, versions and 409, `<md-editor>`, WASM preview.
@@ -676,10 +680,10 @@ Each step ends working, with its tests.
 | Unit | nextest | Wrong logic |
 | Property | proptest | Unexpected edge cases |
 | Fuzz | cargo-fuzz | Crashes, unsafe output on hostile input |
-| Integration | in-process axum + SQLite + MinIO | Wrong API behavior |
+| Integration | in-process axum + SQLite | Wrong API behavior |
 | Access matrix | test built from the route table | Leaks, missing session checks |
 | Browser | Playwright | Broken components and sign-in |
-| Restore | Compose + MinIO | A backup that cannot come back |
+| Restore | Compose + SeaweedFS (local S3) | A backup that cannot come back |
 | Mutation | cargo-mutants | Tests that check nothing |
 | Proofs | Charon + Aeneas + Lean 4 | Any input that breaks the `logbook-core` functions. Only those functions. |
 
@@ -711,7 +715,7 @@ Each step ends working, with its tests.
 | `head_tags` | title + summary, plus a private post | Output never breaks out of an attribute. Never contains the private title. |
 | `image` | image bytes | No panic in decode and re-encode. Output has no EXIF. |
 
-Each crash → a regression test. PR: 60 s per target. Nightly: 30 min per target, as a CI matrix.
+Seed inputs live in `fuzz/seeds/<target>/`. The generated corpus is not committed. Each crash → a regression test. PR: 60 s per target. Nightly: 30 min per target, as a CI matrix.
 
 ### 7.4 Integration and access matrix
 
@@ -759,14 +763,18 @@ Scope: `logbook-core` only. Its rules: no I/O, no async, no `dyn`, no `String` (
 ```rust
 pub enum State { Draft, Private, Public }
 
-pub struct Post { pub id: u64, pub state: State, pub word_count: u32 /* + byte fields */ }
+pub struct Post {
+    pub id: u64, pub state: State, pub topic: Topic, pub word_count: u32,
+    pub slug: Vec<u8>, pub title: Vec<u8>, pub summary: Vec<u8>, pub tags: Vec<u8>,
+    pub body_html: Vec<u8>, pub published_at: Option<Vec<u8>>, pub updated_at: Vec<u8>,
+}
 
 /// Safe for a guest. Private field. Only `reveal` builds it.
 /// No Default, Deserialize, Clone-from-Post, or From<Post>.
 pub struct PublicPost(Post);
 
 pub fn reveal(p: Post) -> Option<PublicPost>;
-pub fn filter_public(ps: Vec<Post>) -> Vec<PublicPost>;
+pub fn filter_public(ps: &[Post]) -> Vec<PublicPost>;
 pub fn make_slug(title: &[u8], id: u64) -> Vec<u8>;
 pub fn media_key_ok(key: &[u8]) -> bool;
 pub fn reading_minutes(words: u32) -> u32;
@@ -805,7 +813,7 @@ T12 turns every "if `ok`" above into "always".
 
 ### 7.7 Restore test
 
-Per PR, with `deploy/compose.test.yaml` (app + MinIO):
+Per PR, `deploy/restore-test.sh` with `deploy/compose.test.yaml` (app + SeaweedFS as a local S3, because MinIO no longer publishes images):
 
 1. Start with `ALLOW_EMPTY_START=1`. Create posts in all states, an image, a passkey.
 2. Stop the app. Delete its volume.

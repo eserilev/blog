@@ -1,80 +1,190 @@
 /* Native web components for the Logbook (spec 5).
-   Rule: only server-rendered body_html goes into innerHTML. Until steps 2 and 5,
-   the sample md() from sample.js stands in for it. Its output is escaped. */
+   Rule: only server-rendered body_html goes into innerHTML. Everything else
+   uses textContent. (The editor and the Now box use the sample md() until
+   steps 5 and 6; its output is escaped.) */
 
+/* API calls. Lists are cached for the page's lifetime. */
+const Api = {
+  _cache: new Map(),
+  async get(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+    return res.json();
+  },
+  posts() {
+    if (!this._cache.has('posts')) this._cache.set('posts', this.get('/api/posts'));
+    return this._cache.get('posts');
+  },
+  topic(t) { return this.get(`/api/topics/${encodeURIComponent(t)}`); },
+  post(slug) { return this.get(`/api/posts/${encodeURIComponent(slug)}`); },
+};
+
+/* Dates: "M/D/YY", or "Month D, YYYY". Input: RFC 3339. */
 const fmtDate = (iso, style) => {
-  const d = new Date(iso + 'T12:00:00');
-  if (style === 'short') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (!iso) return '';
+  const d = new Date(iso);
   if (style === 'us') return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-/* <blog-app>: switches between [data-view] sections. Any [data-goto] element changes the view. */
+/* Topic slugs → names (same list as the server, spec 4.2). */
+const TOPICS = {
+  ethereum: 'Ethereum', rust: 'Rust', surf: 'Surf',
+  snowboarding: 'Snowboarding', 'jiu-jitsu': 'Jiu jitsu', 'classic-wow': 'Classic WoW',
+};
+
+/* A post is "new" for 14 days after it is published. */
+const isNew = iso => iso && Date.now() - new Date(iso).getTime() < 14 * 864e5;
+
+/* Path → view. */
+const ROUTES = [
+  [/^\/$/, 'home'],
+  [/^\/topics\/([a-z-]+)$/, 'home'],
+  [/^\/posts\/([a-z0-9-]+)$/, 'post'],
+  [/^\/about$/, 'about'],
+  [/^\/write(?:\/(\d+))?$/, 'write'],
+];
+
+const matchRoute = path => {
+  for (const [re, view] of ROUTES) {
+    const m = path.match(re);
+    if (m) return { view, param: m[1] || null, path };
+  }
+  return { view: 'missing', param: null, path };
+};
+
+/* <blog-app>: the path router (History API).
+   - Same-origin <a href="/..."> clicks change the view without a page load.
+   - [data-goto] buttons go to a path. data-goto="latest" opens the newest post.
+   - [data-nav="<view>"] elements get aria-current when that view shows.
+   Fires "viewchange" with { view, param, path }. */
 customElements.define('blog-app', class extends HTMLElement {
   connectedCallback() {
     this.addEventListener('click', e => {
-      const t = e.target.closest('[data-goto]');
-      if (!t) return;
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const goto = e.target.closest('[data-goto]');
+      if (goto) { e.preventDefault(); this.go(goto.dataset.goto); return; }
+      const a = e.target.closest('a[href]');
+      if (!a || a.target || a.hasAttribute('download')) return;
+      const url = new URL(a.href, location.href);
+      if (url.origin !== location.origin || url.pathname.startsWith('/static/') || url.pathname.startsWith('/api/')) return;
       e.preventDefault();
-      if (t.dataset.post) this.dataset.post = t.dataset.post;
-      this.show(t.dataset.goto);
+      this.go(url.pathname);
     });
-    const start = (location.hash || '').slice(1);
-    this.show(this.querySelector(`[data-view="${start}"]`) ? start : 'home', true);
+    window.addEventListener('popstate', () => this.render(false));
+    this.render(false);
   }
-  show(view, quiet) {
-    this.querySelectorAll('[data-view]').forEach(s => { s.hidden = s.dataset.view !== view; });
-    this.querySelectorAll('[data-goto]').forEach(b => {
-      if (b.dataset.nav !== undefined) b.toggleAttribute('aria-current', b.dataset.goto === view);
-    });
-    this.dataset.current = view;
-    this.dispatchEvent(new CustomEvent('viewchange', { detail: view }));
-    if (!quiet) window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  async go(path, { replace = false } = {}) {
+    if (path === 'latest') {
+      const posts = await Api.posts().catch(() => null);
+      path = posts && posts.length ? `/posts/${posts[0].slug}` : '/';
+    }
+    if (path !== location.pathname) history[replace ? 'replaceState' : 'pushState'](null, '', path);
+    this.render(true);
+  }
+  render(scroll) {
+    const route = matchRoute(location.pathname);
+    this.querySelectorAll('[data-view]').forEach(s => { s.hidden = s.dataset.view !== route.view; });
+    this.querySelectorAll('[data-nav]').forEach(b => b.toggleAttribute('aria-current', b.dataset.nav === route.view));
+    this.dataset.current = route.view;
+    this.route = route;
+    this.dispatchEvent(new CustomEvent('viewchange', { detail: route }));
+    if (scroll) window.scrollTo({ top: 0 });
   }
 });
 
-/* <post-list>: stamps its <template> once per post. Fields: [data-f], classes: [data-cls]. */
+/* <post-list>: the post table. Reloads on "viewchange" to the home view.
+   Fills its <template> per post with textContent only.
+   Template fields: [data-f="date|title|summary|topic|minutes"], [data-new]. */
 customElements.define('post-list', class extends HTMLElement {
   connectedCallback() {
-    if (this._done) return;
-    this._done = true;
-    const tpl = this.querySelector('template');
-    const drafts = this.hasAttribute('drafts');
-    const limit = +this.getAttribute('limit') || Infinity;
-    const skip = +this.getAttribute('skip') || 0;
-    const style = this.getAttribute('date-style');
-    const target = document.getElementById(this.getAttribute('target')) || this;
-    POSTS.filter(p => drafts || !p.draft).slice(skip, skip + limit).forEach((p, idx) => {
-      const n = tpl.content.cloneNode(true);
-      n.querySelectorAll('[data-f]').forEach(el => {
-        const f = el.dataset.f;
-        if (f === 'date') el.textContent = fmtDate(p.date, el.dataset.style || style);
-        else if (f === 'tags') el.replaceChildren(...p.tags.flatMap((t, k) => {
-          const span = document.createElement('span');
-          span.className = 'tag';
-          span.textContent = t;
-          return k ? [document.createTextNode(el.dataset.sep || ' '), span] : [span];
-        }));
-        else if (f === 'index') el.textContent = String(idx + 1 + skip).padStart(2, '0');
-        else el.textContent = p[f] ?? '';
-      });
-      n.querySelectorAll('[data-cls]').forEach(el => el.dataset.cls.split(' ').forEach(k => {
-        if (k === 'new') { if (p.isNew) el.classList.add('is-new'); }
-        else el.classList.add(`${k}-${p[k]}`);
-      }));
-      n.querySelectorAll('[data-goto]').forEach(el => { el.dataset.post = p.id; });
-      n.firstElementChild && (n.firstElementChild.dataset.id = p.id);
-      target.appendChild(n);
+    this.tpl = this.querySelector('template');
+    this.target = document.getElementById(this.getAttribute('target')) || this;
+    this.titleEl = document.getElementById(this.getAttribute('title-target'));
+    this.closest('blog-app')?.addEventListener('viewchange', e => {
+      if (e.detail.view === 'home') this.load(e.detail.path.startsWith('/topics/') ? e.detail.param : null);
     });
+    const app = this.closest('blog-app');
+    if (app?.route?.view === 'home') this.load(app.route.path.startsWith('/topics/') ? app.route.param : null);
+  }
+  async load(topic) {
+    const token = (this._token = Symbol());
+    let posts;
+    try {
+      posts = topic ? await Api.topic(topic) : await Api.posts();
+    } catch {
+      posts = undefined;
+    }
+    if (token !== this._token) return;
+    if (this.titleEl) this.titleEl.textContent = topic && TOPICS[topic] ? `Writing: ${TOPICS[topic]}` : 'Writing';
+    this.target.replaceChildren();
+    if (!posts || !posts.length) {
+      const row = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'empty';
+      td.textContent = posts === undefined ? 'Could not load the posts. Reload the page to try again.'
+        : posts === null ? 'This topic does not exist.' : 'No posts yet.';
+      row.append(td);
+      this.target.append(row);
+      return;
+    }
+    for (const p of posts) {
+      const n = this.tpl.content.cloneNode(true);
+      const set = (f, v) => n.querySelectorAll(`[data-f="${f}"]`).forEach(el => { el.textContent = v; });
+      set('date', fmtDate(p.published_at, 'us'));
+      set('title', p.title);
+      set('summary', p.summary);
+      set('topic', p.topic_name);
+      set('minutes', `${p.reading_minutes} min`);
+      n.querySelectorAll('a[data-f="title"]').forEach(a => { a.href = `/posts/${p.slug}`; });
+      n.querySelectorAll('[data-new]').forEach(el => { el.hidden = !isNew(p.published_at); });
+      this.target.append(n);
+    }
   }
 });
 
-/* <md-render>: renders the sample post, or its own <template> text, as HTML. */
-customElements.define('md-render', class extends HTMLElement {
+/* <post-view>: one post. Loads on "viewchange" to the post view.
+   Fields: [data-f="title|byline|topic|body"]. Fires "postloaded" with the post (or null). */
+customElements.define('post-view', class extends HTMLElement {
   connectedCallback() {
-    const t = this.querySelector('template');
-    // Sample stand-in. Step 2: body_html from the API.
-    this.innerHTML = md(t ? t.innerHTML : POST_MD);
+    this.closest('blog-app')?.addEventListener('viewchange', e => {
+      if (e.detail.view === 'post') this.load(e.detail.param);
+    });
+    const app = this.closest('blog-app');
+    if (app?.route?.view === 'post') this.load(app.route.param);
+  }
+  f(name) { return this.querySelector(`[data-f="${name}"]`); }
+  async load(slug) {
+    const token = (this._token = Symbol());
+    this.setAttribute('aria-busy', 'true');
+    let post;
+    try {
+      post = await Api.post(slug);
+    } catch {
+      post = undefined;
+    }
+    if (token !== this._token) return;
+    this.removeAttribute('aria-busy');
+    const topic = this.f('topic');
+    if (!post) {
+      this.f('title').textContent = post === null ? 'Not found' : 'Could not load this post';
+      this.f('byline').textContent = '';
+      topic.textContent = '';
+      topic.removeAttribute('href');
+      const p = document.createElement('p');
+      p.textContent = post === null ? 'There is no public post at this address.' : 'Reload the page to try again.';
+      this.f('body').replaceChildren(p);
+    } else {
+      this.f('title').textContent = post.title;
+      this.f('byline').textContent = `${fmtDate(post.published_at)} · ${post.reading_minutes} min read`;
+      topic.textContent = post.topic_name;
+      topic.href = `/topics/${post.topic}`;
+      // body_html is rendered and sanitized on the server (spec 6.7).
+      this.f('body').innerHTML = post.body_html;
+    }
+    this.dispatchEvent(new CustomEvent('postloaded', { bubbles: true, detail: post || null }));
   }
 });
 

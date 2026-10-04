@@ -1,0 +1,22 @@
+# Litestream v0.5 (spec 6.12). Values come from the environment.
+# The entrypoint sets defaults for S3_REGION and S3_FORCE_PATH_STYLE.
+
+access-key-id: ${S3_ACCESS_KEY}
+secret-access-key: ${S3_SECRET_KEY}
+
+dbs:
+  - path: ${LOGBOOK_DB}
+    replica:
+      type: s3
+      bucket: ${S3_BUCKET}
+      path: db
+      endpoint: ${S3_ENDPOINT}
+      region: ${S3_REGION}
+      # Hetzner denies path-style writes, so production keeps this false.
+      force-path-style: ${S3_FORCE_PATH_STYLE}
+      sign-payload: true
+
+# 30 days of snapshots. The default is 24h.
+snapshot:
+  interval: 24h
+  retention: 720h
