@@ -5,6 +5,11 @@ all-features = true
 
 [advisories]
 yanked = "deny"
+ignore = [
+    # bincode 1 is unmaintained, not vulnerable. syntect uses it only to load its
+    # built-in syntax and theme data at startup. No input from users reaches it.
+    { id = "RUSTSEC-2025-0141", reason = "syntect loads built-in data with it; no untrusted input" },
+]
 
 [licenses]
 allow = [
@@ -16,6 +21,8 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
+    "MPL-2.0",
+    "Unicode-DFS-2016",
 ]
 confidence-threshold = 0.9
 

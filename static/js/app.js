@@ -1,32 +1,47 @@
 (() => {
   const app = document.querySelector('blog-app');
-  const views = {
-    home: ["Eitan's Logbook", 'file:///home/eitan/www/index.html'],
-    post: ['Block-level access lists and parallel execution', 'file:///home/eitan/www/posts/block-level-access-lists.html'],
-    write: ['Compose - epbs-client-view.md', 'file:///home/eitan/www/drafts/epbs-client-view.md'],
+  const SITE = "Eitan's Logbook";
+  const titleEl = document.getElementById('ns-title');
+  const locEl = document.getElementById('ns-loc');
+
+  // The Location bar shows the path as a file under /home/eitan/www.
+  const fileFor = path => {
+    if (path === '/') return '/index.html';
+    if (path.startsWith('/write')) return '/drafts/';
+    return `${path}.html`;
   };
-  const sync = v => {
-    document.getElementById('ns-title').textContent = views[v][0];
+  const topicOf = path => (path.match(/^\/topics\/([a-z-]+)$/) || [])[1];
+  const setTitle = t => { titleEl.textContent = t; document.title = t === SITE ? SITE : `${t} · ${SITE}`; };
+
+  const onView = ({ view, path }) => {
+    locEl.textContent = `file:///home/eitan/www${fileFor(path)}`;
+    if (view === 'about') setTitle('About');
+    else if (view === 'write') setTitle('Compose');
+    else if (view === 'missing') setTitle('Not found');
+    else if (view === 'home') setTitle(TOPICS[topicOf(path)] || (path === '/' ? SITE : 'Not found'));
     const logo = document.getElementById('logo');
     logo.classList.add('busy');
-    clearTimeout(sync.t);
-    sync.t = setTimeout(() => logo.classList.remove('busy'), 1400);
-    document.getElementById('ns-loc').textContent = views[v][1];
+    clearTimeout(app._logoT);
+    app._logoT = setTimeout(() => logo.classList.remove('busy'), 1400);
   };
-  app.addEventListener('viewchange', e => sync(e.detail));
-  sync(app.dataset.current || 'home');
+  app.addEventListener('viewchange', e => onView(e.detail));
+  // The router fired its first viewchange before this script ran.
+  if (app.route) onView(app.route);
+  app.addEventListener('postloaded', e => setTitle(e.detail ? e.detail.title : 'Not found'));
+
   // Owner mode. In the real build the server decides this from a session cookie,
   // and the editor route and draft API reject every request without one.
   const signin = document.getElementById('signin');
   const setOwner = on => {
     app.toggleAttribute('data-owner', on);
-    if (!on && app.dataset.current === 'write') app.show('home');
+    if (!on && app.dataset.current === 'write') app.go('/', { replace: true });
     if (!on) editNow(false);
   };
+  // Step 3 replaces this mock with GET /api/me.
   app.addEventListener('viewchange', e => {
-    if (e.detail === 'write' && !app.hasAttribute('data-owner')) app.show('home', true);
+    if (e.detail.view === 'write' && !app.hasAttribute('data-owner')) app.go('/', { replace: true });
   });
-  if (app.dataset.current === 'write') app.show('home', true);
+  if (app.dataset.current === 'write') app.go('/', { replace: true });
   const closeSignin = () => { signin.hidden = true; };
   document.querySelector('[data-signin]').addEventListener('click', () => {
     signin.hidden = false;
@@ -59,8 +74,6 @@
   });
   renderNow();
 
-  // Show the "New" label only on new posts.
-  document.querySelectorAll('.new.is-new').forEach(el => { el.hidden = false; });
   const clock = () => { document.getElementById('ns-clock').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
   clock(); setInterval(clock, 30000);
 })();

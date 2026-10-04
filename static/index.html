@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--head-->
 <title>Eitan's Logbook</title>
 <meta name="description" content="An Ethereum core developer keeps notes on protocol work, Rust, and the time between.">
+<!--/head-->
+<link rel="stylesheet" href="/static/css/code.css">
 <link rel="stylesheet" href="/static/css/logbook.css">
 <script src="/static/js/sample.js" defer></script>
 <script src="/static/js/components.js" defer></script>
@@ -24,9 +27,9 @@
         <div class="menubar"><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Bookmarks</span><span>Help</span></div>
         <div class="toolbar">
           <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">◄</span>Back</button>
-          <button class="tb" data-goto="home" data-nav><span class="g">⌂</span>Home</button>
-          <button class="tb" data-goto="post" data-nav><span class="g">❏</span>Latest</button>
-          <button class="tb owner-only" data-goto="write" data-nav><span class="g">✎</span>Compose</button>
+          <button class="tb" data-goto="/" data-nav="home"><span class="g">⌂</span>Home</button>
+          <button class="tb" data-goto="latest" data-nav="post"><span class="g">❏</span>Latest</button>
+          <button class="tb owner-only" data-goto="/write" data-nav="write"><span class="g">✎</span>Compose</button>
           <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">⎙</span>Print</button>
           <svg class="logo" id="logo" viewBox="0 0 46 46" role="img" aria-label="Eitan's Logbook logo">
             <defs><clipPath id="logo-clip"><rect x="3" y="3" width="40" height="40"/></clipPath></defs>
@@ -48,22 +51,22 @@
             <div>
               <h3>Site</h3>
               <ul>
-                <li><button class="lnk" data-goto="home">Home</button></li>
-                <li><button class="lnk" data-goto="post">Latest post</button></li>
-                <li class="owner-only"><button class="lnk" data-goto="write">Compose</button></li>
-                <li><a href="#home">About</a></li>
+                <li><a href="/">Home</a></li>
+                <li><button class="lnk" data-goto="latest">Latest post</button></li>
+                <li class="owner-only"><a href="/write">Compose</a></li>
+                <li><a href="/about">About</a></li>
                 <li><a href="#home">RSS feed</a></li>
               </ul>
             </div>
             <div>
               <h3>Topics</h3>
               <ul>
-                <li><a href="#home">Ethereum</a></li>
-                <li><a href="#home">Rust</a></li>
-                <li><a href="#home">Surf</a></li>
-                <li><a href="#home">Snowboarding</a></li>
-                <li><a href="#home">Jiu jitsu</a></li>
-                <li><a href="#home">Classic WoW</a></li>
+                <li><a href="/topics/ethereum">Ethereum</a></li>
+                <li><a href="/topics/rust">Rust</a></li>
+                <li><a href="/topics/surf">Surf</a></li>
+                <li><a href="/topics/snowboarding">Snowboarding</a></li>
+                <li><a href="/topics/jiu-jitsu">Jiu jitsu</a></li>
+                <li><a href="/topics/classic-wow">Classic WoW</a></li>
               </ul>
             </div>
             <div>
@@ -92,20 +95,20 @@
               <p>I also write about surfing, snowboarding, jiu jitsu, and classic WoW.</p>
             </div>
 
-            <h2>Writing</h2>
+            <h2 id="list-title">Writing</h2>
             <div class="tablewrap">
               <table class="posts">
                 <thead><tr><th scope="col">Date</th><th scope="col">Title</th><th scope="col">Topic</th><th scope="col">Length</th></tr></thead>
                 <tbody id="ns-rows"></tbody>
               </table>
             </div>
-            <post-list target="ns-rows" date-style="us">
+            <post-list target="ns-rows" title-target="list-title">
               <template>
                 <tr>
                   <td class="date" data-f="date"></td>
-                  <td><a href="#post" class="ttl" data-goto="post" data-f="title"></a><span class="new" data-cls="new" hidden>New</span><span class="ex" data-f="excerpt"></span></td>
+                  <td><a class="ttl" data-f="title"></a><span class="new" data-new hidden>New</span><span class="ex" data-f="summary"></span></td>
                   <td class="topic" data-f="topic"></td>
-                  <td class="date"><span data-f="mins"></span> min</td>
+                  <td class="date" data-f="minutes"></td>
                 </tr>
               </template>
             </post-list>
@@ -121,7 +124,7 @@
                 <div class="now-foot"><span id="now-date">Updated October 1, 2026</span><button class="btn98 owner-only" id="now-open">Edit</button></div>
               </fieldset>
               <div class="window raised surf">
-                <div class="titlebar"><span class="ttl">Surf Report - Home break</span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="titlebar"><span class="ttl">Surf Report - Redondo Beach</span><span class="ctl raised" aria-hidden="true">×</span></div>
                 <div class="surf-body">
                   <dl class="readouts">
                     <div><dt>Swell</dt><dd class="lcd-v">4.2<small>ft</small></dd></div>
@@ -138,26 +141,48 @@
                     <div class="tide-legend"><span>Low 6:10 AM</span><span>High 12:40 PM</span></div>
                   </div>
                   <div class="rating"><b>Fair to good.</b> Clean lines on the morning low.</div>
-                  <div class="surf-note">Sample data. The live site reads a marine forecast API.</div>
+                  <div class="surf-note">Sample data. Step 6 adds live NOAA data.</div>
                 </div>
               </div>
             </div>
 
             <div class="webring">Rust Webring · <a href="#home">Previous</a> · <a href="#home">Random</a> · <a href="#home">Next</a></div>
-            <p class="foot-note">Last updated October 1, 2026. Best viewed at 800 × 600. Design mockup: posts are sample content. · <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
+            <p class="foot-note">Last updated October 1, 2026. Best viewed at 800 × 600. <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
           </div>
         </section>
 
         <!-- POST -->
         <section data-view="post" class="page" hidden>
+          <post-view class="article">
+            <div class="crumbs"><a href="/">Home</a> › <a data-f="topic"></a></div>
+            <h1 class="t" data-f="title"></h1>
+            <div class="byline" data-f="byline"></div>
+            <hr class="rule">
+            <div class="prose" data-f="body"></div>
+            <hr class="rule">
+            <p class="foot-note"><a href="/">Back to home</a></p>
+          </post-view>
+        </section>
+
+        <!-- ABOUT -->
+        <section data-view="about" class="page" hidden>
           <article class="article">
-            <div class="crumbs"><a href="#home" data-goto="home">Home</a> › <a href="#home">Ethereum</a></div>
-            <h1 class="t">Block-level access lists and parallel execution</h1>
-            <div class="byline">September 28, 2026 · 9 min read</div>
+            <div class="crumbs"><a href="/">Home</a></div>
+            <h1 class="t">About</h1>
             <hr class="rule">
-            <md-render class="prose"></md-render>
+            <div class="prose">
+              <p>I work on Ethereum client software, mostly in Rust. This site holds my longer notes on protocol changes and performance work.</p>
+              <p>More to come.</p>
+            </div>
+          </article>
+        </section>
+
+        <!-- MISSING -->
+        <section data-view="missing" class="page" hidden>
+          <article class="article">
+            <h1 class="t">Not found</h1>
             <hr class="rule">
-            <p class="foot-note"><a href="#home" data-goto="home">Back to home</a></p>
+            <div class="prose"><p>There is nothing at this address. <a href="/">Go to the home page.</a></p></div>
           </article>
         </section>
 
@@ -230,10 +255,10 @@
   </div>
 
   <div class="taskbar">
-    <button class="btn98 start" data-goto="home"><span class="flag"></span>Start</button>
-    <button class="btn98 task" data-goto="home" data-nav>Home</button>
-    <button class="btn98 task" data-goto="post" data-nav>Latest post</button>
-    <button class="btn98 task owner-only" data-goto="write" data-nav>Notepad</button>
+    <button class="btn98 start" data-goto="/"><span class="flag"></span>Start</button>
+    <button class="btn98 task" data-goto="/" data-nav="home">Home</button>
+    <button class="btn98 task" data-goto="latest" data-nav="post">Latest post</button>
+    <button class="btn98 task owner-only" data-goto="/write" data-nav="write">Notepad</button>
     <span class="tray sunken" id="ns-clock">12:00 PM</span>
   </div>
 </blog-app>

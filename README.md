@@ -1,6 +1,6 @@
 # Eitan's Logbook
 
-A personal blog with a 1998 desktop look. Rust (axum, SQLite) and native web components.
+A personal blog with a 1998 desktop look. Rust (axum, SQLite, Litestream) and native web components.
 
 - Spec: [`spec.md`](spec.md)
 - Design mockup: [`designs/logbook.html`](designs/logbook.html)
@@ -8,11 +8,12 @@ A personal blog with a 1998 desktop look. Rust (axum, SQLite) and native web com
 ## Run locally
 
 ```bash
-cargo run -p logbook-server
-# open http://127.0.0.1:8080
+cargo run -p logbook-server -- seed-sample   # optional: sample posts in logbook.db
+cargo run -p logbook-server                  # http://127.0.0.1:8080
 ```
 
-Settings: `LOGBOOK_ADDR` (default `127.0.0.1:8080`), `LOGBOOK_STATIC_DIR` (default `static`).
+Settings: `LOGBOOK_ADDR` (default `127.0.0.1:8080`), `LOGBOOK_STATIC_DIR` (default `static`),
+`LOGBOOK_DB` (default `logbook.db`), `LOGBOOK_ORIGIN` (default `http://127.0.0.1:8080`).
 
 ## Checks
 
@@ -21,6 +22,8 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo deny check
 cargo nextest run --workspace
+deploy/restore-test.sh                                       # needs Docker
+(cd fuzz && cargo +nightly fuzz run render -- -max_total_time=60)
 ```
 
 ## License
