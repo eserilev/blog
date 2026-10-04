@@ -22,7 +22,7 @@ Notation: **[decided]** = agreed. **[verified 2026-10-04]** = checked against do
 | `designs/logbook.html` | Chosen design, working mockup |
 | `designs/components.js` | Mockup components and sample data |
 
-Repo: https://github.com/eserilev/blog (public). Default branch: `main`.
+Repo: https://github.com/eserilev/blog (public). Default branch: `master`.
 
 Mockup online: https://claude.ai/artifact/LmzY8m7y3TToGKU9RzwLqQ
 
@@ -543,7 +543,7 @@ The server disk holds only rebuildable things: image, local DB copy, image cache
 - Region: `auto`.
 - aws-sdk-rust: set request checksum calculation and response checksum validation to `WhenRequired`. The newer default (`WhenSupported`) breaks many S3-compatible stores. [build-check] One test upload to Hetzner.
 
-**Secrets.** Same split as sandcastle. GitHub secrets hold the env file text. CI writes them with mode 600. All deploy secrets live in a GitHub **Environment** `production` that only `main` can use.
+**Secrets.** Same split as sandcastle. GitHub secrets hold the env file text. CI writes them with mode 600. All deploy secrets live in a GitHub **Environment** `production` that only `master` can use.
 
 `STACK_ENV`:
 
@@ -621,11 +621,11 @@ If the old VPS is only unreachable and still running, power it off first. Two wr
 
 ### 6.13 Deploys
 
-Workflow **CI** (push to `main`, PRs): all gates of 7.9, then build `ghcr.io/eserilev/blog:sha-<commit>`.
+Workflow **CI** (push to `master`, PRs): all gates of 7.9, then build `ghcr.io/eserilev/blog:sha-<commit>`.
 
 Workflow **Deploy**:
 
-- After CI passes on `main`: automatic.
+- After CI passes on `master`: automatic.
 - By hand (`workflow_dispatch`, input: SHA): recovery and rollback.
 - Steps: tag the image `prod` → copy `compose.yaml` and `logbook.caddy` to `/srv/logbook` → write `.env`, `prod.env` → `docker network create edge || true` → `docker compose pull && docker compose up -d` → Caddy step (6.11).
 - Runs in the `production` Environment. Actions pinned to commits.
@@ -826,7 +826,7 @@ Example: deleting a check in `reveal` that makes drafts public. Missed → add t
 
 ### 7.9 CI
 
-PR and push to `main` (all must pass before Deploy):
+PR and push to `master` (all must pass before Deploy):
 
 1. fmt, clippy, deny.
 2. Unit + property.

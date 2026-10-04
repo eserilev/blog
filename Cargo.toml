@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = ["crates/logbook-core", "crates/logbook-render", "crates/logbook-server"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.97"
+license = "MIT"
+repository = "https://github.com/eserilev/blog"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
