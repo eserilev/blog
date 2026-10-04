@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Restore test (spec 7.7). Proves the recovery path on every PR:
-#   1. Start empty (ALLOW_EMPTY_START=1) and write posts in all states.
+#   1. Start empty (ALLOW_EMPTY_START=1) and write posts in all states and a passkey.
 #   2. Delete the container and its volume. The bucket is all that is left.
 #   3. Start a new container without the flag. Everything must come back.
 #   4. An empty bucket without the flag must make the container refuse to start.
@@ -38,6 +38,9 @@ echo "restore-test: first start, empty"
 ALLOW_EMPTY_START=1 docker compose up -d app
 wait_healthy
 docker compose exec -T app logbook seed-sample >/dev/null
+# A passkey row, so the test proves that sign-in data survives a restore too.
+db_query "INSERT INTO passkeys (id, passkey, label, created_at) VALUES (x'0102', '{\"test\":true}', 'Restore test', '2026-01-01T00:00:00Z')"
+before_keys=$(db_query "SELECT hex(id), passkey, label FROM passkeys ORDER BY id")
 before_api=$(curl -fs "$URL/api/posts")
 before_rows=$(db_query "SELECT id, slug, state, version, body_md FROM posts ORDER BY id")
 [ "$(db_query "SELECT COUNT(*) FROM posts WHERE state != 'public'")" -ge 2 ] || fail "seed has no hidden posts"
@@ -56,6 +59,7 @@ after_api=$(curl -fs "$URL/api/posts")
 after_rows=$(db_query "SELECT id, slug, state, version, body_md FROM posts ORDER BY id")
 [ "$before_api" = "$after_api" ] || fail "the public API differs after restore"
 [ "$before_rows" = "$after_rows" ] || fail "the posts table differs after restore (drafts and private posts included)"
+[ "$before_keys" = "$(db_query "SELECT hex(id), passkey, label FROM passkeys ORDER BY id")" ] || fail "passkeys differ after restore"
 [ "$(db_query "PRAGMA integrity_check")" = "ok" ] || fail "integrity check"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/posts/epbs-from-a-clients-perspective")
 [ "$code" = "404" ] || fail "a draft is visible after restore (HTTP $code)"

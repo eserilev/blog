@@ -29,33 +29,115 @@
   if (app.route) onView(app.route);
   app.addEventListener('postloaded', e => setTitle(e.detail ? e.detail.title : 'Not found'));
 
-  // Owner mode. In the real build the server decides this from a session cookie,
-  // and the editor route and draft API reject every request without one.
+  // Owner mode (spec 4.6). The server decides it from the session cookie. Hiding the
+  // controls is only for the view; every owner API call checks the session again.
   const signin = document.getElementById('signin');
+  const signinStatus = document.getElementById('signin-status');
+  const say = (el, msg, error) => { el.textContent = msg; el.classList.toggle('error', !!error); };
+  const passkeyError = e => (e && e.name === 'NotAllowedError') ? 'The passkey prompt was cancelled or timed out.' : (e && e.message) || String(e);
+
   const setOwner = on => {
     app.toggleAttribute('data-owner', on);
     if (!on && app.dataset.current === 'write') app.go('/', { replace: true });
     if (!on) editNow(false);
+    if (on && app.dataset.current === 'write') loadPasskeys();
   };
-  // Step 3 replaces this mock with GET /api/me.
+  const refreshOwner = async () => setOwner(await Auth.me().catch(() => false));
+
   app.addEventListener('viewchange', e => {
-    if (e.detail.view === 'write' && !app.hasAttribute('data-owner')) app.go('/', { replace: true });
+    if (e.detail.view === 'write') {
+      if (!app.hasAttribute('data-owner')) app.go('/', { replace: true });
+      else loadPasskeys();
+    }
+    if (e.detail.view === 'setup') setTitle('Add Passkey');
   });
-  if (app.dataset.current === 'write') app.go('/', { replace: true });
+
   const closeSignin = () => { signin.hidden = true; };
   document.querySelector('[data-signin]').addEventListener('click', () => {
+    say(signinStatus, '');
     signin.hidden = false;
-    document.getElementById('signin-pass').focus();
+    document.getElementById('signin-ok').focus();
   });
-  document.querySelector('[data-signout]').addEventListener('click', () => setOwner(false));
-  document.getElementById('signin-form').addEventListener('submit', e => {
+  document.querySelector('[data-signout]').addEventListener('click', async () => {
+    await Auth.logout().catch(() => {});
+    setOwner(false);
+  });
+  document.getElementById('signin-form').addEventListener('submit', async e => {
     e.preventDefault();
-    closeSignin();
-    setOwner(true);
+    const ok = document.getElementById('signin-ok');
+    ok.disabled = true;
+    say(signinStatus, 'Waiting for your passkey...');
+    try {
+      await Auth.login();
+      closeSignin();
+      await refreshOwner();
+    } catch (err) {
+      say(signinStatus, `Sign-in failed. ${passkeyError(err)}`, true);
+    } finally {
+      ok.disabled = false;
+    }
   });
   document.getElementById('signin-cancel').addEventListener('click', closeSignin);
   document.getElementById('signin-x').addEventListener('click', closeSignin);
   signin.addEventListener('keydown', e => { if (e.key === 'Escape') closeSignin(); });
+
+  // Passkey list in the Compose view.
+  const list = document.getElementById('passkey-list');
+  const pkStatus = document.getElementById('passkeys-status');
+  const fmtWhen = iso => iso ? new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'never';
+  async function loadPasskeys() {
+    try {
+      const keys = await Auth.passkeys();
+      list.replaceChildren(...keys.map(k => {
+        const li = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = k.label;
+        const info = document.createElement('small');
+        info.textContent = `added ${fmtWhen(k.created_at)} · last used ${fmtWhen(k.last_used_at)}`;
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn98';
+        del.textContent = 'Revoke';
+        del.disabled = keys.length <= 1;
+        del.title = keys.length <= 1 ? 'The last passkey cannot be revoked.' : '';
+        del.addEventListener('click', async () => {
+          try { await Auth.revoke(k.id); say(pkStatus, 'Passkey revoked.'); } catch (err) { say(pkStatus, err.message, true); }
+          loadPasskeys();
+        });
+        const left = document.createElement('div');
+        left.append(name, document.createElement('br'), info);
+        li.append(left, del);
+        return li;
+      }));
+    } catch {
+      say(pkStatus, 'Could not load the passkeys.', true);
+    }
+  }
+  document.getElementById('passkey-add').addEventListener('click', async () => {
+    say(pkStatus, 'Waiting for your new passkey...');
+    try { await Auth.register({ label: 'Passkey' }); say(pkStatus, 'Passkey added.'); } catch (err) { say(pkStatus, `Could not add the passkey. ${passkeyError(err)}`, true); }
+    loadPasskeys();
+  });
+
+  // /setup#<token>: register a passkey with a one-time setup token from the CLI.
+  document.getElementById('setup-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const status = document.getElementById('setup-status');
+    const token = location.hash.slice(1);
+    if (!token) { say(status, 'This link has no setup token. Run `logbook setup-link` on the server.', true); return; }
+    say(status, 'Waiting for your passkey...');
+    try {
+      await Auth.register({ setupToken: token, label: document.getElementById('setup-label').value });
+      history.replaceState(null, '', '/setup');
+      say(status, 'Passkey created. You are signed in.');
+      await refreshOwner();
+      setTimeout(() => app.go('/write'), 800);
+    } catch (err) {
+      say(status, `Could not create the passkey. ${passkeyError(err)}`, true);
+    }
+  });
+
+  refreshOwner();
 
   // The Now section: markdown that only the owner can edit.
   let nowMd = '- Working on Glamsterdam.\n- Write your own lines here: sign in, then click Edit.';

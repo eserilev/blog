@@ -1,8 +1,10 @@
 //! The Logbook server: a JSON API plus one `index.html` (spec 6).
 
+pub mod auth;
 pub mod checks;
 pub mod config;
 pub mod db;
+pub mod guard;
 pub mod head;
 pub mod headers;
 pub mod pages;
@@ -11,9 +13,10 @@ pub mod routes;
 pub mod seed;
 pub mod topic;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::Router;
+use ipnet::IpNet;
 use sqlx::SqlitePool;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
@@ -25,8 +28,14 @@ pub struct AppState {
     /// `static/index.html`, read once at startup.
     pub index_html: Arc<str>,
     pub pool: SqlitePool,
-    /// Public origin, for absolute URLs.
+    /// Public origin, for absolute URLs and the CSRF check.
     pub origin: Arc<str>,
+    /// Passkey ceremonies.
+    pub auth: Arc<auth::Auth>,
+    /// Rate limit for `/auth/*`.
+    pub auth_limiter: Arc<guard::RateLimiter>,
+    /// Proxies whose `X-Forwarded-For` header counts.
+    pub trusted_proxies: Arc<[IpNet]>,
 }
 
 impl AppState {
@@ -34,7 +43,8 @@ impl AppState {
     ///
     /// # Errors
     ///
-    /// Fails if `index.html` cannot be read or has no `<!--head-->...<!--/head-->` block.
+    /// Fails if `index.html` cannot be read or has no `<!--head-->...<!--/head-->` block,
+    /// or if WebAuthn cannot use the origin.
     pub fn new(config: &Config, pool: SqlitePool) -> Result<Self, String> {
         let path = config.static_dir.join("index.html");
         let index_html = std::fs::read_to_string(&path)
@@ -54,6 +64,12 @@ impl AppState {
             index_html: index_html.into(),
             pool,
             origin: config.origin.clone().into(),
+            auth: auth::Auth::new(&config.origin)?,
+            auth_limiter: Arc::new(guard::RateLimiter::new(
+                config.auth_rate_limit,
+                Duration::from_mins(1),
+            )),
+            trusted_proxies: config.trusted_proxies.clone().into(),
         })
     }
 }
@@ -61,7 +77,7 @@ impl AppState {
 /// Builds the full app: the route table, static files, the 404 fallback, and the
 /// security headers on every response.
 pub fn app(config: &Config, state: AppState) -> Router {
-    let router = routes::router()
+    let router = routes::router(&state)
         .nest_service("/static", ServeDir::new(&config.static_dir))
         .fallback(pages::not_found)
         .with_state(state);

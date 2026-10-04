@@ -27,7 +27,7 @@ services:
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
       ALLOW_EMPTY_START: ${ALLOW_EMPTY_START:-}
-      LOGBOOK_ORIGIN: http://127.0.0.1:18090
+      LOGBOOK_ORIGIN: http://localhost:18090
     volumes:
       - data:/data
     ports:

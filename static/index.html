@@ -226,6 +226,27 @@
             </div>
             <div class="msgbox" data-toast hidden data-public="Post published. Anyone can read it now." data-private="Saved as private. Only you can see this post." data-saved="Draft saved."></div>
           </md-editor>
+          <div class="window raised dialog passkeys" id="passkeys">
+            <div class="titlebar"><span class="ttl">Passkeys</span></div>
+            <div class="dialog-body">
+              <ul class="passkey-list" id="passkey-list"></ul>
+              <p class="auth-status" id="passkeys-status" role="status"></p>
+              <div class="row row-end"><button class="btn98" type="button" id="passkey-add">Add passkey</button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETUP -->
+        <section data-view="setup" class="page write-area" hidden>
+          <form class="window raised dialog setup" id="setup-form">
+            <div class="titlebar"><span class="ttl">Add Passkey</span></div>
+            <div class="dialog-body">
+              <p>This one-time link adds a passkey for the owner of this site. It expires 15 minutes after it was made.</p>
+              <div class="row"><label for="setup-label">Name for this passkey:</label><input id="setup-label" class="sunken" maxlength="60" placeholder="Laptop"></div>
+              <p class="auth-status" id="setup-status" role="status"></p>
+              <div class="row row-end"><button class="btn98 default" type="submit" id="setup-ok">Create passkey</button></div>
+            </div>
+          </form>
         </section>
 
       </div>
@@ -244,13 +265,11 @@
       <div class="signin-body">
         <svg class="key" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="16" r="7" fill="#ffd84a" stroke="#000" stroke-width="1.5"/><circle cx="9" cy="16" r="2" fill="#fff" stroke="#000"/><path d="M18 14.5h11v3h-2v3h-3v-3h-6z" fill="#ffd84a" stroke="#000" stroke-width="1.5"/></svg>
         <div class="fields">
-          <p>Only the owner of this site can sign in. Signing in shows Compose and your private drafts.</p>
-          <label for="signin-user">User name:</label><input id="signin-user" class="sunken" value="eitan" readonly>
-          <label for="signin-pass">Password:</label><input id="signin-pass" class="sunken" type="password">
-          <small>Mockup: any password works. The real site uses a passkey.</small>
+          <p>Only the owner of this site can sign in. Use your passkey.</p>
+          <p class="auth-status" id="signin-status" role="status"></p>
         </div>
       </div>
-      <div class="row"><button class="btn98 default" type="submit">OK</button><button class="btn98" type="button" id="signin-cancel">Cancel</button></div>
+      <div class="row"><button class="btn98 default" type="submit" id="signin-ok">Sign in with passkey</button><button class="btn98" type="button" id="signin-cancel">Cancel</button></div>
     </form>
   </div>
 

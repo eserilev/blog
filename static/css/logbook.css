@@ -238,3 +238,11 @@ blog-app, md-editor, post-list, post-view { display: block; }
 .noscript { margin: 16px; padding: 12px; background: var(--chrome); font: 14px var(--f-ui); }
 table.posts td.empty { padding: 18px 10px; text-align: center; color: var(--muted); }
 post-view[aria-busy="true"] { opacity: .6; }
+.auth-status { margin: 0; min-height: 1.4em; font: 12px var(--f-ui); }
+.auth-status.error { color: #a00000; }
+.passkeys, .setup { margin-top: 16px; }
+.passkey-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 13px var(--f-ui); }
+.passkey-list li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 4px 6px; background: #fff; }
+.passkey-list small { color: var(--muted); }
+.setup .row label { font: 13px var(--f-ui); }
+.setup input { font: 13px var(--f-ui); padding: 3px 5px; border: 0; background: #fff; min-width: 0; flex: 1; }

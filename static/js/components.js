@@ -20,6 +20,90 @@ const Api = {
   post(slug) { return this.get(`/api/posts/${encodeURIComponent(slug)}`); },
 };
 
+/* Passkeys (spec 6.6). The server sends WebAuthn options as JSON with base64url
+   byte fields; the browser API wants ArrayBuffers. These helpers convert both ways. */
+const b64u = {
+  decode(s) {
+    const pad = '='.repeat((4 - (s.length % 4)) % 4);
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
+    return Uint8Array.from(bin, c => c.charCodeAt(0)).buffer;
+  },
+  encode(buf) {
+    let bin = '';
+    for (const b of new Uint8Array(buf)) bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  },
+};
+
+const Auth = {
+  /* POST JSON. The browser adds the Origin header, which the server checks. */
+  async post(url, body = {}) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  },
+  async me() {
+    const res = await fetch('/api/me', { credentials: 'same-origin' });
+    return res.ok ? (await res.json()).owner === true : false;
+  },
+  async register({ setupToken, label } = {}) {
+    const start = await this.post('/auth/register/start', setupToken ? { setup_token: setupToken } : {});
+    const pk = structuredClone(start.options.publicKey);
+    pk.challenge = b64u.decode(pk.challenge);
+    pk.user.id = b64u.decode(pk.user.id);
+    (pk.excludeCredentials || []).forEach(c => { c.id = b64u.decode(c.id); });
+    const cred = await navigator.credentials.create({ publicKey: pk });
+    const credential = {
+      id: cred.id,
+      rawId: b64u.encode(cred.rawId),
+      type: cred.type,
+      extensions: cred.getClientExtensionResults(),
+      response: {
+        attestationObject: b64u.encode(cred.response.attestationObject),
+        clientDataJSON: b64u.encode(cred.response.clientDataJSON),
+      },
+    };
+    return this.post('/auth/register/finish', { ceremony: start.ceremony, credential, label });
+  },
+  async login() {
+    const start = await this.post('/auth/login/start');
+    const pk = structuredClone(start.options.publicKey);
+    pk.challenge = b64u.decode(pk.challenge);
+    (pk.allowCredentials || []).forEach(c => { c.id = b64u.decode(c.id); });
+    const cred = await navigator.credentials.get({ publicKey: pk });
+    const credential = {
+      id: cred.id,
+      rawId: b64u.encode(cred.rawId),
+      type: cred.type,
+      extensions: cred.getClientExtensionResults(),
+      response: {
+        authenticatorData: b64u.encode(cred.response.authenticatorData),
+        clientDataJSON: b64u.encode(cred.response.clientDataJSON),
+        signature: b64u.encode(cred.response.signature),
+        userHandle: cred.response.userHandle ? b64u.encode(cred.response.userHandle) : null,
+      },
+    };
+    return this.post('/auth/login/finish', { ceremony: start.ceremony, credential });
+  },
+  logout() { return this.post('/auth/logout'); },
+  async passkeys() {
+    const res = await fetch('/api/owner/passkeys', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+  async revoke(id) {
+    const res = await fetch(`/api/owner/passkeys/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  },
+};
+
 /* Dates: "M/D/YY", or "Month D, YYYY". Input: RFC 3339. */
 const fmtDate = (iso, style) => {
   if (!iso) return '';
@@ -43,6 +127,7 @@ const ROUTES = [
   [/^\/topics\/([a-z-]+)$/, 'home'],
   [/^\/posts\/([a-z0-9-]+)$/, 'post'],
   [/^\/about$/, 'about'],
+  [/^\/setup$/, 'setup'],
   [/^\/write(?:\/(\d+))?$/, 'write'],
 ];
 
