@@ -3,6 +3,7 @@
 //! - `logbook` or `logbook serve`: run the server.
 //! - `logbook seed-sample`: add sample posts to an empty database.
 //! - `logbook setup-link`: print a one-time link to register a passkey (spec 6.6).
+//! - `logbook check-backup`: restore the replica to a temp file and check it (spec 6.12).
 
 use std::net::SocketAddr;
 
@@ -22,8 +23,9 @@ async fn main() {
         "serve" => serve().await,
         "seed-sample" => seed_sample().await,
         "setup-link" => setup_link().await,
+        "check-backup" => check_backup().await,
         other => Err(format!(
-            "unknown command {other:?}; use `serve`, `seed-sample`, or `setup-link`"
+            "unknown command {other:?}; use `serve`, `seed-sample`, `setup-link`, or `check-backup`"
         )),
     };
     if let Err(e) = result {
@@ -43,6 +45,14 @@ async fn serve() -> Result<(), String> {
     checks::spawn_heartbeat(pool.clone());
     let state = AppState::new(&config, pool.clone())?;
     counter::spawn_flush(state.clone());
+    if config.s3.is_some() {
+        checks::spawn_replica_check(state.media.clone(), state.replica.clone());
+        checks::spawn_backup_check(
+            config.db_path.clone(),
+            config.litestream_config.clone(),
+            config.healthcheck_url.clone(),
+        );
+    }
     if config.surf {
         surf::spawn_fetch(state.clone(), config.nws_user_agent.clone());
     }
@@ -90,6 +100,20 @@ async fn setup_link() -> Result<(), String> {
         auth::SETUP_MINUTES
     );
     Ok(())
+}
+
+/// Runs the backup check once, prints the result, and pings `HEALTHCHECK_URL`.
+async fn check_backup() -> Result<(), String> {
+    let config = Config::from_env()?;
+    if config.s3.is_none() {
+        return Err("no bucket: set S3_BUCKET".into());
+    }
+    let result = checks::check_backup(&config.db_path, &config.litestream_config).await;
+    if let Some(url) = &config.healthcheck_url {
+        checks::ping(url, &result).await;
+    }
+    println!("{}", result.as_ref().unwrap_or_else(|e| e));
+    result.map(|_| ())
 }
 
 /// Resolves on Ctrl-C or SIGTERM (Docker stop).

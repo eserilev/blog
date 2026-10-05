@@ -1,0 +1,37 @@
+# Production (spec 6.13). One app container on the sandcastle VPS. CI copies this
+# file to /srv/logbook and writes .env and prod.env next to it (deploy/README.md).
+#
+# The app publishes no host port. The sandcastle Caddy reaches it on the external
+# `edge` network (172.30.0.0/24). Only Caddy is on that network with the app, so
+# the app trusts X-Forwarded-For from that subnet.
+
+name: logbook
+
+services:
+  app:
+    image: ${IMAGE:?set IMAGE in .env}:${PROD_TAG:-prod}
+    restart: always
+    env_file: prod.env
+    environment:
+      LOGBOOK_TRUSTED_PROXIES: 172.30.0.0/24
+      # Set for the first deploy only (workflow input). Else empty.
+      ALLOW_EMPTY_START: ${ALLOW_EMPTY_START:-}
+    volumes:
+      - data:/data
+    networks:
+      edge:
+        aliases: [logbook-app]
+    mem_limit: 512m
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  data:

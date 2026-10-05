@@ -513,31 +513,35 @@ Same Hetzner VPS as sandcastle. Same deploy patterns (`sandcastle/deploy/README.
 **Shared Caddy.** Sandcastle's Caddy owns ports 80 and 443.
 
 - Docker network `edge` connects sandcastle's Caddy and the blog app.
-- Sandcastle's Caddyfile ends with `import sites/*.caddy`. Host folder `/srv/edge/sites/` is mounted at `/etc/caddy/sites/`.
-- The blog owns its file, `logbook.caddy`:
+- Docker network `edge` has the fixed subnet `172.30.0.0/24`. The app trusts `X-Forwarded-For` from that subnet only.
+- Sandcastle's Caddyfile ends with `import /etc/caddy-sites/*.caddy`. Host folder `/srv/edge/sites/` is mounted at `/etc/caddy-sites/`. (Sandcastle mounts `/etc/caddy` read-only, so the folder cannot go inside it.) An empty folder is valid.
+- The blog owns its file, `deploy/logbook.caddy`. The deploy replaces `__DOMAIN__` with `DOMAIN` from `.env`:
 
   ```
-  example.com {
+  __DOMAIN__ {
   	encode zstd gzip
   	reverse_proxy logbook-app:8080
   }
   ```
 
 - Blog deploy, Caddy step:
-  1. Fail with a clear message if sandcastle's Caddy is not running. (So sandcastle deploys first on a new server.)
-  2. Copy the new file to a staging name. Run `caddy validate` on the full config inside the Caddy container.
-  3. If valid: move the file into place and run `caddy reload`. Keep the last good file.
-  4. If not valid: stop. The live config does not change.
+  1. Fail with a clear message if sandcastle's Caddy is not running or not on `edge`. (So sandcastle deploys first on a new server.)
+  2. Keep the old file as `.bak`. Write the new file. Run `caddy validate` on the full config inside the Caddy container.
+  3. If valid: run `caddy reload`.
+  4. If not valid: put the old file back and stop. Caddy did not reload, so the live config does not change.
+  5. `curl https://<DOMAIN>/healthz` until it answers (2 min; the first deploy waits for the certificate).
+
+  [verified 2026-10-04] Local test with `caddy:2`: import of the folder, validate, reload, and the rollback of a bad file.
 
 One-time edits to sandcastle:
 
-1. `compose.yaml`: add the external `edge` network to `caddy`. Mount `/srv/edge/sites:/etc/caddy/sites:ro`.
-2. `Caddyfile`: add `import sites/*.caddy`.
-3. Deploy script: `docker network create edge || true` and `mkdir -p /srv/edge/sites` before `docker compose up`.
+1. `compose.yaml`: add the external `edge` network to `caddy` (keep the default network). Mount `/srv/edge/sites:/etc/caddy-sites:ro`.
+2. `Caddyfile`: add `import /etc/caddy-sites/*.caddy`.
+3. Deploy script, before `docker compose up`: `docker network inspect edge >/dev/null 2>&1 || docker network create --subnet 172.30.0.0/24 edge` and `mkdir -p /srv/edge/sites`.
 
 **Blog container:**
 
-- Service name `logbook-app`. No host port. On the `edge` network.
+- `deploy/compose.yaml`: service `app`, alias `logbook-app` on `edge`. No host port.
 - Memory limit 512 MB. Docker log rotation (10 MB × 3).
 - Litestream inside the image. Start sequence: 6.12.
 
@@ -565,13 +569,13 @@ The server disk holds only rebuildable things: image, local DB copy, image cache
 
 ```
 IMAGE=ghcr.io/eserilev/blog
-# PROD_TAG=prod
+DOMAIN=example.com
 ```
 
 `PROD_ENV`:
 
 ```
-DOMAIN=example.com
+LOGBOOK_ORIGIN=https://example.com   # the passkey RP ID; never change it
 S3_ENDPOINT=https://<location>.your-objectstorage.com
 S3_BUCKET=logbook
 S3_ACCESS_KEY=...
@@ -581,9 +585,10 @@ EXPORT_DEPLOY_KEY=...        # base64
 NWS_USER_AGENT=logbook (<contact email>)
 S3_FORCE_PATH_STYLE=false   # Hetzner: virtual-host style; the bucket goes into the endpoint host
 HEALTHCHECK_URL=...
-# ALLOW_EMPTY_START=1        # first deploy only (6.12)
 # RESTORE_ONLY=1             # drills only (6.12)
 ```
+
+`ALLOW_EMPTY_START` is a Deploy input, not a secret, so it cannot stay on by mistake. Examples: `deploy/.env.example`, `deploy/prod.env.example`.
 
 Reused from sandcastle: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_FINGERPRINT`.
 
@@ -620,34 +625,35 @@ Point-in-time restore (`-timestamp`): exact only inside `l0-retention` (default 
 2. Move the Primary IP to it, or update DNS A records. [verified 2026-10-04] Hetzner: a Primary IP moves only to a server in the same location, the target server must be powered off, and the IP must first be removed from the old server. So create the new VPS in the same location, power it off, move the IP, power it on.
 3. Update `VPS_HOST` and `VPS_FINGERPRINT` in both repos.
 4. Restore and deploy sandcastle (its runbook).
-5. Run the blog workflow **Deploy** (`workflow_dispatch`, input: image SHA). It deploys an image that already exists. It runs no tests. It works at any time (re-runs expire after 30 days).
+5. Run the blog workflow **Deploy** (`workflow_dispatch`, input: commit SHA, or empty for the head of `master`). It builds the image from that commit (cached) and runs no tests. It works at any time.
 6. Open the site. Sign in with a passkey. Lost passkey → CLI setup link (6.6).
 
 The blog needs no file from the old server.
 
 If the old VPS is only unreachable and still running, power it off first. Two writers on one replica damage the backup.
 
-**First deploy:** set `ALLOW_EMPTY_START=1`, deploy, run `logbook setup-link`, register a passkey, remove the flag.
+**First deploy:** run Deploy by hand with `allow_empty_start` on. Then `docker compose -f /srv/logbook/compose.yaml exec app logbook setup-link` and register a passkey. Later deploys leave the flag off.
 
-**Rollback:** `PROD_TAG=sha-<old>`, then run Deploy. After a migration, an old image refuses the newer schema (sqlx). Then rollback needs a point-in-time restore to before the migration. Write this in the PR of every migration.
+**Rollback:** run Deploy by hand with the old commit SHA. It tags that image `prod`. After a migration, an old image refuses the newer schema (sqlx). Then rollback needs a point-in-time restore to before the migration. Write this in the PR of every migration.
 
 **Checks:**
 
-- **Replica age:** every 10 min, the app compares its local position with the newest replica in the bucket. Older than 1 h → `/healthz` fails.
-- **Nightly restore test:** restore the newest replica to a temp file, run `PRAGMA integrity_check`, and check that the restored `heartbeat` is less than 1 h old. Success → ping `HEALTHCHECK_URL`. A missed ping → email (healthchecks.io).
+- **Replica age** (only with a bucket): every 10 min, the first time 1 min after start, the app reads the age of the newest object under `db/`. Older than 1 h, or no replica, or an unreadable bucket → `/healthz` fails with 503.
+- **Nightly backup check** (`checks.rs`, only with a bucket): every 24 h, the first time 1 h after start. `litestream restore -o <temp>`, then `PRAGMA integrity_check`, then the restored `heartbeat` must be less than 1 h old. Then ping `HEALTHCHECK_URL` (success) or `HEALTHCHECK_URL/fail`. A missed ping → email (healthchecks.io). The same check by hand: `logbook check-backup`.
 - **Uptime:** an external monitor calls `/healthz`.
 - **Drill, twice a year:** a test VPS with `RESTORE_ONLY=1`, at `drill.<DOMAIN>`. Check posts, images, and passkey sign-in (RP ID is the parent domain). `RESTORE_ONLY` means the drill never writes to the production replica.
 
 ### 6.13 Deploys
 
-Workflow **CI** (push to `master`, PRs): all gates of 7.9, then build `ghcr.io/eserilev/blog:sha-<commit>`.
+Workflow **CI** (push to `master`, PRs): all gates of 7.9.
 
-Workflow **Deploy**:
+Workflow **Deploy** (`.github/workflows/deploy.yml`):
 
-- After CI passes on `master`: automatic.
-- By hand (`workflow_dispatch`, input: SHA): recovery and rollback.
-- Steps: tag the image `prod` → copy `compose.yaml` and `logbook.caddy` to `/srv/logbook` → write `.env`, `prod.env` → `docker network create edge || true` → `docker compose pull && docker compose up -d` → Caddy step (6.11).
-- Runs in the `production` Environment. Actions pinned to commits.
+- After CI passes for a push to `master` in this repo (`workflow_run`): automatic. Never for a PR or a fork. Only when the repo variable `DEPLOY_ENABLED` is `true`.
+- By hand (`workflow_dispatch`, inputs: SHA, `allow_empty_start`): first deploy, recovery, and rollback.
+- Steps: build `ghcr.io/eserilev/blog:sha-<commit>` → tag it `prod` → copy `compose.yaml` and `logbook.caddy` to `/srv/logbook` → write `.env`, `prod.env` (mode 600) → make sure that `edge` exists with its subnet and that sandcastle's Caddy is on it → `docker compose pull && docker compose up -d` → Caddy step and health check (6.11).
+- One deploy at a time. A deploy in progress is never cancelled.
+- Runs in the `production` Environment. Actions pinned to commits. Runbook: `deploy/README.md`.
 
 ### 6.14 Layout
 
@@ -848,10 +854,11 @@ T12 turns every "if `ok`" above into "always".
 Per PR, `deploy/restore-test.sh` with `deploy/compose.test.yaml` (app + SeaweedFS as a local S3, because MinIO no longer publishes images):
 
 1. Start with `ALLOW_EMPTY_START=1`. Create posts in all states, an image, a passkey.
-2. Stop the app. Delete its volume.
-3. Start a new container without the flag on the same bucket.
-4. Check: all posts, the image, the passkey, the access rules.
-5. Point at an empty bucket without the flag → the app refuses to start.
+2. `logbook check-backup` must pass (the nightly check, 6.12).
+3. Stop the app. Delete its volume.
+4. Start a new container without the flag on the same bucket.
+5. Check: all posts, the image, the passkey, the access rules.
+6. Point at an empty bucket without the flag → the app refuses to start.
 
 ### 7.8 Mutation testing
 

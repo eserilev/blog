@@ -1,0 +1,163 @@
+# Deploy (spec 6.13). After CI passes on master, build the image, tag it with the
+# commit and :prod, and swap the app on the VPS. A manual run deploys any commit:
+# that is the rollback.
+#
+# The VPS is the sandcastle VPS. Its Caddy imports /srv/edge/sites/*.caddy and joins
+# the external `edge` network (deploy/README.md).
+#
+# Secrets (environment `production`): VPS_HOST, VPS_USER, VPS_SSH_KEY,
+# VPS_FINGERPRINT (SHA256 of the host key), STACK_ENV (text of .env), and PROD_ENV
+# (text of prod.env). The deploy writes the env files on the VPS with mode 600.
+#
+# The actions are pinned to commits, because this job holds a root key.
+
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to deploy (full SHA). Empty = the head of master.
+        required: false
+      allow_empty_start:
+        description: First deploy only. Start with a new database if the bucket has no replica.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One deploy at a time, in order. A deploy in progress is never cancelled.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only CI runs for pushes to master in this repo. Never a fork or a PR.
+    # Automatic deploys also need the repo variable DEPLOY_ENABLED=true (set after
+    # the one-time setup in deploy/README.md).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.DEPLOY_ENABLED == 'true' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - id: sha
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          sha="${INPUT_SHA:-${RUN_SHA:-$GITHUB_SHA}}"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "not a full SHA: $sha"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: ${{ steps.sha.outputs.image }}:sha-${{ steps.sha.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Tag the image as prod
+        env:
+          IMAGE: ${{ steps.sha.outputs.image }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: docker buildx imagetools create -t "$IMAGE:prod" "$IMAGE:sha-$SHA"
+      # The env files are written here, from environment variables, so no character
+      # in a secret can break a shell line on the VPS.
+      - name: Stage the stack files
+        env:
+          STACK_ENV: ${{ secrets.STACK_ENV }}
+          PROD_ENV: ${{ secrets.PROD_ENV }}
+        run: |
+          mkdir stage
+          cp deploy/compose.yaml deploy/logbook.caddy stage/
+          umask 077
+          printf '%s\n' "$STACK_ENV" > stage/.env
+          printf '%s\n' "$PROD_ENV" > stage/prod.env
+      - uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_FINGERPRINT }}
+          source: stage
+          target: /srv/logbook
+          strip_components: 1
+      - uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALLOW_EMPTY_START: ${{ inputs.allow_empty_start && '1' || '' }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_FINGERPRINT }}
+          envs: GHCR_USER,GHCR_TOKEN,ALLOW_EMPTY_START
+          script: |
+            set -eu
+            cd /srv/logbook
+            chmod 600 .env prod.env
+            DOMAIN=$(sed -n 's/^DOMAIN=//p' .env)
+            case "$DOMAIN" in
+              ''|*[!a-z0-9.-]*) echo "DOMAIN in .env is empty or not a host name"; exit 1 ;;
+            esac
+
+            # The edge network, with the subnet that compose.yaml trusts.
+            docker network inspect edge >/dev/null 2>&1 \
+              || docker network create --subnet 172.30.0.0/24 edge
+            subnet=$(docker network inspect edge -f '{{(index .IPAM.Config 0).Subnet}}')
+            [ "$subnet" = 172.30.0.0/24 ] || { echo "the edge network has subnet $subnet"; exit 1; }
+            caddy=$(docker ps -q -f label=com.docker.compose.project=sandcastle -f label=com.docker.compose.service=caddy)
+            [ -n "$caddy" ] || { echo "the sandcastle Caddy is not running"; exit 1; }
+            docker network inspect edge -f '{{range .Containers}}{{.Name}} {{end}}' | grep -q caddy \
+              || { echo "the sandcastle Caddy is not on the edge network"; exit 1; }
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            docker compose pull app
+            ALLOW_EMPTY_START="$ALLOW_EMPTY_START" docker compose up -d app
+            docker logout ghcr.io
+
+            # The site file: validate before reload. A bad file goes back to the old one.
+            mkdir -p /srv/edge/sites
+            site=/srv/edge/sites/logbook.caddy
+            [ -f "$site" ] && cp "$site" "$site.bak"
+            sed "s/__DOMAIN__/$DOMAIN/" logbook.caddy > "$site"
+            if ! docker exec "$caddy" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
+              if [ -f "$site.bak" ]; then mv "$site.bak" "$site"; else rm -f "$site"; fi
+              echo "the Caddy config does not validate; the old site file is back"
+              exit 1
+            fi
+            docker exec "$caddy" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+            rm -f "$site.bak"
+
+            # Healthy through Caddy, with TLS. The first deploy waits for the certificate.
+            for _ in $(seq 1 60); do
+              curl -fsS "https://$DOMAIN/healthz" && { echo; docker image prune -f; exit 0; }
+              sleep 2
+            done
+            echo "the app is not healthy at https://$DOMAIN/healthz"
+            docker compose logs --no-color --tail 50 app
+            exit 1

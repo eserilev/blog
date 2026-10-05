@@ -1,0 +1,11 @@
+# The logbook site for the sandcastle Caddy (spec 6.13). The deploy replaces
+# __DOMAIN__ with DOMAIN from .env and writes the result to
+# /srv/edge/sites/logbook.caddy. The sandcastle Caddyfile imports sites/*.caddy.
+#
+# Caddy gets the certificate by itself and writes the client IP into
+# X-Forwarded-For.
+
+__DOMAIN__ {
+	encode zstd gzip
+	reverse_proxy logbook-app:8080
+}
