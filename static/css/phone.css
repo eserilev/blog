@@ -26,6 +26,8 @@ phone-shell::before {
 phone-shell [hidden] { display: none !important; }
 phone-shell button { font: inherit; color: inherit; }
 phone-shell :focus-visible { outline: 3px dashed var(--ph-ink); outline-offset: -6px; }
+/* The reading area takes focus when a post opens. It is a scroll box, not a control: no outline. */
+phone-shell .ph-read:focus, phone-shell .ph-read:focus-visible { outline: none; }
 phone-shell .on:focus-visible { outline-color: var(--ph-inv); }
 .pix { shape-rendering: crispEdges; fill: currentColor; }
 
