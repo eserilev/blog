@@ -883,6 +883,23 @@ pub fn filter_public(ps: &[Post]) -> Vec<PublicPost>;
 pub fn make_slug(title: &[u8], id: u64) -> Vec<u8>;
 pub fn media_key_ok(key: &[u8]) -> bool;
 pub fn reading_minutes(words: u32) -> u32;
+
+// Security decisions (T13–T17). The server reads the request and the database,
+// then calls these functions for the decision.
+pub fn write_allowed(is_read: bool, origin_matches: bool, has_body: bool,
+                     content_type: &[u8], is_upload_path: bool) -> bool;
+pub fn is_json(content_type: &[u8]) -> bool;
+pub fn is_multipart_form(content_type: &[u8]) -> bool;
+pub fn escape_html(s: &[u8]) -> Vec<u8>;
+pub enum ClientAddr { Peer, Hop(usize) }
+pub fn client_addr(peer_trusted: bool, hop_trusted: &[bool]) -> ClientAddr;
+pub enum Access { Public, Session, Auth, Owner }
+pub enum SessionState { NoCookie, Unknown, Expired, Valid }
+pub enum Decision { Allow, Unauthorized }
+pub fn authorize(level: Access, state: SessionState) -> Decision;
+pub fn session_valid(now: i64, expires_at: i64) -> bool;
+pub fn setup_token_usable(now: i64, expires_at: i64, used: bool) -> bool;
+pub fn setup_token_expiry(now: i64) -> i64;
 ```
 
 Guest code paths use `PublicPost` only. Owner paths use `Post`. A guest route that tries to send a `Post` does not compile.
@@ -903,10 +920,15 @@ Guest code paths use `PublicPost` only. Owner paths use `Post`. A guest route th
 | T10 | `media_key_spec` | `media_key_ok k = ok b → (b ↔ k ∈ [0-9a-f]{64} "." ("png" ∣ "jpg" ∣ "webp" ∣ "gif"))` | Accepts exactly the keys that the server makes. Nothing that can leave the folder. |
 | T11 | `reading_spec` | `reading_minutes w = ok m → m = max 1 ⌈w / 220⌉` | Exact formula. |
 | T12 | `total_*` | For each function `f` and every input `x`: `∃ v, f x = ok v` | No panic, overflow, or out-of-bounds access, for any input. |
+| T13 | `write_allowed_spec` | `write_allowed r o b ct u = ok x → (x ↔ r ∨ (o ∧ (¬b ∨ JsonType ct ∨ (u ∧ MultipartForm ct))))` | The CSRF decision. `csrf_cross_origin`: a write without the site `Origin` is refused. `csrf_body`: a write with a body passes only as `application/json`, or as `multipart/form-data` on the upload path. `csrf_read`: `GET` and `HEAD` always pass. |
+| T14 | `escape_html_spec` | `escape_html s = ok t → t = escape s`, with `escape s = s.flatMap escByte` | `escape_no_special`: no `<`, `>`, `"`, `'` in the output. `escape_amp`: every `&` in the output starts `&amp;`, `&lt;`, `&gt;`, `&quot;`, or `&#39;`. `unescape_escape`: `unescape (escape s) = s`. |
+| T15 | `client_addr_spec` | `client_addr p h = ok r → ClientRule p h r` | `client_addr_untrusted_peer`: an untrusted peer is always the result, so the header has no effect. For a trusted peer: the rightmost untrusted hop, or the peer if all hops are trusted. |
+| T16 | `authorize_spec` | `authorize a s = ok d → (d = Unauthorized ↔ a = Owner ∧ s ≠ Valid)` | `authorize_owner`: an owner route allows only a valid session. `authorize_not_owner`: for Public, Session and Auth, `authorize` never gives 401, for every session state. The server calls `authorize` in the `Owner` extractor. A sign-in handler still gives 401 for a bad setup token or a failed passkey check: that is not a session decision. |
+| T17 | `session_valid_spec`, `setup_token_usable_spec`, `setup_token_expiry_spec` | `session_valid n e = ok b → (b ↔ n < e)`; `setup_token_usable n e u = ok b → (b ↔ ¬u ∧ n < e)`; `setup_token_expiry n = ok e → n ≤ e ≤ n + 900` | A session is valid only before its expiry. A setup token works only if it is not used and not expired. A new setup token lives at most 15 minutes (exactly 15 if `n + 900` fits in an `i64`). |
 
 T12 turns every "if `ok`" above into "always".
 
-**Status (2026-10-04):**
+**Status (2026-10-05):**
 
 | Theorem | Status | Lean |
 |---|---|---|
@@ -915,12 +937,23 @@ T12 turns every "if `ok`" above into "always".
 | T4, T5 | Proved | `make_slug_spec` (`ValidSlug`), `slug_charset` |
 | T10 | Proved | `media_key_spec` (`keyShape`) |
 | T11 | Proved | `reading_spec` |
-| T12 | Proved for all five functions | the `⦃ ⦄` form of each theorem |
+| T12 | Proved for every function above. `escape_html` needs `6 · len ≤ usize::MAX`: a longer output does not fit in memory. | the `⦃ ⦄` form of each theorem |
+| T13 | Proved | `write_allowed_spec` (`CsrfRule`, `JsonType`, `MultipartForm`), `csrf_cross_origin`, `csrf_body`, `csrf_read` |
+| T14 | Proved | `escape_html_spec`, `escape_no_special`, `escape_amp`, `unescape_escape` |
+| T15 | Proved | `client_addr_spec` (`ClientRule`), `client_addr_untrusted_peer` |
+| T16 | Proved | `authorize_spec`, `authorize_owner`, `authorize_not_owner` |
+| T17 | Proved | `session_valid_spec`, `setup_token_usable_spec`, `setup_token_expiry_spec` |
 | T6, T7, T8, T9 | Proved | `slug_plain`, `slug_fallback` (`decimal`), `slug_lower` (`upper`), `slug_idempotent` |
 
 `Logbook/Axioms.lean` makes the build fail if any proved theorem depends on an axiom other than `propext`, `Classical.choice`, and `Quot.sound`.
 
-**Not covered by proofs:** `render()` (property tests + fuzz), sessions, passkeys, CSRF (integration + Playwright), SQL and route code (access matrix), the tools themselves (rustc, Charon, Aeneas, Lean).
+**Not covered by proofs:** `render()` (property tests + fuzz), passkeys, SQL and route code (access matrix), the tools themselves (rustc, Charon, Aeneas, Lean). For T13–T17 the proofs cover the decision only. The server code that makes the inputs is not proved:
+
+- T13: the method check, the exact `Origin` compare, the body check (`Content-Length` not `0`, or `Transfer-Encoding`), the path compare. A `Content-Type` value that is not visible ASCII counts as empty.
+- T14: `head::escape` turns the `&str` into bytes and back. The result is valid UTF-8 because only ASCII bytes change, but no theorem states this. The proofs do not show that every page value goes through `escape`.
+- T15: the `X-Forwarded-For` parsing and the trusted network check (`IpNet::contains`).
+- T16: the cookie parsing and the session lookup in SQL. That each owner handler takes the `Owner` extractor, and that its route has `Access::Owner` (access matrix test).
+- T17: the SQL row read, the RFC 3339 parsing (a time that does not parse counts as expired), and the clock. Single use of a setup token relies on the atomic `UPDATE ... WHERE used_at IS NULL AND expires_at > now` in `register_finish`. The 30-day session lifetime is still set in SQL.
 
 **What the spike showed.** Aeneas handles every function in `logbook-core`, including loops over slices of structs with `Vec<u8>` fields. The Rust code keeps away from std helpers that Aeneas does not model: `u8::is_ascii_*`, `contains` on ranges, `Vec::is_empty`, and `Option::clone` (so `Post` has a hand-written `Clone`). The derived `Debug` and `PartialEq` of `Option` stay as generated axioms, because no verified function calls them.
 
@@ -1063,16 +1096,16 @@ In DOS mode, `/write` looks like MS-DOS EDIT. It is a CSS skin on the existing e
 
 A Win98 Start menu: Home, Latest post, Topics, then Shut Down…. The Shut Down dialog offers "Stay in Windows (light mode)" and "Restart in MS-DOS mode (dark mode)". Build it after 11.1. The toolbar button stays the main toggle.
 
-### 11.4 Security proofs T13–T17 [not started]
+### 11.4 Security proofs T13–T17 [done]
 
-Each decision moves into `logbook-core` as a pure byte or integer function. The server calls it for the real decision, so the proof covers production code.
+Each decision moves into `logbook-core` as a pure byte or integer function. The server calls it for the real decision, so the proof covers production code. Done: all five are proved (7.6). The proofs cover the decision, not the code that reads the request or the database (7.6, "Not covered by proofs").
 
 | # | Function | Statement |
 |---|---|---|
 | T13 | CSRF decision (from `guard::csrf`) | A write (`POST`, `PUT`, `DELETE`) without the site `Origin` is always refused. A write with a body is allowed only as `application/json`, or as `multipart/form-data` on `/api/owner/uploads`. Reads are always allowed. |
 | T14 | `escape_html` (from `head::escape`) | The output has no `<`, `>`, `"` or `'`. Every `&` starts one of the five entities. Un-escaping gives back the input. |
 | T15 | Client IP selection (from `guard::client_ip`) | An untrusted peer is the result, and the header is ignored. A trusted peer gives the rightmost untrusted hop, or the peer. A visitor cannot pick the IP. |
-| T16 | `authorize(access, session)` (from the route table and the `Owner` extractor) | Owner routes allow only a valid session. Public, Session and Auth routes never return 401. |
+| T16 | `authorize(access, session)` (from the route table and the `Owner` extractor) | Owner routes allow only a valid session. For Public, Session and Auth routes, the session never gives 401. |
 | T17 | `session_valid`, `setup_token_usable` | A session is valid only before its expiry. A setup token works only if it is unused and not expired. Single use also relies on the atomic SQL update, which the proof does not cover. |
 
 ### 11.5 Remaining slug theorems [done]

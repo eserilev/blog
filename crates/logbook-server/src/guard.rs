@@ -16,6 +16,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use ipnet::IpNet;
+use logbook_core::ClientAddr;
 
 use crate::AppState;
 
@@ -29,68 +30,68 @@ fn forbidden(msg: &'static str) -> Response {
 
 /// CSRF check for every request that is not `GET` or `HEAD`:
 /// - the `Origin` header must equal the site origin;
-/// - a request with a body must be `application/json`.
+/// - a request with a body must be `application/json`, or `multipart/form-data` on
+///   the upload path.
 ///
-/// With the `SameSite=Strict` session cookie, this needs no token (spec 6.6).
+/// [`logbook_core::write_allowed`] makes the decision (theorem T13). With the
+/// `SameSite=Strict` session cookie, this needs no token (spec 6.6).
 pub async fn csrf(State(s): State<AppState>, req: Request, next: Next) -> Response {
-    if matches!(*req.method(), Method::GET | Method::HEAD) {
-        return next.run(req).await;
-    }
-    let origin_ok = req
+    let is_read = matches!(*req.method(), Method::GET | Method::HEAD);
+    let origin_matches = req
         .headers()
         .get(header::ORIGIN)
         .and_then(|v| v.to_str().ok())
         == Some(&*s.origin);
-    if !origin_ok {
-        return forbidden("cross-origin write refused");
-    }
     let has_body = req
         .headers()
         .get(header::CONTENT_LENGTH)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v != "0")
         || req.headers().contains_key(header::TRANSFER_ENCODING);
-    let json = req
+    // A value that is not visible ASCII counts as no `Content-Type`.
+    let content_type = req
         .headers()
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| {
-            v.split(';')
-                .next()
-                .is_some_and(|t| t.trim().eq_ignore_ascii_case("application/json"))
-        });
-    let multipart_upload = req.uri().path() == "/api/owner/uploads"
-        && req
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|v| v.to_ascii_lowercase().starts_with("multipart/form-data"));
-    if has_body && !json && !multipart_upload {
-        return forbidden("writes must be application/json");
+        .unwrap_or("");
+    let is_upload_path = req.uri().path() == "/api/owner/uploads";
+    if logbook_core::write_allowed(
+        is_read,
+        origin_matches,
+        has_body,
+        content_type.as_bytes(),
+        is_upload_path,
+    ) {
+        return next.run(req).await;
     }
-    next.run(req).await
+    if origin_matches {
+        forbidden("writes must be application/json")
+    } else {
+        forbidden("cross-origin write refused")
+    }
 }
 
 /// The client IP. `X-Forwarded-For` counts only when the direct peer is a trusted
 /// proxy; then the result is the rightmost address that is not a trusted proxy.
+///
+/// [`logbook_core::client_addr`] picks the address (theorem T15). This function
+/// parses the header and checks each address against the trusted networks.
 #[must_use]
 pub fn client_ip(headers: &HeaderMap, peer: Option<IpAddr>, trusted: &[IpNet]) -> Option<IpAddr> {
     let peer = peer?;
-    if !trusted.iter().any(|n| n.contains(&peer)) {
-        return Some(peer);
-    }
-    let forwarded: Vec<IpAddr> = headers
+    let is_trusted = |ip: &IpAddr| trusted.iter().any(|n| n.contains(ip));
+    let hops: Vec<IpAddr> = headers
         .get_all("x-forwarded-for")
         .iter()
         .filter_map(|v| v.to_str().ok())
         .flat_map(|v| v.split(','))
         .filter_map(|s| s.trim().parse().ok())
         .collect();
-    forwarded
-        .into_iter()
-        .rev()
-        .find(|ip| !trusted.iter().any(|n| n.contains(ip)))
-        .or(Some(peer))
+    let hop_trusted: Vec<bool> = hops.iter().map(is_trusted).collect();
+    match logbook_core::client_addr(is_trusted(&peer), &hop_trusted) {
+        ClientAddr::Peer => Some(peer),
+        ClientAddr::Hop(i) => hops.get(i).copied(),
+    }
 }
 
 /// A fixed-window rate limiter keyed by client IP.

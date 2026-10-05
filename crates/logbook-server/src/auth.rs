@@ -18,9 +18,15 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD as B64};
+use logbook_core::{Access, Decision, SessionState};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
+use time::{
+    OffsetDateTime,
+    format_description::{BorrowedFormatItem, well_known::Rfc3339},
+    macros::format_description,
+};
 use webauthn_rs::prelude::{
     CredentialID, Passkey, PasskeyAuthentication, PasskeyRegistration, PublicKeyCredential,
     RegisterPublicKeyCredential, Url, Uuid, Webauthn, WebauthnBuilder,
@@ -32,8 +38,11 @@ use crate::AppState;
 pub const SESSION_COOKIE: &str = "logbook_session";
 /// Session lifetime.
 pub const SESSION_DAYS: i64 = 30;
-/// Setup token lifetime.
-pub const SETUP_MINUTES: i64 = 15;
+/// Setup token lifetime, for messages. [`logbook_core::SETUP_TOKEN_SECONDS`] sets it.
+pub const SETUP_MINUTES: i64 = logbook_core::SETUP_TOKEN_SECONDS / 60;
+/// The time format of the database: `strftime('%Y-%m-%dT%H:%M:%SZ')`.
+const DB_TIME: &[BorrowedFormatItem<'_>] =
+    format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z");
 /// How long a passkey ceremony stays open.
 const CEREMONY_TTL: Duration = Duration::from_mins(5);
 /// The most open ceremonies at one time.
@@ -192,26 +201,56 @@ impl IntoResponse for AuthError {
 #[derive(Debug, Clone, Copy)]
 pub struct Owner;
 
-/// Checks the session cookie against the `sessions` table.
-async fn session_valid(pool: &SqlitePool, headers: &HeaderMap) -> Result<bool, sqlx::Error> {
+/// The current time in Unix seconds.
+fn now_unix() -> i64 {
+    OffsetDateTime::now_utc().unix_timestamp()
+}
+
+/// A time from the database (RFC 3339) in Unix seconds. `None` if it does not parse.
+fn unix_seconds(t: &str) -> Option<i64> {
+    OffsetDateTime::parse(t, &Rfc3339)
+        .ok()
+        .map(OffsetDateTime::unix_timestamp)
+}
+
+/// Finds the session of the request in the `sessions` table.
+async fn session_state(
+    pool: &SqlitePool,
+    headers: &HeaderMap,
+) -> Result<SessionState, sqlx::Error> {
     let Some(token) = cookie(headers, SESSION_COOKIE) else {
-        return Ok(false);
+        return Ok(SessionState::NoCookie);
     };
-    let token_hash = hash(token).to_vec();
-    sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM sessions WHERE token_hash = ? AND expires_at > strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))")
-        .bind(token_hash)
-        .fetch_one(pool)
-        .await
+    let expires_at: Option<String> =
+        sqlx::query_scalar("SELECT expires_at FROM sessions WHERE token_hash = ?")
+            .bind(hash(token).to_vec())
+            .fetch_optional(pool)
+            .await?;
+    Ok(match expires_at {
+        None => SessionState::Unknown,
+        // A time that does not parse counts as expired.
+        Some(t) => match unix_seconds(&t) {
+            Some(exp) if logbook_core::session_valid(now_unix(), exp) => SessionState::Valid,
+            _ => SessionState::Expired,
+        },
+    })
+}
+
+/// True if the request has a valid owner session. [`logbook_core::authorize`] makes
+/// the decision (theorem T16).
+async fn is_owner(pool: &SqlitePool, headers: &HeaderMap) -> Result<bool, sqlx::Error> {
+    let state = session_state(pool, headers).await?;
+    Ok(logbook_core::authorize(Access::Owner, state) == Decision::Allow)
 }
 
 impl FromRequestParts<AppState> for Owner {
     type Rejection = AuthError;
 
     async fn from_request_parts(parts: &mut Parts, s: &AppState) -> Result<Self, Self::Rejection> {
-        if session_valid(&s.pool, &parts.headers).await? {
-            Ok(Self)
-        } else {
-            Err(AuthError::Unauthorized)
+        let state = session_state(&s.pool, &parts.headers).await?;
+        match logbook_core::authorize(Access::Owner, state) {
+            Decision::Allow => Ok(Self),
+            Decision::Unauthorized => Err(AuthError::Unauthorized),
         }
     }
 }
@@ -230,28 +269,38 @@ async fn create_session(pool: &SqlitePool) -> Result<HeaderValue, sqlx::Error> {
 }
 
 /// Creates a setup token and returns it. Only the hash is stored (spec 6.6).
+/// [`logbook_core::setup_token_expiry`] sets the expiry time: 15 minutes (theorem T17).
 ///
 /// # Errors
 ///
 /// Database errors.
 pub async fn create_setup_token(pool: &SqlitePool) -> Result<String, sqlx::Error> {
     let token = random_token();
-    sqlx::query("INSERT INTO setup_tokens (token_hash, expires_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?))")
+    let expires_at =
+        OffsetDateTime::from_unix_timestamp(logbook_core::setup_token_expiry(now_unix()))
+            .ok()
+            .and_then(|t| t.format(DB_TIME).ok())
+            .ok_or_else(|| sqlx::Error::Protocol("setup token expiry out of range".into()))?;
+    sqlx::query("INSERT INTO setup_tokens (token_hash, expires_at) VALUES (?, ?)")
         .bind(hash(&token).to_vec())
-        .bind(format!("+{SETUP_MINUTES} minutes"))
+        .bind(expires_at)
         .execute(pool)
         .await?;
     Ok(token)
 }
 
+/// Checks a setup token. [`logbook_core::setup_token_usable`] makes the decision
+/// (theorem T17). Single use relies on the atomic `UPDATE` in [`register_finish`].
 async fn setup_token_usable(pool: &SqlitePool, token_hash: &[u8; 32]) -> Result<bool, sqlx::Error> {
-    sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM setup_tokens
-         WHERE token_hash = ? AND used_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
-    )
-    .bind(token_hash.to_vec())
-    .fetch_one(pool)
-    .await
+    let row: Option<(String, Option<String>)> =
+        sqlx::query_as("SELECT expires_at, used_at FROM setup_tokens WHERE token_hash = ?")
+            .bind(token_hash.to_vec())
+            .fetch_optional(pool)
+            .await?;
+    Ok(row.is_some_and(|(expires_at, used_at)| {
+        unix_seconds(&expires_at)
+            .is_some_and(|exp| logbook_core::setup_token_usable(now_unix(), exp, used_at.is_some()))
+    }))
 }
 
 async fn load_passkeys(pool: &SqlitePool) -> Result<Vec<Passkey>, AuthError> {
@@ -268,7 +317,7 @@ async fn load_passkeys(pool: &SqlitePool) -> Result<Vec<Passkey>, AuthError> {
 
 /// `GET /api/me`. Never 401. `Cache-Control: no-store`, because it depends on the session.
 pub async fn me(State(s): State<AppState>, headers: HeaderMap) -> Response {
-    let owner = session_valid(&s.pool, &headers).await.unwrap_or(false);
+    let owner = is_owner(&s.pool, &headers).await.unwrap_or(false);
     (
         [(header::CACHE_CONTROL, "no-store")],
         Json(serde_json::json!({ "owner": owner })),
@@ -306,7 +355,7 @@ pub async fn register_start(
             }
             Some(h)
         }
-        None if session_valid(&s.pool, &headers).await? => None,
+        None if is_owner(&s.pool, &headers).await? => None,
         None => return Err(AuthError::Unauthorized),
     };
     let exclude: Vec<CredentialID> = load_passkeys(&s.pool)

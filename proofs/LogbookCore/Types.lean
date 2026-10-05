@@ -19,6 +19,42 @@ set_option maxRecDepth 2048
 
 namespace logbook_core
 
+/-- [logbook_core::access::Access]
+    Source: 'crates/logbook-core/src/access.rs', lines 5:0-14:1
+    Visibility: public -/
+@[discriminant isize]
+inductive access.Access where
+| Public : access.Access
+| Session : access.Access
+| Auth : access.Access
+| Owner : access.Access
+
+/-- [logbook_core::access::SessionState]
+    Source: 'crates/logbook-core/src/access.rs', lines 18:0-28:1
+    Visibility: public -/
+@[discriminant isize]
+inductive access.SessionState where
+| NoCookie : access.SessionState
+| Unknown : access.SessionState
+| Expired : access.SessionState
+| Valid : access.SessionState
+
+/-- [logbook_core::access::Decision]
+    Source: 'crates/logbook-core/src/access.rs', lines 32:0-37:1
+    Visibility: public -/
+@[discriminant isize]
+inductive access.Decision where
+| Allow : access.Decision
+| Unauthorized : access.Decision
+
+/-- [logbook_core::ip::ClientAddr]
+    Source: 'crates/logbook-core/src/ip.rs', lines 8:0-13:1
+    Visibility: public -/
+@[discriminant isize]
+inductive ip.ClientAddr where
+| Peer : ip.ClientAddr
+| Hop : Std.Usize → ip.ClientAddr
+
 /-- [logbook_core::post::State]
     Source: 'crates/logbook-core/src/post.rs', lines 8:0-15:1
     Visibility: public -/

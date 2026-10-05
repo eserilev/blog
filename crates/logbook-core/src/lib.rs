@@ -15,12 +15,22 @@
     clippy::ref_option
 )]
 
+pub mod access;
+pub mod csrf;
+pub mod html;
+pub mod ip;
 pub mod media;
 pub mod policy;
 pub mod post;
+pub mod session;
 pub mod slug;
 
+pub use access::{Access, Decision, SessionState, authorize};
+pub use csrf::{is_json, is_multipart_form, write_allowed};
+pub use html::escape_html;
+pub use ip::{ClientAddr, client_addr};
 pub use media::media_key_ok;
 pub use policy::{PublicPost, filter_public, reveal};
 pub use post::{Post, State, WORDS_PER_MINUTE, reading_minutes};
+pub use session::{SETUP_TOKEN_SECONDS, session_valid, setup_token_expiry, setup_token_usable};
 pub use slug::{SLUG_MAX, make_slug};

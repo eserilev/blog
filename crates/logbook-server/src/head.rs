@@ -16,21 +16,14 @@ pub struct Head<'a> {
     pub site: &'a str,
 }
 
-/// Escapes text for use in element content and double-quoted attributes.
+/// Escapes text for use in element content and quoted attributes.
+///
+/// [`logbook_core::escape_html`] does the work (theorem T14). It changes only ASCII
+/// bytes, so the result is valid UTF-8.
 #[must_use]
 pub fn escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#39;"),
-            _ => out.push(c),
-        }
-    }
-    out
+    String::from_utf8(logbook_core::escape_html(s.as_bytes()))
+        .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
 }
 
 /// The tags that go between `<!--head-->` and `<!--/head-->` in `index.html`.

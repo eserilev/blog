@@ -26,18 +26,9 @@ pub enum Verb {
     Delete,
 }
 
-/// Who can call a route.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Access {
-    /// Anyone. The response never depends on the session.
-    Public,
-    /// Anyone. The response depends on the session, so it is `no-store`. Never 401.
-    Session,
-    /// Sign-in routes. Anyone, with a rate limit. `no-store`.
-    Auth,
-    /// The owner only: 401 without a valid session. `no-store`.
-    Owner,
-}
+/// Who can call a route. The type is in `logbook-core`, with the access decision
+/// [`logbook_core::authorize`] (theorem T16).
+pub use logbook_core::Access;
 
 /// What a route does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
