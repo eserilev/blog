@@ -71,6 +71,8 @@ pub async fn fixture_full(with_posts: bool, auth_rate_limit: u32) -> (Fixture, C
         media_cache: dir.path().join("media-cache"),
         surf: false,
         nws_user_agent: "test".into(),
+        litestream_config: "/etc/litestream.yml".into(),
+        healthcheck_url: None,
     };
     let pool = db::connect(&config.db_path).await.unwrap();
     if with_posts {

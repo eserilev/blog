@@ -51,6 +51,8 @@ pub struct AppState {
     pub media: media::Media,
     /// The latest surf data, if any.
     pub surf: Arc<tokio::sync::RwLock<Option<surf::Surf>>>,
+    /// The latest replica check, for `/healthz`.
+    pub replica: checks::ReplicaStatus,
 }
 
 impl AppState {
@@ -98,6 +100,7 @@ impl AppState {
             export_changed: config.git_export.as_ref().map(|_| Arc::new(Notify::new())),
             media: media_store(config)?,
             surf: Arc::default(),
+            replica: Arc::default(),
         })
     }
 }

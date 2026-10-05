@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Restore test (spec 7.7). Proves the recovery path on every PR:
 #   1. Start empty (ALLOW_EMPTY_START=1) and write posts in all states, a passkey, and an image.
-#   2. Delete the container and its volume. The bucket is all that is left.
-#   3. Start a new container without the flag. Everything must come back.
-#   4. An empty bucket without the flag must make the container refuse to start.
+#   2. Run `logbook check-backup` (restore to a temp file, integrity, heartbeat age).
+#   3. Delete the container and its volume. The bucket is all that is left.
+#   4. Start a new container without the flag. Everything must come back.
+#   5. An empty bucket without the flag must make the container refuse to start.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -57,6 +58,9 @@ before_rows=$(db_query "SELECT id, slug, state, version, body_md FROM posts ORDE
 
 echo "restore-test: wait for replication"
 sleep 5
+
+echo "restore-test: backup check"
+docker compose exec -T app logbook check-backup | grep -q "^backup ok" || fail "the backup check failed"
 
 echo "restore-test: delete the container and its volume"
 docker compose rm -sf app >/dev/null

@@ -40,6 +40,11 @@ pub struct Config {
     pub surf: bool,
     /// `User-Agent` for the NWS API, with contact info. `NWS_USER_AGENT`.
     pub nws_user_agent: String,
+    /// The litestream config for the backup check. `LOGBOOK_LITESTREAM_CONFIG`,
+    /// default `/etc/litestream.yml`.
+    pub litestream_config: PathBuf,
+    /// Pinged after each backup check (healthchecks.io style). `HEALTHCHECK_URL`.
+    pub healthcheck_url: Option<String>,
 }
 
 /// S3 settings: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
@@ -109,6 +114,11 @@ impl Config {
         let surf = env::var("LOGBOOK_SURF").map_or(true, |v| v != "off");
         let nws_user_agent = env::var("NWS_USER_AGENT")
             .unwrap_or_else(|_| "logbook (https://github.com/eserilev/blog)".into());
+        let litestream_config = env::var_os("LOGBOOK_LITESTREAM_CONFIG")
+            .map_or_else(|| "/etc/litestream.yml".into(), PathBuf::from);
+        let healthcheck_url = env::var("HEALTHCHECK_URL")
+            .ok()
+            .filter(|u| !u.trim().is_empty());
         Ok(Self {
             addr,
             static_dir,
@@ -122,6 +132,8 @@ impl Config {
             media_cache,
             surf,
             nws_user_agent,
+            litestream_config,
+            healthcheck_url,
         })
     }
 }
