@@ -108,8 +108,7 @@ Main column:
 2. Intro: markdown that the owner edits (4.9).
 3. Writing: table of public posts. Columns: Date (M/D/YY), Title + one-line summary, Topic, Length. Small navy "NEW" label on new posts. No blink.
 4. Now box (4.4) and Surf Report window (4.5), side by side.
-5. Webring line.
-6. Footer: last updated, "Best viewed at 800 × 600", Sign in / Sign out.
+5. Footer: last updated, "Best viewed at 800 × 600", Sign in / Sign out.
 
 Below 860 px: the sidebar goes below the content, so the posts come first. Editor panes stack.
 
@@ -948,7 +947,7 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 3. Final name.
 4. Logo: keep the "E" with waves?
 5. RSS: keep?
-6. Webring: keep? Which ring? The links are placeholders.
+6. ~~Webring.~~ Removed (2026-10-05).
 7. Counter: real or fixed?
 8. About page content.
 9. ~~Domain.~~ `unclebill.blog` (2026-10-04).
