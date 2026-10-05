@@ -147,6 +147,55 @@ test('HELP, NOW, SURF, and the F-key bar', async ({ page }) => {
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('LINKS prints the GitHub and X links; HELP lists LINKS', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/');
+  await enterDos(page);
+  const out = page.locator('dos-shell [data-out]');
+  await command(page, 'help');
+  await expect(out.locator('.dos-help')).toContainText('LINKS');
+  await expect(out.locator('.dos-help')).toContainText('show my GitHub and X links');
+  await command(page, 'links');
+  const lines = out.locator('.dos-entry').last().locator('.dos-line:not(.cmd)');
+  await expect(lines).toHaveText(['GITHUB  https://github.com/eserilev', 'X       https://x.com/0xUncleBill']);
+  await expect(lines.nth(0).locator('a')).toHaveAttribute('href', 'https://github.com/eserilev');
+  await expect(lines.nth(1).locator('a')).toHaveAttribute('href', 'https://x.com/0xUncleBill');
+  await expect(lines.locator('a')).toHaveText(['https://github.com/eserilev', 'https://x.com/0xUncleBill']);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+for (const width of [390, 1280]) {
+  test(`top bar at ${width} px: GitHub and X links on one line`, async ({ browser }) => {
+    const phone = width < 600;
+    const context = await browser.newContext({ viewport: { width, height: phone ? 844 : 800 }, hasTouch: phone, isMobile: phone });
+    const page = await context.newPage();
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await page.evaluate(() => localStorage.setItem('logbook.mode', 'night'));
+    await page.reload();
+    const bar = page.locator('.dos-bar');
+    await expect(bar).toBeVisible();
+    await expect(bar.getByRole('link', { name: 'GitHub (eserilev)' })).toHaveAttribute('href', 'https://github.com/eserilev');
+    await expect(bar.getByRole('link', { name: 'X (@0xUncleBill)' })).toHaveAttribute('href', 'https://x.com/0xUncleBill');
+    await expect(bar.getByRole('link', { name: 'GitHub (eserilev)' })).toHaveText('GITHUB');
+    await expect(page.locator('#dos-clock')).toBeVisible();
+    const r = await bar.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      const kids = [...el.children].filter(k => k.getClientRects().length).map(k => k.getBoundingClientRect());
+      return {
+        overflow: el.scrollWidth - el.clientWidth,
+        right: Math.max(...kids.map(k => k.right)) - box.right,
+        oneLine: kids.every(k => Math.abs(k.top - kids[0].top) < 1 && k.height < 30),
+      };
+    });
+    expect(r.overflow).toBeLessThanOrEqual(0);
+    expect(r.right).toBeLessThanOrEqual(0);
+    expect(r.oneLine).toBe(true);
+    expect(errors, errors.join('\n')).toEqual([]);
+    await context.close();
+  });
+}
+
 test('keyboard only: F-keys, history, and Tab to the links', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/');

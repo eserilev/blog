@@ -376,8 +376,11 @@ dos-shell { display: none; }
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
   background: #000; color: var(--dos-fg); font: 400 18px/1.45 var(--f-dos); text-shadow: 0 0 4px rgba(255,255,255,.3);
 }
-.dos-bar { display: flex; gap: 24px; padding: 0 12px; background: var(--dos-gray); color: #000; text-shadow: none; }
+.dos-bar { display: flex; align-items: center; gap: 24px; padding: 0 12px; background: var(--dos-gray); color: #000; text-shadow: none; white-space: nowrap; }
 .dos-prog { flex: 1; }
+/* GITHUB and X in the top bar: bar text, underlined. Hover and focus show them in inverse. */
+dos-shell .dos-bar a { color: inherit; text-underline-offset: 2px; }
+dos-shell .dos-bar a:hover, dos-shell .dos-bar a:focus-visible { background: #000; color: var(--dos-gray); outline: 2px solid #000; outline-offset: 0; }
 .dos-screen { position: relative; flex: 1; padding: 8px 12px 16px; outline: none; }
 /* Faint scanlines. They never catch clicks. */
 .dos-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.18) 2px 3px); }
@@ -439,6 +442,8 @@ dos-shell a:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 2
   .dos-help span:nth-child(even) { padding-left: 2ch; color: var(--dos-dim); margin-bottom: 4px; }
 }
 @media (max-width: 520px) {
+  /* The top bar keeps one line: the host goes first. */
+  .dos-host { display: none; }
   .dos-keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 2px; }
 }
 @media (prefers-contrast: more) {

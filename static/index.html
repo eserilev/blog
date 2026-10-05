@@ -299,7 +299,7 @@
 
   <!-- MS-DOS mode (spec 11.1). CSS shows it only under html[data-mode="night"]. -->
   <dos-shell>
-    <div class="dos-bar"><span class="dos-prog">LOGBOOK.EXE</span><span data-host></span><span id="dos-clock"></span></div>
+    <div class="dos-bar"><span class="dos-prog">LOGBOOK.EXE</span><span class="dos-host" data-host></span><a href="https://github.com/eserilev" rel="me noopener" aria-label="GitHub (eserilev)">GITHUB</a><a href="https://x.com/0xUncleBill" rel="me noopener" aria-label="X (@0xUncleBill)">X</a><span id="dos-clock"></span></div>
     <main class="dos-screen" tabindex="-1">
       <div class="dos-out" role="log" aria-label="Command output" data-out></div>
       <div class="dos-prompt" data-prompt>
@@ -322,10 +322,14 @@
 
   <!-- Phone mode (spec 11.8). CSS shows it only under html[data-mode="phone"]. -->
   <phone-shell>
-    <div class="ph-status" aria-hidden="true">
-      <span class="ph-signal"><svg class="pix" viewBox="0 0 7 9"><path d="M0 0h7v1H0zM3 1h1v8H3zM1 1h1v1H1zM5 1h1v1H5z"/></svg><i></i><i></i><i></i><i></i><i></i></span>
-      <span class="ph-time" data-time></span>
-      <span class="ph-batt"><span class="ph-batt-box"><span data-batt></span></span><span class="ph-batt-tip"></span></span>
+    <div class="ph-status">
+      <span class="ph-signal" aria-hidden="true"><svg class="pix" viewBox="0 0 7 9"><path d="M0 0h7v1H0zM3 1h1v8H3zM1 1h1v1H1zM5 1h1v1H5z"/></svg><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="ph-time" data-time aria-hidden="true"></span>
+      <span class="ph-right">
+        <a href="https://github.com/eserilev" rel="me noopener" aria-label="GitHub (eserilev)"><span class="ph-ico"><svg class="pix" viewBox="0 0 9 9" aria-hidden="true"><path d="M0 0h2v1H0zM7 0h2v1H7zM0 1h9v1H0zM0 2h9v1H0zM0 3h2v1H0zM3 3h3v1H3zM7 3h2v1H7zM0 4h9v1H0zM1 5h7v1H1zM0 6h1v1H0zM3 6h3v1H3zM1 7h5v1H1zM3 8h1v1H3zM5 8h1v1H5z"/></svg></span></a>
+        <a href="https://x.com/0xUncleBill" rel="me noopener" aria-label="X (@0xUncleBill)"><span class="ph-ico"><svg class="pix" viewBox="0 0 9 9" aria-hidden="true"><path d="M0 0h2v1H0zM8 0h1v1H8zM0 1h3v1H0zM7 1h2v1H7zM1 2h3v1H1zM6 2h2v1H6zM2 3h5v1H2zM3 4h3v1H3zM2 5h5v1H2zM1 6h2v1H1zM5 6h3v1H5zM0 7h2v1H0zM6 7h3v1H6zM0 8h1v1H0zM7 8h2v1H7z"/></svg></span></a>
+        <span class="ph-batt" aria-hidden="true"><span class="ph-batt-box"><span data-batt></span></span><span class="ph-batt-tip"></span></span>
+      </span>
     </div>
     <main class="ph-main" tabindex="-1">
       <div class="ph-col">

@@ -274,6 +274,44 @@ test.describe('phone', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
+  test('status row: GitHub and X links left of the battery on every screen', async ({ page }) => {
+    const errors = watchErrors(page);
+    const status = shell(page).locator('.ph-status');
+    const check = async label => {
+      const gh = status.getByRole('link', { name: 'GitHub (eserilev)' });
+      const x = status.getByRole('link', { name: 'X (@0xUncleBill)' });
+      await expect(gh).toHaveAttribute('href', 'https://github.com/eserilev');
+      await expect(x).toHaveAttribute('href', 'https://x.com/0xUncleBill');
+      const batt = await status.locator('.ph-batt').boundingBox();
+      const vw = page.viewportSize().width;
+      expect(batt.x + batt.width, `${label}: battery on screen`).toBeLessThanOrEqual(vw);
+      for (const link of [gh, x]) {
+        const box = await link.boundingBox();
+        expect(box.width, label).toBeGreaterThanOrEqual(44);
+        expect(box.height, label).toBeGreaterThanOrEqual(44);
+        expect(box.x + box.width, `${label}: link left of the battery`).toBeLessThanOrEqual(batt.x + 0.5);
+      }
+      // The time stays in the center of the row.
+      const time = await status.locator('[data-time]').boundingBox();
+      if (time.width) expect(Math.abs(time.x + time.width / 2 - vw / 2), `${label}: time centered`).toBeLessThanOrEqual(2);
+    };
+    await page.goto('/');
+    await expect(shell(page).locator('[data-clock]')).toHaveText(/\d\d:\d\d/);
+    await check('standby');
+    await soft(page, 'right').tap();
+    await check('menu');
+    await page.keyboard.press('6');
+    await check('snake');
+    await page.goto(`/posts/${BAL}`);
+    await expect(shell(page).locator('.ph-body')).toBeVisible();
+    await check('reading');
+    // The status row sticks to the top while the post scrolls.
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect.poll(() => status.evaluate(el => el.getBoundingClientRect().top)).toBe(0);
+    await check('reading, scrolled');
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
   test('390 px: no horizontal scroll on any screen; 64 px softkeys', async ({ page }) => {
     const errors = watchErrors(page);
     const wide = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

@@ -323,7 +323,7 @@ Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e
 - `scrollWidth` is not more than the screen width.
 - No visible element passes the left or right edge, except inside a box that scrolls or clips sideways.
 - The items of each bar have the same center line (1 px tolerance).
-- In phone mode, every button is 44 × 44 px or more.
+- In phone mode, every button and link is 44 × 44 px or more. Links in post text are not in this check.
 
 It saves a full-page screenshot of each view in `e2e/test-results`. CI uploads that folder when a test fails.
 
@@ -1056,7 +1056,7 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
 - **First visit** is always `general` on a desktop, whatever the OS dark setting. A saved value that the device cannot show is ignored.
 - **No flash.** `static/js/mode.js` is a blocking `<script src>` in `<head>`. It sets `<html data-mode="...">` before the page paints. Its `Mode` object reads and saves the key. A change fires `modechange` on `document`.
 - **Back to Windows.** `WIN`, `EXIT`, and F10 save `general`. The toolbar button and "Restart in MS-DOS mode" in the Shut Down dialog (11.3) save `night`.
-- **Screen.** Black, full width, text from the top-left corner (real DOS was never centered). Gray top bar: `LOGBOOK.EXE`, the host, a real clock. Text white `#f0f0f0`, headings `#ffffff`, dim text at least `#8a8a8a` (4.5:1). Faint scanlines and glow, off under `prefers-contrast: more`.
+- **Screen.** Black, full width, text from the top-left corner (real DOS was never centered). Gray top bar: `LOGBOOK.EXE`, the host, the links `GITHUB` and `X`, and a real clock. The links use the bar font and color, with an underline. Hover and keyboard focus show them in inverse. The bar is one line. Below 520 px, the host is hidden. Text white `#f0f0f0`, headings `#ffffff`, dim text at least `#8a8a8a` (4.5:1). Faint scanlines and glow, off under `prefers-contrast: more`.
 - **Font.** IBM Plex Mono 400/600, self-hosted, with `OFL-IBMPlexMono.txt`. No Google Fonts.
 - **Start state.** Empty: only the prompt `C:\LOGBOOK>` and one dim hint line, "Type HELP for a list of commands. Type WIN to go back to Windows." No banner, no auto-run.
 - **Commands** (case-insensitive):
@@ -1070,6 +1070,7 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
   | `NOW` | The Now box, or "Nothing here yet." | `/api/now` |
   | `SURF` | Swell, period, wind, water, next tides, stale marks, NOAA attribution. | `/api/surf` |
   | `VER` | `Logbook DOS Version 6.22` | local |
+  | `LINKS` | Two lines: `GITHUB  https://github.com/eserilev` and `X       https://x.com/0xUncleBill`. The address is a link. HELP: "show my GitHub and X links". | local |
   | `CLS` | Clear the screen. | local |
   | `WIN`, `EXIT` | Back to Win98 (light mode). | local |
   | `LOGIN`, `LOGOUT` | Passkey sign-in and sign-out. Owners have no footer link in DOS mode. | `Auth.*` |
@@ -1081,7 +1082,7 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
 - **History.** Up and Down recall earlier commands.
 - **Router.** In DOS mode, `/posts/{slug}` runs CLS then TYPE, `/topics/{t}` lists that topic, and `/about` shows the empty prompt at `/`. TYPE calls `app.go('/posts/…')`, so Back and shared links work. Tab titles stay as today.
 - **Screen readers.** Output is `role="log"`. A long TYPE announces a short line ("Showing BLOCKACC.TXT") and moves focus to the title.
-- **Tests.** Toggle and reload, DIR then TYPE, a deep link, Back, WIN, a 390 px layout, keyboard-only use, no CSP errors.
+- **Tests.** Toggle and reload, DIR then TYPE, a deep link, Back, WIN, LINKS, the top-bar links at 390 and 1280 px, a 390 px layout, keyboard-only use, no CSP errors.
 
 ### 11.2 DOS EDIT for the owner (PR 2, after 11.1) [not started]
 
@@ -1149,7 +1150,7 @@ On phones, the site looks and works like a monochrome phone from 2000: the page 
 
 - **Default.** A phone opens in phone mode: `(pointer: coarse)` and a viewport 600 px wide or less when the page loads, with no saved choice. A desktop never shows phone mode or any switch to it. On a desktop, a saved `phone` is ignored, and the page opens in `general`.
 - **Switching, on phones only.** Phone mode → Profiles: Phone (this view), General (Win98, light), Night (MS-DOS, dark). Win98 footer: "View: Mobile | Desktop". Win98 Shut Down dialog: "Restart in phone mode" (11.3). MS-DOS: the `MOBILE` command and the F8 Mobile key. The choice persists in the one mode key of 11.1: `localStorage` `logbook.mode` = `phone`, `general`, or `night`, in try/catch. On a desktop these switches do not render: CSS hides `.phone-only` unless `<html data-device="phone">`, and the `MOBILE` command gives "Bad command or file name".
-- **Look.** Ink `#1d2b14` on a `#bcd193`–`#a6bd79` gradient (9.0:1 and 7.2:1, AAA). VT323 (self-hosted). A faint 3 px grid, off under `prefers-contrast: more`. Status row: signal bars side by side and rising, the time, a horizontal battery.
+- **Look.** Ink `#1d2b14` on a `#bcd193`–`#a6bd79` gradient (9.0:1 and 7.2:1, AAA). VT323 (self-hosted). A faint 3 px grid, off under `prefers-contrast: more`. Status row: signal bars side by side and rising, the time in the center, then a pixel GitHub mark, a pixel X mark, and a horizontal battery on the right. The two marks are links (GitHub `https://github.com/eserilev`, X `https://x.com/0xUncleBill`, `rel="me noopener"`, same tab). They show on every screen. Each mark is 18 px tall, in ink, on the pixel grid of the battery. Each link is a 44 × 44 px tap area. A tap shows the mark in inverse.
 - **Standby.** "Eitan's Logbook", the logo as pixel art in a 1 px box (ink E and waves on clear LCD), a live clock and date. With an unread post: "1 new post", softkeys Read / Menu. Without: Menu / Posts. "Unread" is per browser (`localStorage`), against the newest `published_at`.
 - **Softkeys.** Two plain words at the bottom of the LCD, left (main action) and right (Back). No border, no background, no arrow buttons. Each half is a 64 px tap area. A tap shows the word in inverse.
 - **Menu.** One item per screen: a large pixel icon, the label, and the index number. Items: Posts, Topics, Now, Surf, Profiles, Games. Tap the icon to open. Swipe or tap the pixel arrows to move. Keys 1–6 open an item directly.
@@ -1161,4 +1162,4 @@ On phones, the site looks and works like a monochrome phone from 2000: the page 
 - **Unread.** `localStorage` `logbook.seen` holds the `published_at` of the newest post that this browser opened.
 - **History.** Each screen change is a history entry. Screens without their own address (Menu, Posts, Topics, Now, Surf, Profiles, Games) live at `/` with their name in `history.state`. Read on standby adds Menu and Posts before the post, so Back goes to Posts. A screen opened from a shared link has no earlier entry. Then Back goes to its parent screen: a post to Posts, a topic to Topics, the others to Menu.
 - **Build.** `mode.js` sets `<html data-mode="phone">` and `<html data-device="phone">` before paint. One `<phone-shell>` element (`static/js/phone.js`) sits next to the Win98 views. It uses the same data code: `Api`, `TOPICS`, `matchRoute`, and the `<blog-app>` router. All styles are in `static/css/phone.css`. The battery and the scroll bar change through CSSOM. No inline styles or scripts (CSP), no Google Fonts. `/write` and `/setup` keep the Win98 view.
-- **Tests** (`phone.spec.js`, iPhone 13 context in Chromium): phone mode is the default, Read opens the newest post, Back, menu keys 1–6, Options and Jump to section, Snake start and pause, Profiles to General and Night and back, no horizontal scroll at 390 px, one scroll container (touch swipes at the edge scroll the page). A desktop context shows no phone mode and no switch to it.
+- **Tests** (`phone.spec.js`, iPhone 13 context in Chromium): phone mode is the default, Read opens the newest post, Back, menu keys 1–6, Options and Jump to section, Snake start and pause, Profiles to General and Night and back, the GitHub and X links left of the battery on every screen, no horizontal scroll at 390 px, one scroll container (touch swipes at the edge scroll the page). A desktop context shows no phone mode and no switch to it.
