@@ -201,7 +201,7 @@ Reading time: `max(1, ceil(words / 220))` minutes.
 
 One spot: **Redondo Beach, CA**. All data from NOAA. Public domain. No API key.
 
-Win98 window "Surf Report - Redondo Beach". LCD readouts, tide chart, one-line rating.
+Win98 window "Surf Report - Redondo Beach". LCD readouts and a tide chart. No rating text.
 
 | Readout | Source | Endpoint | Unit shown |
 |---|---|---|---|
@@ -683,7 +683,7 @@ Workflow **CI** (push to `master`, PRs): all gates of 7.9.
 
 Workflow **Deploy** (`.github/workflows/deploy.yml`):
 
-- After CI passes for a push to `master` in this repo (`workflow_run`): automatic. Never for a PR or a fork. Only when the repo variable `DEPLOY_ENABLED` is `true`.
+- On each push to `master` (a merged PR): automatic, at once. It does not wait for CI on `master`, because the PR passed CI before the merge. Never for a PR or a fork. Only when the repo variable `DEPLOY_ENABLED` is `true`.
 - By hand (`workflow_dispatch`, inputs: SHA, `allow_empty_start`): first deploy, recovery, and rollback.
 - Steps: build `ghcr.io/eserilev/blog:sha-<commit>` → tag it `prod` → copy `compose.yaml` and `logbook.caddy` to `/srv/logbook` → write `.env`, `prod.env` (mode 600) → make sure that `edge` exists with its subnet and that sandcastle's Caddy is on it → `docker compose pull && docker compose up -d` → Caddy step and health check (6.11).
 - One deploy at a time. A deploy in progress is never cancelled.

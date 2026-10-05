@@ -1,6 +1,7 @@
-# Deploy (spec 6.13). After CI passes on master, build the image, tag it with the
-# commit and :prod, and swap the app on the VPS. A manual run deploys any commit:
-# that is the rollback.
+# Deploy (spec 6.13). On each push to master (a merged PR), build the image, tag it
+# with the commit and :prod, and swap the app on the VPS. It does not wait for CI on
+# master: the PR already passed CI before the merge. A manual run deploys any
+# commit: that is the rollback.
 #
 # The VPS is the sandcastle VPS. Its Caddy imports /srv/edge/sites/*.caddy and joins
 # the external `edge` network (deploy/README.md).
@@ -14,9 +15,7 @@
 name: deploy
 
 on:
-  workflow_run:
-    workflows: [ci]
-    types: [completed]
+  push:
     branches: [master]
   workflow_dispatch:
     inputs:
@@ -38,15 +37,10 @@ concurrency:
 
 jobs:
   deploy:
-    # Only CI runs for pushes to master in this repo. Never a fork or a PR.
+    # A push to master happens only in this repo, never from a fork or a PR.
     # Automatic deploys also need the repo variable DEPLOY_ENABLED=true (set after
     # the one-time setup in deploy/README.md).
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (vars.DEPLOY_ENABLED == 'true' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+    if: github.event_name == 'workflow_dispatch' || vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -56,9 +50,8 @@ jobs:
       - id: sha
         env:
           INPUT_SHA: ${{ inputs.sha }}
-          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          sha="${INPUT_SHA:-${RUN_SHA:-$GITHUB_SHA}}"
+          sha="${INPUT_SHA:-$GITHUB_SHA}"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "not a full SHA: $sha"; exit 1; }
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"

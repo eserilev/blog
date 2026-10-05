@@ -80,7 +80,6 @@ pub struct Surf {
     pub waves: Option<Waves>,
     pub wind: Option<Wind>,
     pub tides: Vec<Tide>,
-    pub rating: Option<String>,
     pub fetched_at: String,
 }
 
@@ -239,27 +238,6 @@ pub fn parse_tides(json: &str) -> Vec<Tide> {
         .unwrap_or_default()
 }
 
-/// A one-line rating from swell and wind (spec 4.5).
-#[must_use]
-pub fn rating(swell: Option<&Swell>, wind: Option<&Wind>) -> Option<String> {
-    let s = swell?;
-    let light = wind.is_none_or(|w| w.speed_kt < 6.0);
-    let offshore = wind.is_some_and(|w| w.offshore);
-    let blown = wind.is_some_and(|w| !w.offshore && w.speed_kt >= 12.0);
-    let text = if s.height_ft < 1.0 {
-        "Flat."
-    } else if blown {
-        "Blown out. Onshore wind."
-    } else if s.height_ft < 2.0 {
-        "Small. A longboard day."
-    } else if s.period_s >= 12.0 && (offshore || light) {
-        "Good. Long-period swell, clean wind."
-    } else {
-        "Fair."
-    };
-    Some(text.to_string())
-}
-
 async fn text(client: &reqwest::Client, url: &str) -> Option<String> {
     let res = client.get(url).send().await.ok()?;
     if !res.status().is_success() {
@@ -282,7 +260,6 @@ pub async fn fetch(client: &reqwest::Client) -> Surf {
     let waves = txt.as_deref().and_then(parse_txt);
     let wind = nws.as_deref().and_then(parse_nws);
     let tides = coops.as_deref().map(parse_tides).unwrap_or_default();
-    let rating = rating(swell.as_ref(), wind.as_ref());
     let fetched_at = time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap_or_default();
@@ -291,7 +268,6 @@ pub async fn fetch(client: &reqwest::Client) -> Surf {
         waves,
         wind,
         tides,
-        rating,
         fetched_at,
     }
 }
@@ -325,7 +301,6 @@ pub fn spawn_fetch(state: AppState, user_agent: String) {
                 } else {
                     new.tides
                 },
-                rating: new.rating.or(old.rating),
                 fetched_at: new.fetched_at,
             };
             *cur = Some(merged);
@@ -422,40 +397,5 @@ mod tests {
         assert_eq!(compass(90.0), "E");
         assert_eq!(compass(202.5), "SSW");
         assert_eq!(compass(-90.0), "W");
-    }
-
-    #[test]
-    fn ratings() {
-        let swell = |h: f64, p: f64| Swell {
-            height_ft: h,
-            period_s: p,
-            direction: "SSW".into(),
-            observed_at: String::new(),
-        };
-        let wind = |kt: f64, deg: f64| Wind {
-            speed_kt: kt,
-            direction_deg: deg,
-            direction: compass(deg).into(),
-            offshore: (30.0..=150.0).contains(&deg),
-            observed_at: String::new(),
-        };
-        assert_eq!(rating(None, None), None);
-        assert_eq!(rating(Some(&swell(0.5, 14.0)), None).unwrap(), "Flat.");
-        assert_eq!(
-            rating(Some(&swell(3.0, 14.0)), Some(&wind(15.0, 250.0))).unwrap(),
-            "Blown out. Onshore wind."
-        );
-        assert_eq!(
-            rating(Some(&swell(1.5, 14.0)), None).unwrap(),
-            "Small. A longboard day."
-        );
-        assert_eq!(
-            rating(Some(&swell(3.0, 14.0)), Some(&wind(8.0, 70.0))).unwrap(),
-            "Good. Long-period swell, clean wind."
-        );
-        assert_eq!(
-            rating(Some(&swell(3.0, 8.0)), Some(&wind(8.0, 250.0))).unwrap(),
-            "Fair."
-        );
     }
 }

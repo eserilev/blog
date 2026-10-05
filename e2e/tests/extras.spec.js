@@ -57,5 +57,5 @@ test('the editor uploads an image and the preview shows it', async ({ page }) =>
 
 test('the surf window says when there is no data', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('surf-report [data-rating]')).toHaveText('No NOAA data yet.');
+  await expect(page.locator('surf-report [data-status]')).toHaveText('No NOAA data yet.');
 });
