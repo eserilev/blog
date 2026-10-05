@@ -76,28 +76,38 @@ async fn feed_has_public_posts_only_with_absolute_links() {
     assert!(!r.body.contains(SECRET));
 }
 
+const OTHER_BROWSER: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 Safari/605.1.15";
+
 #[tokio::test]
-async fn visitors_count_people_not_bots() {
+async fn visitors_count_people_once_per_day_not_bots() {
     let f = fixture().await;
+    // One person: refreshes and other pages count once.
     for _ in 0..3 {
         f.send(Req::get("/").ua(BROWSER)).await;
     }
     f.send(Req::get(&format!("/posts/{PUBLIC_SLUG}")).ua(BROWSER))
         .await;
+    // A second person (another browser) counts once more.
+    f.send(Req::get("/").ua(OTHER_BROWSER)).await;
+    f.send(Req::get("/about").ua(OTHER_BROWSER)).await;
     for bot in ["Googlebot/2.1", "curl/8.0", "Feedly/1.0", ""] {
         f.send(Req::get("/").ua(bot)).await;
     }
     f.get("/api/posts").await; // not a page
-    assert_eq!(f.json("/api/visitors").await["total"], 4);
+    assert_eq!(f.json("/api/visitors").await["total"], 2);
     // A flush moves the count into the database; the total stays the same.
     f.state.counter.flush(&f.pool).await.unwrap();
     assert_eq!(f.state.counter.pending(), 0);
-    assert_eq!(f.json("/api/visitors").await["total"], 4);
+    assert_eq!(f.json("/api/visitors").await["total"], 2);
+    // The person is still known today after the flush.
+    f.send(Req::get("/").ua(BROWSER)).await;
+    assert_eq!(f.json("/api/visitors").await["total"], 2);
     let stored: i64 = sqlx::query_scalar("SELECT SUM(count) FROM visits")
         .fetch_one(&f.pool)
         .await
         .unwrap();
-    assert_eq!(stored, 4);
+    assert_eq!(stored, 2);
 }
 
 #[tokio::test]
