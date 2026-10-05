@@ -27,8 +27,7 @@ db_query() { docker compose exec -T app sqlite3 /data/logbook.db "$1"; }
 
 cleanup
 echo "restore-test: build"
-# CI builds the image first, with a layer cache (RESTORE_TEST_SKIP_BUILD=1).
-if [ "${RESTORE_TEST_SKIP_BUILD:-}" != "1" ]; then docker compose build -q app; fi
+docker compose build -q app
 
 echo "restore-test: start S3 and create buckets"
 docker compose up -d --wait s3
