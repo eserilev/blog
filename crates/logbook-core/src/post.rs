@@ -26,7 +26,10 @@ pub enum Topic {
 }
 
 /// A post as the core logic sees it. Text fields are UTF-8 bytes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// `Clone` is written out by hand: Aeneas models `Vec::clone` but not
+/// `Option::clone`, and `filter_public` clones posts.
+#[derive(Debug, PartialEq, Eq)]
 pub struct Post {
     pub id: u64,
     pub state: State,
@@ -42,6 +45,31 @@ pub struct Post {
     pub published_at: Option<Vec<u8>>,
     /// RFC 3339 timestamp.
     pub updated_at: Vec<u8>,
+}
+
+fn clone_opt(v: &Option<Vec<u8>>) -> Option<Vec<u8>> {
+    match v {
+        Some(b) => Some(b.clone()),
+        None => None,
+    }
+}
+
+impl Clone for Post {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            state: self.state,
+            topic: self.topic,
+            word_count: self.word_count,
+            slug: self.slug.clone(),
+            title: self.title.clone(),
+            summary: self.summary.clone(),
+            tags: self.tags.clone(),
+            body_html: self.body_html.clone(),
+            published_at: clone_opt(&self.published_at),
+            updated_at: self.updated_at.clone(),
+        }
+    }
 }
 
 /// Reading time in whole minutes: `max(1, ceil(words / 220))` (theorem T11).

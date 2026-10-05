@@ -660,7 +660,6 @@ blog/
 ├── e2e/                       Playwright
 ├── deploy/                    Dockerfile, entrypoint.sh, restore-test.sh, compose.yaml, compose.test.yaml,
 │                              logbook.caddy, litestream.yml, *.env.example, README.md
-├── flake.nix                  pins Charon, Aeneas, Lean, the nightly toolchain
 ├── .github/workflows/         ci.yml, deploy.yml, nightly.yml
 └── designs/                   mockups
 ```
@@ -672,7 +671,7 @@ Each step ends working, with its tests.
 1. **Scaffold.** Workspace, three crates, axum serving the split mockup (no inline scripts, self-hosted fonts, CSP). CI: fmt, clippy, deny, tests.
 2. **Posts.** SQLite, `posts`, `render()`, `logbook-core` (`reveal`, slugs), public API, `<head>` tags, path router. Litestream start sequence with a local S3 (SeaweedFS). First fuzz targets. Restore test.
 3. **Sign-in.** Passkeys, sessions, CSRF checks, CLI setup link, revoke. Route table + access matrix. Playwright passkey test.
-4. **Proofs.** One-day Aeneas spike on `make_slug` and `filter_public` first. If the spike fails, cut the scope (7.6). Then the theorems and the CI job.
+4. **Proofs.** One-day Aeneas spike on `make_slug` and `filter_public` first. If the spike fails, cut the scope (7.6). Then the theorems and the CI job. (Done: T1–T5, T10–T12. T6–T9 follow in a later PR.)
 5. **Editor.** Owner API, versions and 409, `<md-editor>`, WASM preview.
 6. **Extras.** Now box, RSS, counter, uploads, surf report, export.
 7. **Deploy.** Dockerfile, compose, Caddy step, workflows, sandcastle edits, Hetzner project and bucket, domain.
@@ -807,15 +806,32 @@ Guest code paths use `PublicPost` only. Owner paths use `Post`. A guest route th
 
 T12 turns every "if `ok`" above into "always".
 
+**Status (2026-10-04):**
+
+| Theorem | Status | Lean |
+|---|---|---|
+| T1, T2 | Proved | `reveal_spec`, `reveal_iff` |
+| T3 | Proved | `filter_public_spec` |
+| T4, T5 | Proved | `make_slug_spec` (`ValidSlug`), `slug_charset` |
+| T10 | Proved | `media_key_spec` (`keyShape`) |
+| T11 | Proved | `reading_spec` |
+| T12 | Proved for all five functions | the `⦃ ⦄` form of each theorem |
+| T6, T7, T8, T9 | Not yet proved. Property tests cover them (`slug.rs`). | — |
+
+`Logbook/Axioms.lean` makes the build fail if any proved theorem depends on an axiom other than `propext`, `Classical.choice`, and `Quot.sound`.
+
 **Not covered by proofs:** `render()` (property tests + fuzz), sessions, passkeys, CSRF (integration + Playwright), SQL and route code (access matrix), the tools themselves (rustc, Charon, Aeneas, Lean).
 
-**Feasibility.** `reveal`, `filter_public`, `media_key_ok`, `reading_minutes`: realistic. `make_slug` (byte loop, lowercase, hyphen collapse, truncate, trim) is the hard one. T9 can take weeks. Step 4 starts with a one-day spike. If Aeneas cannot handle a construct, change the Rust code to a simpler form, or drop that theorem and keep the property test. [build-check] Current Aeneas support for slices of structs with `Vec<u8>` fields (the spike).
+**What the spike showed.** Aeneas handles every function in `logbook-core`, including loops over slices of structs with `Vec<u8>` fields. The Rust code keeps away from std helpers that Aeneas does not model: `u8::is_ascii_*`, `contains` on ranges, `Vec::is_empty`, and `Option::clone` (so `Post` has a hand-written `Clone`). The derived `Debug` and `PartialEq` of `Option` stay as generated axioms, because no verified function calls them.
 
 **Setup:**
 
-- `flake.nix` pins Charon, Aeneas, Lean, and Charon's nightly toolchain.
-- `proofs/` is a Lean 4 project. Generated files are committed.
-- CI: regenerate → fail on a diff → `lake build`. Use `lake exe cache get` for Mathlib.
+- `proofs/tools.sh` downloads pinned Charon and Aeneas release builds and checks their SHA-256. No Nix.
+- The Charon version must match the `charon-pin` of the Aeneas build. Aeneas refuses files from another Charon version.
+- Charon drives the Rust nightly in its `rust-toolchain` file (with `rustc-dev`, `llvm-tools`, `rust-src`).
+- `proofs/extract.sh`: Rust → Charon → Aeneas → `proofs/LogbookCore/{Types,Funs,FunsExternal}.lean`. These files are generated and committed.
+- `proofs/Logbook/*.lean` hold the theorems. `lean-toolchain` follows the Aeneas build. Mathlib comes from `lake exe cache get`.
+- CI: run `extract.sh`, fail on a diff in `proofs/LogbookCore`, then `lake build Logbook`, and fail on any `sorry`.
 
 ### 7.7 Restore test
 
@@ -851,7 +867,7 @@ PR and push to `master` (all must pass before Deploy):
 7. Proofs.
 8. Mutants `--in-diff`.
 
-Expected time: 20–40 min (Nix cache, Mathlib cache, Rust cache).
+Expected time: 20–40 min (Mathlib cache, Rust cache).
 
 Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh advisories. A crash or a failure opens an issue.
 

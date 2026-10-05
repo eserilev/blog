@@ -6,12 +6,14 @@
 /// Maximum slug length in bytes.
 pub const SLUG_MAX: usize = 80;
 
+// Plain comparisons, not `u8::is_ascii_*`: Aeneas has no model for those.
+
 fn lower(c: u8) -> u8 {
-    if c.is_ascii_uppercase() { c + 32 } else { c }
+    if c >= b'A' && c <= b'Z' { c + 32 } else { c }
 }
 
 fn is_slug_char(c: u8) -> bool {
-    c.is_ascii_lowercase() || c.is_ascii_digit()
+    (c >= b'a' && c <= b'z') || (c >= b'0' && c <= b'9')
 }
 
 /// `post-<id>`.
@@ -52,7 +54,7 @@ pub fn make_slug(title: &[u8], id: u64) -> Vec<u8> {
     while i < title.len() {
         let c = lower(title[i]);
         if is_slug_char(c) {
-            if gap && !out.is_empty() {
+            if gap && out.len() > 0 {
                 if out.len() + 2 > SLUG_MAX {
                     break;
                 }
@@ -68,7 +70,7 @@ pub fn make_slug(title: &[u8], id: u64) -> Vec<u8> {
         }
         i += 1;
     }
-    if out.is_empty() { fallback(id) } else { out }
+    if out.len() == 0 { fallback(id) } else { out }
 }
 
 #[cfg(test)]
