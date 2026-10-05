@@ -148,7 +148,7 @@ blog-app[data-owner] .guest-only { display: none !important; }
 .foot-note { margin-top: 16px; text-align: center; font: 12px var(--f-ui); color: var(--muted); }
 
 /* Post view */
-.article { max-width: 68ch; margin: 0 auto; padding: 30px clamp(16px, 4vw, 32px) 40px; }
+.article { max-width: 820px; margin: 0 auto; padding: 30px clamp(16px, 4vw, 32px) 40px; }
 .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
 .article h1.t { font: 700 clamp(30px, 4.5vw, 40px)/1.12 var(--f-head); color: var(--text); margin: 0 0 10px; text-wrap: balance; }
 .byline { font: 15px var(--f-head); color: var(--muted); }
