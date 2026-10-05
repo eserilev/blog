@@ -66,6 +66,11 @@ pub async fn fixture_full(with_posts: bool, auth_rate_limit: u32) -> (Fixture, C
         trusted_proxies: Vec::new(),
         auth_rate_limit,
         git_export: None,
+        s3: None,
+        media_dir: dir.path().join("media"),
+        media_cache: dir.path().join("media-cache"),
+        surf: false,
+        nws_user_agent: "test".into(),
     };
     let pool = db::connect(&config.db_path).await.unwrap();
     if with_posts {

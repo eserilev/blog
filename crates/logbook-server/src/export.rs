@@ -24,7 +24,11 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tokio::sync::Notify;
 
-use crate::{AppState, auth::Owner};
+use crate::{
+    AppState,
+    auth::Owner,
+    media::{self, Media},
+};
 
 /// One exported post.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::FromRow)]
@@ -102,6 +106,40 @@ pub fn parse(text: &str) -> Option<ExportPost> {
 
 const SELECT: &str = "SELECT slug, title, summary, topic, tags, state, published_at, updated_at, body_md FROM posts ORDER BY id";
 
+/// Every media key that `text` links to (`/media/<key>`), each checked by `media_key_ok`.
+#[must_use]
+pub fn media_keys(text: &str) -> Vec<String> {
+    let mut keys = Vec::new();
+    for (i, _) in text.match_indices("/media/") {
+        let rest = &text[i + 7..];
+        for len in [68, 69] {
+            if let Some(k) = rest.get(..len)
+                && logbook_core::media_key_ok(k.as_bytes())
+                && !keys.iter().any(|x| x == k)
+            {
+                keys.push(k.to_string());
+            }
+        }
+    }
+    keys
+}
+
+/// All uploaded image keys.
+async fn all_media_keys(m: &Media) -> Result<Vec<String>, String> {
+    let prefix = object_store::path::Path::from("uploads");
+    let list = m
+        .store
+        .list_with_delimiter(Some(&prefix))
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(list
+        .objects
+        .into_iter()
+        .filter_map(|o| o.location.filename().map(str::to_string))
+        .filter(|k| logbook_core::media_key_ok(k.as_bytes()))
+        .collect())
+}
+
 async fn now_md(pool: &SqlitePool) -> Result<Option<String>, sqlx::Error> {
     sqlx::query_scalar("SELECT body_md FROM now_box WHERE id = 1")
         .fetch_optional(pool)
@@ -111,12 +149,21 @@ async fn now_md(pool: &SqlitePool) -> Result<Option<String>, sqlx::Error> {
 /// `GET /api/owner/export.zip`: every post in every state, and the Now box.
 pub async fn owner_zip(_: Owner, State(s): State<AppState>) -> Response {
     let built = async {
-        let posts: Vec<ExportPost> = sqlx::query_as(SELECT).fetch_all(&s.pool).await?;
-        let now = now_md(&s.pool).await?;
-        Ok::<_, sqlx::Error>((posts, now))
+        let posts: Vec<ExportPost> = sqlx::query_as(SELECT)
+            .fetch_all(&s.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        let now = now_md(&s.pool).await.map_err(|e| e.to_string())?;
+        let mut images = Vec::new();
+        for key in all_media_keys(&s.media).await? {
+            if let Some(b) = media::read(&s.media, &key).await? {
+                images.push((key, b));
+            }
+        }
+        Ok::<_, String>((posts, now, images))
     }
     .await;
-    let (posts, now) = match built {
+    let (posts, now, images) = match built {
         Ok(v) => v,
         Err(e) => {
             tracing::error!("export failed: {e}");
@@ -136,6 +183,16 @@ pub async fn owner_zip(_: Owner, State(s): State<AppState>) -> Response {
         .try_for_each(|p| add(format!("posts/{}.md", p.slug), &write(p)));
     if let (Ok(()), Some(n)) = (&result, now) {
         result = add("now.md".into(), &n);
+    }
+    for (key, bytes) in &images {
+        if result.is_ok() {
+            result = zip
+                .start_file(
+                    format!("images/{key}"),
+                    zip::write::SimpleFileOptions::default(),
+                )
+                .and_then(|()| zip.write_all(bytes).map_err(Into::into));
+        }
     }
     let bytes = result
         .and_then(|()| zip.finish())
@@ -200,7 +257,11 @@ fn git(dir: &FsPath, env: &[(String, String)], args: &[&str]) -> Result<String, 
 /// # Errors
 ///
 /// Database, file, or git errors.
-pub async fn export_once(pool: &SqlitePool, cfg: &GitExport) -> Result<bool, String> {
+pub async fn export_once(
+    pool: &SqlitePool,
+    cfg: &GitExport,
+    media: &Media,
+) -> Result<bool, String> {
     let posts: Vec<ExportPost> = sqlx::query_as(SELECT)
         .fetch_all(pool)
         .await
@@ -212,7 +273,16 @@ pub async fn export_once(pool: &SqlitePool, cfg: &GitExport) -> Result<bool, Str
         .iter()
         .map(|p| (format!("posts/{}.md", p.slug), write(p)))
         .collect();
-    tokio::task::spawn_blocking(move || sync_repo(&cfg, &files, now.as_deref()))
+    let mut images = Vec::new();
+    let keys: Vec<String> = public.iter().flat_map(|p| media_keys(&p.body_md)).collect();
+    for key in keys {
+        if !images.iter().any(|(k, _): &(String, Vec<u8>)| *k == key)
+            && let Some(b) = media::read(media, &key).await?
+        {
+            images.push((key, b));
+        }
+    }
+    tokio::task::spawn_blocking(move || sync_repo(&cfg, &files, &images, now.as_deref()))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -220,6 +290,7 @@ pub async fn export_once(pool: &SqlitePool, cfg: &GitExport) -> Result<bool, Str
 fn sync_repo(
     cfg: &GitExport,
     files: &[(String, String)],
+    images: &[(String, Vec<u8>)],
     now: Option<&str>,
 ) -> Result<bool, String> {
     let mut env = Vec::new();
@@ -266,6 +337,16 @@ fn sync_repo(
     for (name, text) in files {
         std::fs::write(cfg.dir.join(name), text).map_err(|e| e.to_string())?;
     }
+    let images_dir = cfg.dir.join("images");
+    if images_dir.exists() {
+        std::fs::remove_dir_all(&images_dir).map_err(|e| e.to_string())?;
+    }
+    if !images.is_empty() {
+        std::fs::create_dir_all(&images_dir).map_err(|e| e.to_string())?;
+        for (key, bytes) in images {
+            std::fs::write(images_dir.join(key), bytes).map_err(|e| e.to_string())?;
+        }
+    }
     let now_path = cfg.dir.join("now.md");
     match now {
         Some(n) => std::fs::write(&now_path, n).map_err(|e| e.to_string())?,
@@ -308,12 +389,12 @@ fn sync_repo(
 }
 
 /// Runs the git export after each change signal (10 s debounce) and once a day.
-pub fn spawn_git_export(pool: SqlitePool, cfg: GitExport, changed: Arc<Notify>) {
+pub fn spawn_git_export(pool: SqlitePool, cfg: GitExport, changed: Arc<Notify>, media: Media) {
     tokio::spawn(async move {
         loop {
             let _ = tokio::time::timeout(Duration::from_hours(24), changed.notified()).await;
             tokio::time::sleep(Duration::from_secs(10)).await;
-            match export_once(&pool, &cfg).await {
+            match export_once(&pool, &cfg, &media).await {
                 Ok(true) => tracing::info!("exported public posts to {}", cfg.repo),
                 Ok(false) => {}
                 Err(e) => tracing::error!("git export failed: {e}"),

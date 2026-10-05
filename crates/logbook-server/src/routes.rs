@@ -5,13 +5,14 @@ use std::collections::BTreeMap;
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{HeaderValue, header},
     middleware,
     routing::{MethodRouter, delete, get, post, put},
 };
 use tower_http::set_header::SetResponseHeaderLayer;
 
-use crate::{AppState, auth, checks, counter, export, feed, guard, now, pages, posts};
+use crate::{AppState, auth, checks, counter, export, feed, guard, media, now, pages, posts, surf};
 
 /// HTTP method of a route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +66,9 @@ pub enum Kind {
     Visitors,
     Feed,
     ExportZip,
+    Media,
+    Upload,
+    Surf,
 }
 
 /// Every route kind. The test `every_kind_is_routed` checks that each one is in
@@ -97,6 +101,9 @@ pub const ALL_KINDS: &[Kind] = &[
     Kind::Visitors,
     Kind::Feed,
     Kind::ExportZip,
+    Kind::Media,
+    Kind::Upload,
+    Kind::Surf,
 ];
 
 const fn _all_kinds_listed(k: Kind) {
@@ -127,7 +134,10 @@ const fn _all_kinds_listed(k: Kind) {
         | Kind::SaveNow
         | Kind::Visitors
         | Kind::Feed
-        | Kind::ExportZip => {}
+        | Kind::ExportZip
+        | Kind::Media
+        | Kind::Upload
+        | Kind::Surf => {}
     }
 }
 
@@ -263,6 +273,14 @@ pub const ROUTES: &[Route] = &[
         Access::Owner,
         Kind::ExportZip,
     ),
+    r(Verb::Get, "/media/{key}", Access::Public, Kind::Media),
+    r(
+        Verb::Post,
+        "/api/owner/uploads",
+        Access::Owner,
+        Kind::Upload,
+    ),
+    r(Verb::Get, "/api/surf", Access::Public, Kind::Surf),
 ];
 
 fn handler(kind: Kind) -> MethodRouter<AppState> {
@@ -294,6 +312,11 @@ fn handler(kind: Kind) -> MethodRouter<AppState> {
         Kind::Visitors => get(counter::api_visitors),
         Kind::Feed => get(feed::feed),
         Kind::ExportZip => get(export::owner_zip),
+        Kind::Media => get(media::serve),
+        Kind::Upload => {
+            post(media::upload).layer(DefaultBodyLimit::max(media::UPLOAD_MAX + 64 * 1024))
+        }
+        Kind::Surf => get(surf::api_surf),
     }
 }
 

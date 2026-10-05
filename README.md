@@ -16,7 +16,9 @@ cargo run -p logbook-server -- setup-link    # one-time link to register your pa
 
 Settings: `LOGBOOK_ADDR` (default `127.0.0.1:8080`), `LOGBOOK_STATIC_DIR` (default `static`),
 `LOGBOOK_DB` (default `logbook.db`), `LOGBOOK_ORIGIN` (default `http://localhost:8080`; the host is the passkey RP ID, so not an IP),
-`LOGBOOK_TRUSTED_PROXIES` (CIDRs, default none), `LOGBOOK_AUTH_RATE_LIMIT` (default 20 per minute).
+`LOGBOOK_TRUSTED_PROXIES` (CIDRs, default none), `LOGBOOK_AUTH_RATE_LIMIT` (default 20 per minute),
+`LOGBOOK_SURF=off` (no NOAA fetch), `LOGBOOK_MEDIA_DIR` (images without a bucket). Bucket: `S3_ENDPOINT`, `S3_BUCKET`,
+`S3_ACCESS_KEY`, `S3_SECRET_KEY`. Export: `EXPORT_REPO`, `EXPORT_DEPLOY_KEY`.
 
 ## Checks
 

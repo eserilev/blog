@@ -6,7 +6,7 @@
 
 use std::net::SocketAddr;
 
-use logbook_server::{AppState, Config, app, auth, checks, counter, db, export, seed};
+use logbook_server::{AppState, Config, app, auth, checks, counter, db, export, seed, surf};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -43,9 +43,12 @@ async fn serve() -> Result<(), String> {
     checks::spawn_heartbeat(pool.clone());
     let state = AppState::new(&config, pool.clone())?;
     counter::spawn_flush(state.clone());
+    if config.surf {
+        surf::spawn_fetch(state.clone(), config.nws_user_agent.clone());
+    }
     if let (Some(cfg), Some(changed)) = (config.git_export.clone(), state.export_changed.clone()) {
         tracing::info!("git export to {} is on", cfg.repo);
-        export::spawn_git_export(pool, cfg, changed);
+        export::spawn_git_export(pool, cfg, changed, state.media.clone());
     }
     let app = app(&config, state);
     let listener = tokio::net::TcpListener::bind(config.addr)

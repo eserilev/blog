@@ -37,3 +37,25 @@ test('the RSS link opens the feed, not a page view', async ({ page }) => {
   ]);
   expect(res.headers()['content-type']).toContain('application/rss+xml');
 });
+
+// A 2x2 red PNG.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+
+test('the editor uploads an image and the preview shows it', async ({ page }) => {
+  const errors = watchErrors(page);
+  await signIn(page);
+  await page.getByRole('button', { name: 'New post' }).click();
+  await expect(page.locator('md-editor')).toHaveAttribute('data-loaded', '');
+  await page.locator('[data-image-file]').setInputFiles({ name: 'red.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.locator('md-editor [data-status]')).toHaveText('Image added.');
+  await expect(page.getByLabel('Post markdown')).toHaveValue(/!\[\]\(\/media\/[0-9a-f]{64}\.png\)/);
+  const img = page.locator('[data-preview] img');
+  await expect(img).toBeVisible();
+  expect(await img.evaluate(el => el.naturalWidth)).toBe(2);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('the surf window says when there is no data', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('surf-report [data-rating]')).toHaveText('No NOAA data yet.');
+});

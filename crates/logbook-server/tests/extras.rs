@@ -177,7 +177,11 @@ async fn git_export_pushes_public_posts_only() {
     };
 
     // First export: the public posts are pushed.
-    assert!(export::export_once(&f.pool, &cfg).await.unwrap());
+    assert!(
+        export::export_once(&f.pool, &cfg, &f.state.media)
+            .await
+            .unwrap()
+    );
     let check = tmp.path().join("check");
     git(
         tmp.path(),
@@ -201,14 +205,22 @@ async fn git_export_pushes_public_posts_only() {
     }
 
     // Nothing changed: no new commit.
-    assert!(!export::export_once(&f.pool, &cfg).await.unwrap());
+    assert!(
+        !export::export_once(&f.pool, &cfg, &f.state.media)
+            .await
+            .unwrap()
+    );
 
     // A post leaves public: it leaves the export.
     sqlx::query("UPDATE posts SET state = 'private' WHERE slug = 'an-older-public-post'")
         .execute(&f.pool)
         .await
         .unwrap();
-    assert!(export::export_once(&f.pool, &cfg).await.unwrap());
+    assert!(
+        export::export_once(&f.pool, &cfg, &f.state.media)
+            .await
+            .unwrap()
+    );
     git(&check, &["pull", "-q"]);
     assert!(!check.join("posts/an-older-public-post.md").exists());
     assert_eq!(git(&check, &["rev-list", "--count", "HEAD"]).trim(), "2");
