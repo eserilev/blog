@@ -2,8 +2,11 @@
 //! The server fills the `<head>`, the title section, and the topic list, and picks
 //! the status (spec 6.3).
 
+use std::net::SocketAddr;
+
 use axum::{
-    extract::{Path, State},
+    Extension,
+    extract::{ConnectInfo, Path, State},
     http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
 };
@@ -22,6 +25,16 @@ struct Page<'a> {
     path: &'a str,
     article: bool,
     noindex: bool,
+}
+
+/// The peer address, when the server runs with connect info (tests do not).
+type Peer = Option<Extension<ConnectInfo<SocketAddr>>>;
+
+/// Counts the page load for the visitor counter (spec 4.8).
+fn count_visit(s: &AppState, headers: &HeaderMap, peer: &Peer) {
+    let peer = peer.as_ref().map(|Extension(ConnectInfo(a))| a.ip());
+    let ip = crate::guard::client_ip(headers, peer, &s.trusted_proxies);
+    s.counter.hit(headers, ip);
 }
 
 fn internal(e: &sqlx::Error) -> Response {
@@ -63,8 +76,8 @@ async fn not_found_page(s: &AppState, path: &str) -> Response {
 }
 
 /// `/`, `/about`, `/write`, `/write/{id}`: the default head.
-pub async fn index(State(s): State<AppState>, headers: HeaderMap) -> Response {
-    s.counter.hit(&headers);
+pub async fn index(State(s): State<AppState>, peer: Peer, headers: HeaderMap) -> Response {
+    count_visit(&s, &headers, &peer);
     page(
         &s,
         StatusCode::OK,
@@ -84,9 +97,10 @@ pub async fn index(State(s): State<AppState>, headers: HeaderMap) -> Response {
 pub async fn post(
     State(s): State<AppState>,
     Path(slug): Path<String>,
+    peer: Peer,
     headers: HeaderMap,
 ) -> Response {
-    s.counter.hit(&headers);
+    count_visit(&s, &headers, &peer);
     match posts::public_by_slug(&s.pool, &slug).await {
         Ok(Some(pp)) => {
             let p = pp.post();
@@ -115,9 +129,10 @@ pub async fn post(
 pub async fn topic(
     State(s): State<AppState>,
     Path(t): Path<String>,
+    peer: Peer,
     headers: HeaderMap,
 ) -> Response {
-    s.counter.hit(&headers);
+    count_visit(&s, &headers, &peer);
     match topic::get(&s.pool, &t).await {
         Ok(Some(t)) => {
             let path = format!("/topics/{}", t.slug);

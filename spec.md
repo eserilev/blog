@@ -254,10 +254,12 @@ On the server (the real protection): section 6.6.
 
 ### 4.8 Visitor counter
 
-- Counted in memory. No cookies. No IPs stored.
-- A visit = a page load (`/`, `/posts/*`, `/topics/*`, and the other page routes) with a user agent that is not empty and does not look like a bot or tool (`bot`, `crawl`, `spider`, `curl`, `wget`, `python`, `feed`, `headless`, and similar). API calls do not count.
-- Flushed to SQLite once per minute.
-- Open question: real count or fixed number.
+- Counts unique visitors per UTC day, not page loads. A refresh does not count again. No cookies. No IPs stored.
+- A visitor = the first page load (`/`, `/posts/*`, `/topics/*`, and the other page routes) of one client IP and user agent on one day. The user agent must not be empty and must not look like a bot or tool (`bot`, `crawl`, `spider`, `curl`, `wget`, `python`, `feed`, `headless`, and similar). API calls do not count.
+- The server keeps only `SHA-256(daily salt, IP, user agent)`, truncated to 16 bytes, in memory for the current day. At the next UTC day it drops all hashes and makes a new random salt, so no day links to another. At most 100,000 hashes per day; above that, every visitor counts.
+- The client IP follows the trusted-proxy rule (6.6), so a visitor cannot pick an IP to count again.
+- A restart empties the list, so a visitor can count twice on the day of a deploy.
+- Daily totals are flushed to SQLite (`visits`) once per minute. Migration 0003 reset the count to zero on 2026-10-05, when the rule changed from page loads to visitors.
 
 ### 4.9 Title section
 

@@ -76,28 +76,38 @@ async fn feed_has_public_posts_only_with_absolute_links() {
     assert!(!r.body.contains(SECRET));
 }
 
+const OTHER_BROWSER: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 Safari/605.1.15";
+
 #[tokio::test]
-async fn visitors_count_people_not_bots() {
+async fn visitors_count_people_once_per_day_not_bots() {
     let f = fixture().await;
+    // One person: refreshes and other pages count once.
     for _ in 0..3 {
         f.send(Req::get("/").ua(BROWSER)).await;
     }
     f.send(Req::get(&format!("/posts/{PUBLIC_SLUG}")).ua(BROWSER))
         .await;
+    // A second person (another browser) counts once more.
+    f.send(Req::get("/").ua(OTHER_BROWSER)).await;
+    f.send(Req::get("/about").ua(OTHER_BROWSER)).await;
     for bot in ["Googlebot/2.1", "curl/8.0", "Feedly/1.0", ""] {
         f.send(Req::get("/").ua(bot)).await;
     }
     f.get("/api/posts").await; // not a page
-    assert_eq!(f.json("/api/visitors").await["total"], 4);
+    assert_eq!(f.json("/api/visitors").await["total"], 2);
     // A flush moves the count into the database; the total stays the same.
     f.state.counter.flush(&f.pool).await.unwrap();
     assert_eq!(f.state.counter.pending(), 0);
-    assert_eq!(f.json("/api/visitors").await["total"], 4);
+    assert_eq!(f.json("/api/visitors").await["total"], 2);
+    // The person is still known today after the flush.
+    f.send(Req::get("/").ua(BROWSER)).await;
+    assert_eq!(f.json("/api/visitors").await["total"], 2);
     let stored: i64 = sqlx::query_scalar("SELECT SUM(count) FROM visits")
         .fetch_one(&f.pool)
         .await
         .unwrap();
-    assert_eq!(stored, 4);
+    assert_eq!(stored, 2);
 }
 
 #[tokio::test]
@@ -224,4 +234,50 @@ async fn git_export_pushes_public_posts_only() {
     git(&check, &["pull", "-q"]);
     assert!(!check.join("posts/an-older-public-post.md").exists());
     assert_eq!(git(&check, &["rev-list", "--count", "HEAD"]).trim(), "2");
+}
+
+/// Migration 0003 resets the old page-load counts. Nothing else changes.
+#[tokio::test]
+async fn migration_0003_resets_only_the_visits() {
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("old.db");
+    let opts = SqliteConnectOptions::from_str("sqlite:")
+        .unwrap()
+        .filename(&path)
+        .create_if_missing(true)
+        .foreign_keys(true);
+    let pool = SqlitePoolOptions::new().connect_with(opts).await.unwrap();
+    let mut old = sqlx::migrate!("./migrations");
+    old.migrations = old
+        .migrations
+        .iter()
+        .take(2)
+        .cloned()
+        .collect::<Vec<_>>()
+        .into();
+    old.run(&pool).await.unwrap();
+    sqlx::query("INSERT INTO visits (day, count) VALUES ('2026-10-04', 120), ('2026-10-05', 33)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO now_box (id, body_md, body_html, updated_at) VALUES (1, 'x', '<p>x</p>', '2026-10-04T00:00:00Z')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+
+    let pool = logbook_server::db::connect(&path).await.unwrap();
+    let visits: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM visits")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(visits, 0);
+    let now: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM now_box")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(now, 1, "other tables keep their rows");
 }

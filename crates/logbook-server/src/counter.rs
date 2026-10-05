@@ -1,20 +1,50 @@
-//! The visitor counter (spec 4.8): page loads counted in memory, no cookies, no IPs.
-//! Flushed to the `visits` table once per minute.
+//! The visitor counter (spec 4.8): unique visitors per day, no cookies, no stored IPs.
+//!
+//! A visitor is a hash of a daily random salt, the client IP, and the user agent.
+//! The hashes live in memory for the current UTC day only. At the next day the
+//! server drops them and makes a new salt, so no day links to another.
+//! Daily totals are flushed to the `visits` table once per minute.
 
 use std::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
+    collections::HashSet,
+    net::IpAddr,
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use axum::{Json, extract::State, http::HeaderMap};
+use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 
 use crate::{AppState, posts::OwnerError};
 
-/// Pending page loads, not yet in the database.
+/// Most visitor hashes kept for one day. Above this, every new hash counts, so a
+/// flood of fake visitors cannot use unbounded memory.
+pub const SEEN_MAX: usize = 100_000;
+
+/// The visitors of the current UTC day.
+#[derive(Debug, Default)]
+struct Day {
+    /// Days since 1970-01-01 (UTC).
+    number: u64,
+    salt: [u8; 16],
+    seen: HashSet<[u8; 16]>,
+}
+
+/// Pending visitors, not yet in the database.
 #[derive(Debug, Default)]
 pub struct Counter {
     pending: AtomicU64,
+    day: Mutex<Day>,
+}
+
+fn today() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() / 86_400)
 }
 
 /// User agents of crawlers and tools. Not counted.
@@ -45,11 +75,46 @@ pub fn is_person(headers: &HeaderMap) -> bool {
 }
 
 impl Counter {
-    /// Counts one page load, if it looks like a person.
-    pub fn hit(&self, headers: &HeaderMap) {
-        if is_person(headers) {
+    /// Counts a page load as a visitor, if it looks like a person and is the first
+    /// load of this IP and user agent today.
+    pub fn hit(&self, headers: &HeaderMap, ip: Option<IpAddr>) {
+        if !is_person(headers) {
+            return;
+        }
+        let ua = headers
+            .get(axum::http::header::USER_AGENT)
+            .map_or(&[][..], axum::http::HeaderValue::as_bytes);
+        if self.first_visit(today(), ip, ua) {
             self.pending.fetch_add(1, Ordering::Relaxed);
         }
+    }
+
+    /// True the first time this IP and user agent appear on day `day`.
+    fn first_visit(&self, day: u64, ip: Option<IpAddr>, ua: &[u8]) -> bool {
+        let Ok(mut d) = self.day.lock() else {
+            return true;
+        };
+        if d.number != day || d.salt == [0; 16] {
+            d.number = day;
+            d.seen.clear();
+            if getrandom::fill(&mut d.salt).is_err() {
+                d.salt = [1; 16];
+            }
+        }
+        let mut h = Sha256::new();
+        h.update(d.salt);
+        match ip {
+            Some(IpAddr::V4(a)) => h.update(a.octets()),
+            Some(IpAddr::V6(a)) => h.update(a.octets()),
+            None => h.update([0u8]),
+        }
+        h.update(ua);
+        let mut key = [0u8; 16];
+        key.copy_from_slice(&h.finalize()[..16]);
+        if d.seen.len() >= SEEN_MAX {
+            return !d.seen.contains(&key);
+        }
+        d.seen.insert(key)
     }
 
     /// Page loads not yet flushed.
@@ -110,4 +175,41 @@ pub async fn api_visitors(
         .await?;
     let total = u64::try_from(stored).unwrap_or(0) + s.counter.pending();
     Ok(Json(serde_json::json!({ "total": total })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+
+    const A: Option<IpAddr> = Some(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)));
+    const B: Option<IpAddr> = Some(IpAddr::V4(Ipv4Addr::new(198, 51, 100, 9)));
+
+    #[test]
+    fn one_visit_per_ip_and_browser_per_day() {
+        let c = Counter::default();
+        assert!(c.first_visit(100, A, b"firefox"));
+        assert!(!c.first_visit(100, A, b"firefox"), "a refresh");
+        assert!(
+            c.first_visit(100, A, b"safari"),
+            "another browser on the same IP"
+        );
+        assert!(c.first_visit(100, B, b"firefox"), "another IP");
+        assert!(
+            c.first_visit(101, A, b"firefox"),
+            "the next day counts again"
+        );
+        assert!(!c.first_visit(101, A, b"firefox"));
+    }
+
+    #[test]
+    fn a_new_day_drops_the_hashes_and_the_salt() {
+        let c = Counter::default();
+        c.first_visit(100, A, b"x");
+        let salt = c.day.lock().unwrap().salt;
+        c.first_visit(101, B, b"y");
+        let d = c.day.lock().unwrap();
+        assert_eq!(d.seen.len(), 1);
+        assert_ne!(d.salt, salt);
+    }
 }
