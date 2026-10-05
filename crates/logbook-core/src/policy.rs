@@ -47,14 +47,13 @@ pub fn filter_public(ps: &[Post]) -> Vec<PublicPost> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::post::Topic;
     use proptest::prelude::*;
 
     pub(crate) fn post(id: u64, state: State) -> Post {
         Post {
             id,
             state,
-            topic: Topic::Rust,
+            topic: b"rust".to_vec(),
             word_count: 10,
             slug: format!("p-{id}").into_bytes(),
             title: format!("Post {id}").into_bytes(),

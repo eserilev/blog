@@ -1,7 +1,8 @@
 (() => {
   const app = document.querySelector('blog-app');
-  const SITE = "Eitan's Logbook";
   const titleEl = document.getElementById('ns-title');
+  // The site title (spec 4.9). The server filled it in; the owner can change it.
+  let SITE = titleEl.textContent;
   const locEl = document.getElementById('ns-loc');
 
   // The Location bar shows the path as a file under /home/eitan/www.
@@ -10,7 +11,7 @@
     if (path.startsWith('/write')) return '/drafts/';
     return `${path}.html`;
   };
-  const topicOf = path => (path.match(/^\/topics\/([a-z-]+)$/) || [])[1];
+  const topicOf = path => (path.match(/^\/topics\/([a-z0-9-]+)$/) || [])[1];
   const setTitle = t => { titleEl.textContent = t; document.title = t === SITE ? SITE : `${t} · ${SITE}`; };
 
   const onView = ({ view, path }) => {
@@ -48,7 +49,7 @@
   app.addEventListener('viewchange', e => {
     if (e.detail.view === 'write') {
       if (!app.hasAttribute('data-owner')) app.go('/', { replace: true });
-      else loadPasskeys();
+      else { loadPasskeys(); loadSettings(); loadTopics(); }
     }
     if (e.detail.view === 'setup') setTitle('Add Passkey');
   });
@@ -139,6 +140,98 @@
   });
 
   refreshOwner();
+
+  // Site settings (spec 4.9): the title section of the home page.
+  const setStatus = document.getElementById('settings-status');
+  const setField = id => document.getElementById(`set-${id}`);
+  const showSite = s => {
+    SITE = s.title;
+    document.getElementById('site-title').textContent = s.title;
+    document.getElementById('site-subtitle').textContent = s.subtitle;
+    document.getElementById('site-tagline').textContent = s.tagline;
+    // intro_html is rendered and sanitized on the server.
+    document.getElementById('site-intro').innerHTML = s.intro_html;
+    onView(app.route);
+  };
+  async function loadSettings() {
+    try {
+      const s = await Posts.call('GET', '/api/owner/site');
+      for (const f of ['title', 'subtitle', 'tagline']) setField(f).value = s[f];
+      setField('intro').value = s.intro_md;
+      if (location.hash === '#settings') document.getElementById('settings').scrollIntoView();
+    } catch {
+      say(setStatus, 'Could not load the settings.', true);
+    }
+  }
+  document.getElementById('settings').addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = { title: setField('title').value, subtitle: setField('subtitle').value, tagline: setField('tagline').value, intro_md: setField('intro').value };
+    try {
+      await Posts.call('PUT', '/api/owner/site', { body });
+      showSite(await (await fetch('/api/site')).json());
+      say(setStatus, 'Saved.');
+    } catch (err) {
+      say(setStatus, `Could not save. ${err.message}`, true);
+    }
+  });
+
+  // Topics (spec 4.2): rename, move, delete, add. Names and order save together.
+  const topicList = document.getElementById('topic-list');
+  const topicStatus = document.getElementById('topics-status');
+  const topicRow = t => {
+    const li = document.createElement('li');
+    li.dataset.slug = t.slug;
+    const name = document.createElement('input');
+    name.value = t.name;
+    name.maxLength = 40;
+    name.setAttribute('aria-label', `Name of topic ${t.slug}`);
+    const slug = document.createElement('code');
+    slug.textContent = `/topics/${t.slug}`;
+    const btn = (label, aria, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn98'; b.textContent = label; b.setAttribute('aria-label', aria);
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const up = btn('↑', `Move ${t.slug} up`, () => { if (li.previousElementSibling) li.previousElementSibling.before(li); });
+    const down = btn('↓', `Move ${t.slug} down`, () => { if (li.nextElementSibling) li.nextElementSibling.after(li); });
+    const del = btn('Delete', `Delete ${t.slug}`, async () => {
+      try {
+        const list = await Posts.call('DELETE', `/api/owner/topics/${encodeURIComponent(t.slug)}`);
+        showTopics(list);
+        say(topicStatus, 'Topic deleted.');
+      } catch (err) {
+        say(topicStatus, `Could not delete. ${err.message}`, true);
+      }
+    });
+    li.append(name, slug, up, down, del);
+    return li;
+  };
+  const showTopics = list => { topicList.replaceChildren(...list.map(topicRow)); setTopics(list); };
+  async function loadTopics() {
+    try { showTopics(await (await fetch('/api/topics')).json()); } catch { say(topicStatus, 'Could not load the topics.', true); }
+  }
+  document.getElementById('topic-add').addEventListener('submit', async e => {
+    e.preventDefault();
+    const input = document.getElementById('topic-new');
+    try {
+      const t = await Posts.call('POST', '/api/owner/topics', { body: { name: input.value } });
+      input.value = '';
+      await loadTopics();
+      say(topicStatus, `Topic added: /topics/${t.slug}`);
+    } catch (err) {
+      say(topicStatus, `Could not add. ${err.message}`, true);
+    }
+  });
+  document.getElementById('topics-save').addEventListener('click', async () => {
+    const topics = [...topicList.children].map(li => ({ slug: li.dataset.slug, name: li.querySelector('input').value }));
+    try {
+      showTopics(await Posts.call('PUT', '/api/owner/topics', { body: { topics } }));
+      say(topicStatus, 'Saved.');
+    } catch (err) {
+      say(topicStatus, `Could not save. ${err.message}`, true);
+    }
+  });
 
   // The Now box (spec 4.4). Guests see the server's HTML; the owner edits markdown.
   const nowView = document.getElementById('now-view'), nowEdit = document.getElementById('now-edit');

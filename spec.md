@@ -56,11 +56,11 @@ No "Netscape" text anywhere. The window title is the page name.
 
 ### 3.3 Header
 
-- Title: **Eitan's Logbook**. Tinos bold, 44–68 px, raised gray shadow.
-- Under it: "ETHEREUM · RUST · OCEAN", spaced monospace capitals, navy.
+- Title: **Eitan's Logbook** by default. Tinos bold, 44–68 px, raised gray shadow.
+- Under it, the subtitle: "SOFTWARE ENGINEERING · GAMING · RANDOM FUN" by default. Spaced monospace capitals, navy.
 - 6 px navy-to-blue bar, same gradient as the title bar.
-- Tagline: "An Ethereum core developer keeps notes on protocol work, Rust, and the time between."
-- Name not final.
+- Tagline: "An Ethereum core developer keeps notes on protocol work, Rust, and the time between." by default.
+- The owner edits the title, subtitle, tagline, and intro (4.9).
 
 ### 3.4 Colors
 
@@ -97,21 +97,21 @@ Body 15–15.5 px, line height 1.65–1.75, max about 68 characters per line.
 
 Sidebar (navy):
 
-1. Site: Home, Latest post, Compose (owner only), About, RSS feed.
-2. Topics: Ethereum, Rust, Surf, Snowboarding, Jiu jitsu, Classic WoW.
+1. Site: Home, Latest post, Compose (owner only), Edit site (owner only), About, RSS feed.
+2. Topics: the owner's list (4.2). The server writes the links into the page.
 3. Find me: GitHub, X, Discord, with small white icons.
-4. Visitors: green LCD counter, "since January 1998".
+4. Visitors: green LCD counter.
 
 Main column:
 
 1. Header (3.3).
-2. Two-sentence intro.
+2. Intro: markdown that the owner edits (4.9).
 3. Writing: table of public posts. Columns: Date (M/D/YY), Title + one-line summary, Topic, Length. Small navy "NEW" label on new posts. No blink.
 4. Now box (4.4) and Surf Report window (4.5), side by side.
 5. Webring line.
 6. Footer: last updated, "Best viewed at 800 × 600", Sign in / Sign out.
 
-Below 860 px: the sidebar goes above the content. Editor panes stack.
+Below 860 px: the sidebar goes below the content, so the posts come first. Editor panes stack.
 
 ### 3.7 Post page
 
@@ -164,7 +164,7 @@ One field, `state`. No other flag controls visibility.
 | `slug` | string | Set on create. Never changes (4.3). |
 | `title` | string | |
 | `summary` | string | One line |
-| `topic` | enum | Ethereum, Rust, Surf, Snowboarding, Jiu jitsu, Classic WoW |
+| `topic` | string | Topic slug. Must exist in `topics` (see below). |
 | `tags` | string[] | |
 | `body_md` | markdown | |
 | `body_html` | HTML | Rendered and sanitized at save time |
@@ -175,6 +175,14 @@ One field, `state`. No other flag controls visibility.
 | `updated_at` | timestamp | |
 
 Reading time: `max(1, ceil(words / 220))` minutes.
+
+**Topics.** The owner manages the list in Compose → Topics. Defaults: Ethereum, Rust, Surf, Snowboarding, Jiu jitsu, Classic WoW.
+
+- Each topic has a slug, a name, and a position. The slug comes from the name when the topic is made (`make_slug`). The URL `/topics/<slug>` never changes, so a rename keeps old links working.
+- Add: a name of 1–40 characters with at least one ASCII letter or digit. A slug that exists → 409. At most 30 topics.
+- Rename and order: one save with every topic once. Any other set → 400.
+- Delete: refused (409) while posts use the topic, and for the last topic.
+- A new post gets the first topic.
 
 ### 4.3 Slugs
 
@@ -251,6 +259,20 @@ On the server (the real protection): section 6.6.
 - A visit = a page load (`/`, `/posts/*`, `/topics/*`, and the other page routes) with a user agent that is not empty and does not look like a bot or tool (`bot`, `crawl`, `spider`, `curl`, `wget`, `python`, `feed`, `headless`, and similar). API calls do not count.
 - Flushed to SQLite once per minute.
 - Open question: real count or fixed number.
+
+### 4.9 Title section
+
+The owner edits the title section in Compose → Site Settings. One row in `site`.
+
+| Field | Limit | Used in |
+|---|---|---|
+| `title` | 1–80 characters | Masthead, window title, `<title>`, `og:site_name`, RSS title |
+| `subtitle` | 0–120 | Masthead |
+| `tagline` | 0–300 | Masthead, default `<meta name="description">`, RSS description |
+| `intro_md` | 0–5,000, markdown | Home page intro, through the markdown pipeline (6.7) |
+
+- The server fills these values and the topic list into `index.html` on each page load. Text is escaped. So the page needs no extra request and has no flash of old text.
+- One owner, so the last save wins.
 
 ## 5. Front end
 
@@ -342,7 +364,9 @@ Public API:
 |---|---|
 | `GET /api/posts` | Public posts, list fields |
 | `GET /api/posts/{slug}` | One public post with `body_html`. Else 404. |
+| `GET /api/topics` | Topics in order: `slug`, `name` |
 | `GET /api/topics/{topic}` | Public posts of a topic |
+| `GET /api/site` | Title section, with the intro as HTML |
 | `GET /api/now` | Now box |
 | `GET /api/surf` | Cached surf data |
 | `GET /api/visitors` | Total |
@@ -365,6 +389,10 @@ Owner API (`/api/owner/*`). No valid session → 401. Every response has `Cache-
 | `POST /api/owner/posts/{id}/state` | Set `state`. Needs `If-Match`. |
 | `DELETE /api/owner/posts/{id}` | Delete |
 | `PUT /api/owner/now` | Save the Now box |
+| `GET /api/owner/site`, `PUT /api/owner/site` | Title section (4.9) |
+| `POST /api/owner/topics` | Add a topic |
+| `PUT /api/owner/topics` | Rename and order every topic |
+| `DELETE /api/owner/topics/{topic}` | Delete a topic without posts |
 | `POST /api/owner/uploads` | Upload an image (6.8) |
 | `GET /api/owner/export.zip` | All posts, all states, as markdown |
 | `GET /api/owner/passkeys` | List passkeys |
@@ -388,7 +416,7 @@ CREATE TABLE posts (
   slug         TEXT NOT NULL UNIQUE,
   title        TEXT NOT NULL,
   summary      TEXT NOT NULL DEFAULT '',
-  topic        TEXT NOT NULL CHECK (topic IN ('ethereum','rust','surf','snowboarding','jiu-jitsu','classic-wow')),
+  topic        TEXT NOT NULL REFERENCES topics (slug),   -- 0002 rebuilt the table without the fixed list
   tags         TEXT NOT NULL DEFAULT '[]',   -- JSON array
   body_md      TEXT NOT NULL,
   body_html    TEXT NOT NULL,
@@ -397,6 +425,14 @@ CREATE TABLE posts (
   version      INTEGER NOT NULL DEFAULT 1,
   published_at TEXT,
   updated_at   TEXT NOT NULL
+);
+
+CREATE TABLE topics (slug TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL);
+
+CREATE TABLE site (                           -- one row (4.9)
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  title TEXT NOT NULL, subtitle TEXT NOT NULL, tagline TEXT NOT NULL,
+  intro_md TEXT NOT NULL, updated_at TEXT
 );
 
 CREATE TABLE now_box (
@@ -731,7 +767,7 @@ Each step ends working, with its tests.
 | `post_input` | JSON body of `PUT /api/owner/posts/{id}` | No panic. Accepted input always meets the limits (title, summary, tags, body). |
 | `slug` | title bytes + id | Passes the slug rules (4.3). |
 | `media_key` | path bytes | No panic. Agrees with T10. |
-| `head_tags` | title + summary, plus a private post | Output never breaks out of an attribute. Never contains the private title. |
+| `head_tags` | title + summary + site title, plus a private post | Output never breaks out of an attribute. Never contains the private title. |
 | `image` | image bytes | No panic in decode and re-encode. Output has no EXIF. |
 
 Seed inputs live in `fuzz/seeds/<target>/`. The generated corpus is not committed. Each crash → a regression test. PR: 60 s per target. Nightly: 30 min per target, as a CI matrix.
@@ -912,7 +948,7 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 3. Final name.
 4. Logo: keep the "E" with waves?
 5. RSS: keep?
-6. Webring: keep? Which ring?
+6. Webring: keep? Which ring? The links are placeholders.
 7. Counter: real or fixed?
 8. About page content.
 9. ~~Domain.~~ `unclebill.blog` (2026-10-04).

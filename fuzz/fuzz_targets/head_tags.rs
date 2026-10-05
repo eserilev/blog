@@ -1,4 +1,4 @@
-//! Spec 7.3 `head_tags`: any title and summary. The output parses to exactly the
+//! Spec 7.3 `head_tags`: any title, summary, and site title. The output parses to exactly the
 //! expected elements, so no value breaks out of its attribute or element.
 #![no_main]
 
@@ -6,14 +6,15 @@ use libfuzzer_sys::fuzz_target;
 use logbook_server::head::{Head, head_tags};
 use scraper::{Html, Node};
 
-fuzz_target!(|input: (&str, &str, bool)| {
-    let (title, summary, noindex) = input;
+fuzz_target!(|input: (&str, &str, &str, bool)| {
+    let (title, summary, site, noindex) = input;
     let tags = head_tags(&Head {
         title: Some(title),
         description: summary,
         url: "https://e.test/x",
         article: true,
         noindex,
+        site,
     });
     let doc = Html::parse_document(&format!(
         "<!doctype html><html><head>{tags}</head><body></body></html>"

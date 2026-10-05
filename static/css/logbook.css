@@ -88,7 +88,6 @@ body { margin: 0; background: var(--desk); color: var(--text); font-family: var(
 .counter { display: grid; gap: 6px; justify-items: start; }
 .lcd { display: inline-flex; gap: 2px; background: #000; padding: 3px; border: 2px inset #888; }
 .lcd b { font: 26px/1 var(--f-lcd); color: #38ff38; background: #0a1a0a; padding: 0 3px; text-shadow: 0 0 6px rgba(56,255,56,.6); }
-.counter small { font: 11px var(--f-ui); color: #b8b8d8; }
 
 .main { padding: 28px clamp(16px, 4vw, 44px) 36px; min-width: 0; }
 .masthead { max-width: 66ch; }
@@ -223,7 +222,8 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
 
 @media (max-width: 860px) {
   .page-grid { grid-template-columns: 1fr; }
-  .nav { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  /* On a narrow screen the posts come first and the menu goes below them. */
+  .nav { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); order: 2; }
   .split { grid-template-columns: 1fr; }
   .notepad textarea, .preview-win [data-preview] { height: 380px; }
   .logo, .menubar { display: none; }
@@ -242,7 +242,15 @@ table.posts td.empty { padding: 18px 10px; text-align: center; color: var(--mute
 post-view[aria-busy="true"] { opacity: .6; }
 .auth-status { margin: 0; min-height: 1.4em; font: 12px var(--f-ui); }
 .auth-status.error { color: #a00000; }
-.passkeys, .setup { margin-top: 16px; }
+.passkeys, .setup, .settings, .topics { margin-top: 16px; }
+.settings .props { align-items: start; }
+.settings textarea { font: 13px/1.5 var(--f-mono); padding: 4px 6px; border: 0; background: #fff; resize: vertical; min-width: 0; }
+.help { margin: 4px 0; font: 12px var(--f-ui); color: var(--muted); }
+.topic-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; font: 13px var(--f-ui); }
+.topic-list li { display: flex; gap: 6px; align-items: center; padding: 3px 6px; background: #fff; }
+.topic-list input { flex: 1; min-width: 0; font: 13px var(--f-ui); padding: 2px 4px; border: 0; }
+.topic-list code { color: var(--muted); font-size: 12px; }
+.topic-list .btn98 { min-width: 0; padding: 2px 8px; }
 .passkey-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 13px var(--f-ui); }
 .passkey-list li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 4px 6px; background: #fff; }
 .passkey-list small { color: var(--muted); }

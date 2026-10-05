@@ -22,5 +22,5 @@ pub mod slug;
 
 pub use media::media_key_ok;
 pub use policy::{PublicPost, filter_public, reveal};
-pub use post::{Post, State, Topic, WORDS_PER_MINUTE, reading_minutes};
+pub use post::{Post, State, WORDS_PER_MINUTE, reading_minutes};
 pub use slug::{SLUG_MAX, make_slug};

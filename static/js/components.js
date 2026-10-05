@@ -112,10 +112,30 @@ const fmtDate = (iso, style) => {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-/* Topic slugs → names (same list as the server, spec 4.2). */
-const TOPICS = {
-  ethereum: 'Ethereum', rust: 'Rust', surf: 'Surf',
-  snowboarding: 'Snowboarding', 'jiu-jitsu': 'Jiu jitsu', 'classic-wow': 'Classic WoW',
+/* Topic slugs → names (spec 4.2). The server writes the topic links into the page;
+   setTopics() changes them after the owner edits the topics. */
+const TOPICS = {};
+const readTopics = () => {
+  for (const k of Object.keys(TOPICS)) delete TOPICS[k];
+  document.querySelectorAll('#topic-links a').forEach(a => { TOPICS[a.pathname.split('/').pop()] = a.textContent; });
+};
+readTopics();
+/* Replaces the sidebar links and the editor's topic list. Text only. */
+const setTopics = list => {
+  const links = document.getElementById('topic-links');
+  links.replaceChildren(...list.map(t => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = `/topics/${t.slug}`;
+    a.textContent = t.name;
+    li.append(a);
+    return li;
+  }));
+  const select = document.getElementById('ed-topic');
+  const current = select.value;
+  select.replaceChildren(...list.map(t => new Option(t.name, t.slug)));
+  if (list.some(t => t.slug === current)) select.value = current;
+  readTopics();
 };
 
 /* A post is "new" for 14 days after it is published. */
@@ -124,7 +144,7 @@ const isNew = iso => iso && Date.now() - new Date(iso).getTime() < 14 * 864e5;
 /* Path → view. */
 const ROUTES = [
   [/^\/$/, 'home'],
-  [/^\/topics\/([a-z-]+)$/, 'home'],
+  [/^\/topics\/([a-z0-9-]+)$/, 'home'],
   [/^\/posts\/([a-z0-9-]+)$/, 'post'],
   [/^\/about$/, 'about'],
   [/^\/setup$/, 'setup'],
@@ -156,7 +176,7 @@ customElements.define('blog-app', class extends HTMLElement {
       // Only page paths. Files, the feed, and the API load normally.
       if (url.origin !== location.origin || url.pathname.startsWith('/static/') || url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/') || url.pathname.endsWith('.xml')) return;
       e.preventDefault();
-      this.go(url.pathname);
+      this.go(url.pathname + url.hash);
     });
     window.addEventListener('popstate', () => this.render(false));
     this.render(false);
@@ -166,7 +186,7 @@ customElements.define('blog-app', class extends HTMLElement {
       const posts = await Api.posts().catch(() => null);
       path = posts && posts.length ? `/posts/${posts[0].slug}` : '/';
     }
-    if (path !== location.pathname) history[replace ? 'replaceState' : 'pushState'](null, '', path);
+    if (path !== location.pathname + location.hash) history[replace ? 'replaceState' : 'pushState'](null, '', path);
     this.render(true);
   }
   render(scroll) {

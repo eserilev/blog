@@ -10,7 +10,7 @@ use axum::{
     http::{HeaderMap, Method, Request, StatusCode, header},
 };
 use http_body_util::BodyExt;
-use logbook_core::{State, Topic};
+use logbook_core::State;
 use logbook_server::{
     AppState, Config, app, auth, db,
     posts::{self, NewPost},
@@ -88,28 +88,28 @@ pub async fn fixture_full(with_posts: bool, auth_rate_limit: u32) -> (Fixture, C
         for p in [
             new(
                 "An older public post",
-                Topic::Surf,
+                "surf",
                 State::Public,
                 "Older.",
                 Some("2026-01-01T00:00:00Z"),
             ),
             new(
                 "A public post with \"quotes\" & <script>",
-                Topic::Rust,
+                "rust",
                 State::Public,
                 "# Hi\n\n```rust\nfn x() {}\n```\n",
                 Some("2026-02-01T00:00:00Z"),
             ),
             new(
                 "A draft",
-                Topic::Rust,
+                "rust",
                 State::Draft,
                 "SECRETMARKER draft body",
                 None,
             ),
             new(
                 "A private post",
-                Topic::Rust,
+                "rust",
                 State::Private,
                 "SECRETMARKER private body",
                 None,

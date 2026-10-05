@@ -8,7 +8,7 @@
 <meta name="description" content="An Ethereum core developer keeps notes on protocol work, Rust, and the time between.">
 <!--/head-->
 <link rel="stylesheet" href="/static/css/code.css">
-<link rel="alternate" type="application/rss+xml" title="Eitan's Logbook" href="/feed.xml">
+<link rel="alternate" type="application/rss+xml" title="<!--site:title-->" href="/feed.xml">
 <link rel="stylesheet" href="/static/css/logbook.css">
 <script src="/static/js/components.js" defer></script>
 <script src="/static/js/app.js" defer></script>
@@ -20,7 +20,7 @@
     <div class="window raised">
       <div class="titlebar">
         <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" fill="#000"/><text x="8" y="10.5" text-anchor="middle" font-size="10" font-family="Tinos, 'Times New Roman', serif" font-weight="700" fill="#fff">E</text><path d="M2 13.2 q1.5 -1.4 3 0 t3 0 t3 0 t3 0" stroke="#fff" stroke-width="1.2" fill="none"/></svg>
-        <span class="ttl" id="ns-title">Eitan's Logbook</span>
+        <span class="ttl" id="ns-title"><!--site:title--></span>
         <span class="ctl raised" aria-hidden="true">_</span><span class="ctl raised" aria-hidden="true">□</span><span class="ctl raised" aria-hidden="true">×</span>
       </div>
       <div>
@@ -31,7 +31,7 @@
           <button class="tb" data-goto="latest" data-nav="post"><span class="g">❏</span>Latest</button>
           <button class="tb owner-only" data-goto="/write" data-nav="write"><span class="g">✎</span>Compose</button>
           <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">⎙</span>Print</button>
-          <svg class="logo" id="logo" viewBox="0 0 46 46" role="img" aria-label="Eitan's Logbook logo">
+          <svg class="logo" id="logo" viewBox="0 0 46 46" role="img" aria-label="Site logo">
             <defs><clipPath id="logo-clip"><rect x="3" y="3" width="40" height="40"/></clipPath></defs>
             <rect width="46" height="46" fill="#000"/>
             <text x="23" y="27" text-anchor="middle" font-family="Tinos, 'Times New Roman', serif" font-weight="700" font-size="25" fill="#fff">E</text>
@@ -54,20 +54,14 @@
                 <li><a href="/">Home</a></li>
                 <li><button class="lnk" data-goto="latest">Latest post</button></li>
                 <li class="owner-only"><a href="/write">Compose</a></li>
+                <li class="owner-only"><a href="/write#settings">Edit site</a></li>
                 <li><a href="/about">About</a></li>
                 <li><a href="/feed.xml">RSS feed</a></li>
               </ul>
             </div>
             <div>
               <h3>Topics</h3>
-              <ul>
-                <li><a href="/topics/ethereum">Ethereum</a></li>
-                <li><a href="/topics/rust">Rust</a></li>
-                <li><a href="/topics/surf">Surf</a></li>
-                <li><a href="/topics/snowboarding">Snowboarding</a></li>
-                <li><a href="/topics/jiu-jitsu">Jiu jitsu</a></li>
-                <li><a href="/topics/classic-wow">Classic WoW</a></li>
-              </ul>
+              <ul id="topic-links"><!--site:topics--></ul>
             </div>
             <div>
               <h3>Find me</h3>
@@ -80,20 +74,16 @@
             <div class="counter">
               <h3>Visitors</h3>
               <div class="lcd" id="lcd" aria-label="Visitor counter"><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b></div>
-              <small>since January 1998</small>
             </div>
           </nav>
 
           <div class="main">
             <header class="masthead">
-              <h1>Eitan's Logbook <span class="sub">Ethereum · Rust · Ocean</span></h1>
+              <h1><span id="site-title"><!--site:title--></span> <span class="sub" id="site-subtitle"><!--site:subtitle--></span></h1>
               <div class="bar" aria-hidden="true"></div>
-              <p>An Ethereum core developer keeps notes on protocol work, Rust, and the time between.</p>
+              <p id="site-tagline"><!--site:tagline--></p>
             </header>
-            <div class="intro">
-              <p>I work on Ethereum client software, mostly in Rust. Here I write longer notes on protocol changes and performance work. These are the things that do not fit in a call or a GitHub thread.</p>
-              <p>I also write about surfing, snowboarding, jiu jitsu, and classic WoW.</p>
-            </div>
+            <div class="intro" id="site-intro"><!--site:intro--></div>
 
             <h2 id="list-title">Writing</h2>
             <div class="tablewrap">
@@ -204,10 +194,7 @@
                   <label for="ed-title">Title</label><input id="ed-title" class="sunken" data-field="title" maxlength="200" required>
                   <label for="ed-summary">Summary</label><input id="ed-summary" class="sunken" data-field="summary" maxlength="300">
                   <label for="ed-topic">Topic</label>
-                  <select id="ed-topic" data-field="topic">
-                    <option value="ethereum">Ethereum</option><option value="rust">Rust</option><option value="surf">Surf</option>
-                    <option value="snowboarding">Snowboarding</option><option value="jiu-jitsu">Jiu jitsu</option><option value="classic-wow">Classic WoW</option>
-                  </select>
+                  <select id="ed-topic" data-field="topic"><!--site:topic-options--></select>
                   <label for="ed-tags">Tags</label><input id="ed-tags" class="sunken" data-field="tags" placeholder="rust, ssz">
                 </div>
                 <div class="fmtbar">
@@ -249,6 +236,30 @@
             </div>
             <div class="msgbox" data-toast hidden></div>
           </md-editor>
+          <form class="window raised dialog settings" id="settings">
+            <div class="titlebar"><span class="ttl">Site Settings</span></div>
+            <div class="dialog-body">
+              <div class="props">
+                <label for="set-title">Title</label><input id="set-title" class="sunken" maxlength="80" required>
+                <label for="set-subtitle">Subtitle</label><input id="set-subtitle" class="sunken" maxlength="120">
+                <label for="set-tagline">Tagline</label><input id="set-tagline" class="sunken" maxlength="300">
+                <label for="set-intro">Intro</label><textarea id="set-intro" class="sunken" rows="5" maxlength="5000" aria-describedby="set-intro-help"></textarea>
+              </div>
+              <p class="help" id="set-intro-help">The intro is markdown.</p>
+              <p class="auth-status" id="settings-status" role="status"></p>
+              <div class="row row-end"><button class="btn98 default" type="submit">Save</button></div>
+            </div>
+          </form>
+          <div class="window raised dialog topics" id="topics">
+            <div class="titlebar"><span class="ttl">Topics</span></div>
+            <div class="dialog-body">
+              <ul class="topic-list" id="topic-list"></ul>
+              <form class="row" id="topic-add"><label for="topic-new">New topic:</label><input id="topic-new" class="sunken" maxlength="40" required><button class="btn98" type="submit">Add</button></form>
+              <p class="help">The address of a topic does not change when you rename it. A topic with posts cannot be deleted.</p>
+              <p class="auth-status" id="topics-status" role="status"></p>
+              <div class="row row-end"><button class="btn98 default" type="button" id="topics-save">Save names and order</button></div>
+            </div>
+          </div>
           <div class="window raised dialog passkeys" id="passkeys">
             <div class="titlebar"><span class="ttl">Passkeys</span></div>
             <div class="dialog-body">

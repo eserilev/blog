@@ -16,6 +16,8 @@ use logbook_core::{
 use serde::Serialize;
 use sqlx::SqlitePool;
 
+use std::collections::HashMap;
+
 use crate::{AppState, topic};
 
 /// A row of `posts`.
@@ -54,10 +56,10 @@ pub fn state_name(s: PostState) -> &'static str {
 }
 
 impl Row {
-    /// Converts a row. The SQL CHECK constraints make a bad state or topic impossible;
+    /// Converts a row. The SQL CHECK constraint makes a bad state impossible;
     /// if one appears anyway, the post is treated as a draft, so it stays hidden.
     fn into_core(self) -> Post {
-        let topic = topic::parse(&self.topic).unwrap_or(logbook_core::Topic::Ethereum);
+        let topic = self.topic.into_bytes();
         let state = parse_state(&self.state).unwrap_or(PostState::Draft);
         Post {
             id: u64::try_from(self.id).unwrap_or(0),
@@ -114,7 +116,8 @@ pub async fn public_by_slug(
 pub struct NewPost<'a> {
     pub title: &'a str,
     pub summary: &'a str,
-    pub topic: logbook_core::Topic,
+    /// Topic slug. It must exist in `topics`.
+    pub topic: &'a str,
     pub tags: &'a [&'a str],
     pub body_md: &'a str,
     pub state: PostState,
@@ -146,7 +149,7 @@ pub async fn create(pool: &SqlitePool, p: &NewPost<'_>) -> Result<u64, sqlx::Err
     )
     .bind(p.title)
     .bind(p.summary)
-    .bind(topic::slug(p.topic))
+    .bind(p.topic)
     .bind(tags)
     .bind(p.body_md)
     .bind(body_html)
@@ -188,8 +191,8 @@ pub struct ListItem {
     pub slug: String,
     pub title: String,
     pub summary: String,
-    pub topic: &'static str,
-    pub topic_name: &'static str,
+    pub topic: String,
+    pub topic_name: String,
     pub tags: Vec<String>,
     pub published_at: Option<String>,
     pub word_count: u32,
@@ -208,15 +211,18 @@ fn text(b: &[u8]) -> String {
     String::from_utf8_lossy(b).into_owned()
 }
 
-impl From<&PublicPost> for ListItem {
-    fn from(pp: &PublicPost) -> Self {
+impl ListItem {
+    /// `names` maps topic slugs to names ([`topic::names`]).
+    #[must_use]
+    pub fn new(pp: &PublicPost, names: &HashMap<String, String>) -> Self {
         let p = pp.post();
+        let topic = text(&p.topic);
         Self {
             slug: text(&p.slug),
             title: text(&p.title),
             summary: text(&p.summary),
-            topic: topic::slug(p.topic),
-            topic_name: topic::name(p.topic),
+            topic_name: names.get(&topic).cloned().unwrap_or_else(|| topic.clone()),
+            topic,
             tags: serde_json::from_slice(&p.tags).unwrap_or_default(),
             published_at: p.published_at.as_deref().map(text),
             word_count: p.word_count,
@@ -225,10 +231,11 @@ impl From<&PublicPost> for ListItem {
     }
 }
 
-impl From<&PublicPost> for FullPost {
-    fn from(pp: &PublicPost) -> Self {
+impl FullPost {
+    #[must_use]
+    pub fn new(pp: &PublicPost, names: &HashMap<String, String>) -> Self {
         Self {
-            item: ListItem::from(pp),
+            item: ListItem::new(pp, names),
             body_html: text(&pp.post().body_html),
         }
     }
@@ -267,8 +274,12 @@ impl IntoResponse for ApiError {
 /// 500 on database errors.
 pub async fn api_list(State(s): State<AppState>) -> Result<Json<Vec<ListItem>>, ApiError> {
     let posts = all(&s.pool).await?;
+    let names = topic::names(&s.pool).await?;
     Ok(Json(
-        filter_public(&posts).iter().map(ListItem::from).collect(),
+        filter_public(&posts)
+            .iter()
+            .map(|pp| ListItem::new(pp, &names))
+            .collect(),
     ))
 }
 
@@ -284,7 +295,8 @@ pub async fn api_get(
     let post = public_by_slug(&s.pool, &slug)
         .await?
         .ok_or(ApiError::NotFound)?;
-    Ok(Json(FullPost::from(&post)))
+    let names = topic::names(&s.pool).await?;
+    Ok(Json(FullPost::new(&post, &names)))
 }
 
 /// `GET /api/topics/{topic}`: public posts of one topic. 404 for an unknown topic.
@@ -296,13 +308,14 @@ pub async fn api_topic(
     State(s): State<AppState>,
     Path(t): Path<String>,
 ) -> Result<Json<Vec<ListItem>>, ApiError> {
-    let t = topic::parse(&t).ok_or(ApiError::NotFound)?;
+    let t = topic::get(&s.pool, &t).await?.ok_or(ApiError::NotFound)?;
     let posts = all(&s.pool).await?;
+    let names = topic::names(&s.pool).await?;
     Ok(Json(
         filter_public(&posts)
             .iter()
-            .filter(|pp| pp.post().topic == t)
-            .map(ListItem::from)
+            .filter(|pp| pp.post().topic == t.slug.as_bytes())
+            .map(|pp| ListItem::new(pp, &names))
             .collect(),
     ))
 }
@@ -330,6 +343,8 @@ pub enum OwnerError {
     BadRequest(&'static str),
     /// The post changed since the editor loaded it (spec 3.8).
     Conflict,
+    /// 409 with a message, for example a topic that still has posts.
+    Taken(&'static str),
     /// `If-Match` is missing or not a version number.
     PreconditionRequired,
     Internal(sqlx::Error),
@@ -350,6 +365,7 @@ impl IntoResponse for OwnerError {
                 StatusCode::CONFLICT,
                 "this post changed on another device; reload to see the newer version",
             ),
+            Self::Taken(m) => (StatusCode::CONFLICT, m),
             Self::PreconditionRequired => (
                 StatusCode::PRECONDITION_REQUIRED,
                 "send If-Match with the post version",
@@ -427,7 +443,8 @@ pub struct PostInput {
 pub struct Valid {
     pub title: String,
     pub summary: String,
-    pub topic: logbook_core::Topic,
+    /// A slug in the right shape. The handler checks that the topic exists.
+    pub topic: String,
     pub tags_json: String,
     pub body_md: String,
 }
@@ -450,7 +467,15 @@ impl PostInput {
         if summary.chars().count() > SUMMARY_MAX || summary.chars().any(char::is_control) {
             return Err("the summary is too long or has control characters");
         }
-        let topic = topic::parse(&self.topic).ok_or("unknown topic")?;
+        let topic = self.topic;
+        if topic.is_empty()
+            || topic.len() > logbook_core::SLUG_MAX
+            || !topic
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        {
+            return Err("unknown topic");
+        }
         if self.tags.len() > TAGS_MAX {
             return Err("too many tags");
         }
@@ -525,12 +550,15 @@ pub async fn owner_get(
 ///
 /// 401 without a session. 500 on database errors.
 pub async fn owner_create(_: Owner, State(s): State<AppState>) -> Result<Response, OwnerError> {
+    let first = topic::first(&s.pool)
+        .await?
+        .ok_or(OwnerError::BadRequest("add a topic first"))?;
     let id = create(
         &s.pool,
         &NewPost {
             title: "Untitled",
             summary: "",
-            topic: logbook_core::Topic::Ethereum,
+            topic: &first,
             tags: &[],
             body_md: "",
             state: PostState::Draft,
@@ -592,6 +620,9 @@ pub async fn owner_save(
 ) -> Result<Json<OwnerPost>, OwnerError> {
     let version = if_match(&headers)?;
     let v = input.validate().map_err(OwnerError::BadRequest)?;
+    if topic::get(&s.pool, &v.topic).await?.is_none() {
+        return Err(OwnerError::BadRequest("unknown topic"));
+    }
     let body_html = logbook_render::render(&v.body_md);
     let words = i64::from(logbook_render::word_count(&v.body_md));
 
@@ -605,7 +636,7 @@ pub async fn owner_save(
     )
     .bind(&v.title)
     .bind(&v.summary)
-    .bind(topic::slug(v.topic))
+    .bind(&v.topic)
     .bind(&v.tags_json)
     .bind(&v.body_md)
     .bind(body_html)

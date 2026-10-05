@@ -157,30 +157,6 @@ def media.media_key_ok (key : Slice Std.U8) : Result Bool := do
   then ok false
   else media.media_key_ok_loop key 0#usize
 
-/-- [logbook_core::post::{impl core::fmt::Debug for logbook_core::post::Topic}::fmt]:
-    Source: 'crates/logbook-core/src/post.rs', lines 18:9-18:14
-    Visibility: public -/
-def post.Topic.Insts.CoreFmtDebug.fmt
-  (self : post.Topic) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  match self with
-  | post.Topic.Ethereum => core.fmt.Formatter.write_str f (toStr "Ethereum")
-  | post.Topic.Rust => core.fmt.Formatter.write_str f (toStr "Rust")
-  | post.Topic.Surf => core.fmt.Formatter.write_str f (toStr "Surf")
-  | post.Topic.Snowboarding =>
-    core.fmt.Formatter.write_str f (toStr "Snowboarding")
-  | post.Topic.JiuJitsu => core.fmt.Formatter.write_str f (toStr "JiuJitsu")
-  | post.Topic.ClassicWow =>
-    core.fmt.Formatter.write_str f (toStr "ClassicWow")
-
-/-- Trait implementation: [logbook_core::post::{impl core::fmt::Debug for logbook_core::post::Topic}]
-    Source: 'crates/logbook-core/src/post.rs', lines 18:9-18:14 -/
-@[reducible]
-def post.Topic.Insts.CoreFmtDebug : core.fmt.Debug post.Topic := {
-  fmt := post.Topic.Insts.CoreFmtDebug.fmt
-}
-
 /-- [logbook_core::post::{impl core::fmt::Debug for logbook_core::post::State}::fmt]:
     Source: 'crates/logbook-core/src/post.rs', lines 7:9-7:14
     Visibility: public -/
@@ -201,7 +177,7 @@ def post.State.Insts.CoreFmtDebug : core.fmt.Debug post.State := {
 }
 
 /-- [logbook_core::post::{impl core::fmt::Debug for logbook_core::post::Post}::fmt]:
-    Source: 'crates/logbook-core/src/post.rs', lines 32:9-32:14
+    Source: 'crates/logbook-core/src/post.rs', lines 21:9-21:14
     Visibility: public -/
 def post.Post.Insts.CoreFmtDebug.fmt
   (self : post.Post) (f : core.fmt.Formatter) :
@@ -209,7 +185,7 @@ def post.Post.Insts.CoreFmtDebug.fmt
   := do
   let dyn := Dyn.mk _ core.fmt.DebugU64 self.id
   let dyn1 := Dyn.mk _ post.State.Insts.CoreFmtDebug self.state
-  let dyn2 := Dyn.mk _ post.Topic.Insts.CoreFmtDebug self.topic
+  let dyn2 := Dyn.mk _ (core.fmt.DebugVec core.fmt.DebugU8) self.topic
   let dyn3 := Dyn.mk _ core.fmt.DebugU32 self.word_count
   let dyn4 := Dyn.mk _ (core.fmt.DebugVec core.fmt.DebugU8) self.slug
   let dyn5 := Dyn.mk _ (core.fmt.DebugVec core.fmt.DebugU8) self.title
@@ -237,7 +213,7 @@ def post.Post.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_struct_fields_finish f (toStr "Post") s values
 
 /-- Trait implementation: [logbook_core::post::{impl core::fmt::Debug for logbook_core::post::Post}]
-    Source: 'crates/logbook-core/src/post.rs', lines 32:9-32:14 -/
+    Source: 'crates/logbook-core/src/post.rs', lines 21:9-21:14 -/
 @[reducible]
 def post.Post.Insts.CoreFmtDebug : core.fmt.Debug post.Post := {
   fmt := post.Post.Insts.CoreFmtDebug.fmt
@@ -262,7 +238,7 @@ def policy.PublicPost.Insts.CoreFmtDebug : core.fmt.Debug policy.PublicPost
 }
 
 /-- [logbook_core::post::clone_opt]:
-    Source: 'crates/logbook-core/src/post.rs', lines 50:0-55:1 -/
+    Source: 'crates/logbook-core/src/post.rs', lines 40:0-45:1 -/
 def post.clone_opt
   (v : Option (alloc.vec.Vec Std.U8)) :
   Result (Option (alloc.vec.Vec Std.U8))
@@ -274,28 +250,30 @@ def post.clone_opt
     ok (some v1)
 
 /-- [logbook_core::post::{impl core::clone::Clone for logbook_core::post::Post}::clone]:
-    Source: 'crates/logbook-core/src/post.rs', lines 58:4-72:5
+    Source: 'crates/logbook-core/src/post.rs', lines 48:4-62:5
     Visibility: public -/
 def post.Post.Insts.CoreCloneClone.clone
   (self : post.Post) : Result post.Post := do
-  let v ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.slug
-  let v1 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.title
-  let v2 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.summary
-  let v3 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.tags
-  let v4 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.body_html
+  let v ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.topic
+  let v1 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.slug
+  let v2 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.title
+  let v3 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.summary
+  let v4 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.tags
+  let v5 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.body_html
   let o ← post.clone_opt self.published_at
-  let v5 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.updated_at
+  let v6 ← alloc.vec.CloneVec.clone core.clone.CloneU8 self.updated_at
   ok
     {
       self
         with
-        slug := v,
-        title := v1,
-        summary := v2,
-        tags := v3,
-        body_html := v4,
+        topic := v,
+        slug := v1,
+        title := v2,
+        summary := v3,
+        tags := v4,
+        body_html := v5,
         published_at := o,
-        updated_at := v5
+        updated_at := v6
     }
 
 /-- [logbook_core::policy::{impl core::clone::Clone for logbook_core::policy::PublicPost}::clone]:
@@ -321,15 +299,6 @@ def policy.PublicPost.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq policy.PublicPost := {
 }
 
-/-- [logbook_core::post::{impl core::cmp::PartialEq<logbook_core::post::Topic> for logbook_core::post::Topic}::eq]:
-    Source: 'crates/logbook-core/src/post.rs', lines 18:29-18:38
-    Visibility: public -/
-def post.Topic.Insts.CoreCmpPartialEqTopic.eq
-  (self : post.Topic) (other : post.Topic) : Result Bool := do
-  let self1 := read_discriminant self
-  let other1 := read_discriminant other
-  ok (self1 = other1)
-
 /-- [logbook_core::post::{impl core::cmp::PartialEq<logbook_core::post::State> for logbook_core::post::State}::eq]:
     Source: 'crates/logbook-core/src/post.rs', lines 7:29-7:38
     Visibility: public -/
@@ -340,7 +309,7 @@ def post.State.Insts.CoreCmpPartialEqState.eq
   ok (self1 = other1)
 
 /-- [logbook_core::post::{impl core::cmp::PartialEq<logbook_core::post::Post> for logbook_core::post::Post}::eq]:
-    Source: 'crates/logbook-core/src/post.rs', lines 32:16-32:25
+    Source: 'crates/logbook-core/src/post.rs', lines 21:16-21:25
     Visibility: public -/
 def post.Post.Insts.CoreCmpPartialEqPost.eq
   (self : post.Post) (other : post.Post) : Result Bool := do
@@ -353,7 +322,8 @@ def post.Post.Insts.CoreCmpPartialEqPost.eq
       if b
       then
         let b1 ←
-          post.Topic.Insts.CoreCmpPartialEqTopic.eq self.topic other.topic
+          alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqU8 self.topic
+            other.topic
         if b1
         then
           let b2 ←
@@ -541,60 +511,15 @@ impl_def post.State.Insts.CoreCmpEq : core.cmp.Eq post.State := {
     post.State.Insts.CoreCmpEq
 }
 
-/-- [logbook_core::post::{impl core::clone::Clone for logbook_core::post::Topic}::clone]:
-    Source: 'crates/logbook-core/src/post.rs', lines 18:16-18:21
-    Visibility: public -/
-def post.Topic.Insts.CoreCloneClone.clone
-  (self : post.Topic) : Result post.Topic := do
-  ok self
-
-/-- Trait implementation: [logbook_core::post::{impl core::clone::Clone for logbook_core::post::Topic}]
-    Source: 'crates/logbook-core/src/post.rs', lines 18:16-18:21 -/
-@[reducible]
-def post.Topic.Insts.CoreCloneClone : core.clone.Clone post.Topic := {
-  clone := post.Topic.Insts.CoreCloneClone.clone
-}
-
-/-- Trait implementation: [logbook_core::post::{impl core::marker::Copy for logbook_core::post::Topic}]
-    Source: 'crates/logbook-core/src/post.rs', lines 18:23-18:27 -/
-@[reducible]
-def post.Topic.Insts.CoreMarkerCopy : core.marker.Copy post.Topic := {
-  cloneInst := post.Topic.Insts.CoreCloneClone
-}
-
-/-- Trait implementation: [logbook_core::post::{impl core::marker::StructuralPartialEq for logbook_core::post::Topic}]
-    Source: 'crates/logbook-core/src/post.rs', lines 18:29-18:38 -/
-@[reducible]
-def post.Topic.Insts.CoreMarkerStructuralPartialEq :
-  core.marker.StructuralPartialEq post.Topic := {
-}
-
-/-- Trait implementation: [logbook_core::post::{impl core::cmp::PartialEq<logbook_core::post::Topic> for logbook_core::post::Topic}]
-    Source: 'crates/logbook-core/src/post.rs', lines 18:29-18:38 -/
-@[reducible]
-def post.Topic.Insts.CoreCmpPartialEqTopic : core.cmp.PartialEq post.Topic
-  post.Topic := {
-  eq := post.Topic.Insts.CoreCmpPartialEqTopic.eq
-}
-
-/-- Trait implementation: [logbook_core::post::{impl core::cmp::Eq for logbook_core::post::Topic}]
-    Source: 'crates/logbook-core/src/post.rs', lines 18:40-18:42 -/
-@[reducible]
-impl_def post.Topic.Insts.CoreCmpEq : core.cmp.Eq post.Topic := {
-  partialEqInst := post.Topic.Insts.CoreCmpPartialEqTopic
-  assert_fields_are_eq := core.cmp.Eq.assert_fields_are_eq.default
-    post.Topic.Insts.CoreCmpEq
-}
-
 /-- Trait implementation: [logbook_core::post::{impl core::marker::StructuralPartialEq for logbook_core::post::Post}]
-    Source: 'crates/logbook-core/src/post.rs', lines 32:16-32:25 -/
+    Source: 'crates/logbook-core/src/post.rs', lines 21:16-21:25 -/
 @[reducible]
 def post.Post.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq post.Post := {
 }
 
 /-- Trait implementation: [logbook_core::post::{impl core::cmp::PartialEq<logbook_core::post::Post> for logbook_core::post::Post}]
-    Source: 'crates/logbook-core/src/post.rs', lines 32:16-32:25 -/
+    Source: 'crates/logbook-core/src/post.rs', lines 21:16-21:25 -/
 @[reducible]
 def post.Post.Insts.CoreCmpPartialEqPost : core.cmp.PartialEq post.Post
   post.Post := {
@@ -602,14 +527,14 @@ def post.Post.Insts.CoreCmpPartialEqPost : core.cmp.PartialEq post.Post
 }
 
 /-- [logbook_core::post::{impl core::cmp::Eq for logbook_core::post::Post}::assert_fields_are_eq]:
-    Source: 'crates/logbook-core/src/post.rs', lines 32:27-32:29
+    Source: 'crates/logbook-core/src/post.rs', lines 21:27-21:29
     Visibility: public -/
 def post.Post.Insts.CoreCmpEq.assert_fields_are_eq
   (self : post.Post) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [logbook_core::post::{impl core::cmp::Eq for logbook_core::post::Post}]
-    Source: 'crates/logbook-core/src/post.rs', lines 32:27-32:29 -/
+    Source: 'crates/logbook-core/src/post.rs', lines 21:27-21:29 -/
 @[reducible]
 def post.Post.Insts.CoreCmpEq : core.cmp.Eq post.Post := {
   partialEqInst := post.Post.Insts.CoreCmpPartialEqPost
@@ -617,14 +542,14 @@ def post.Post.Insts.CoreCmpEq : core.cmp.Eq post.Post := {
 }
 
 /-- Trait implementation: [logbook_core::post::{impl core::clone::Clone for logbook_core::post::Post}]
-    Source: 'crates/logbook-core/src/post.rs', lines 57:0-73:1 -/
+    Source: 'crates/logbook-core/src/post.rs', lines 47:0-63:1 -/
 @[reducible]
 def post.Post.Insts.CoreCloneClone : core.clone.Clone post.Post := {
   clone := post.Post.Insts.CoreCloneClone.clone
 }
 
 /-- [logbook_core::post::reading_minutes]:
-    Source: 'crates/logbook-core/src/post.rs', lines 78:0-83:1
+    Source: 'crates/logbook-core/src/post.rs', lines 68:0-73:1
     Visibility: public -/
 def post.reading_minutes (words : Std.U32) : Result Std.U32 := do
   let full ← words / post.WORDS_PER_MINUTE

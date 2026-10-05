@@ -4,7 +4,7 @@ mod common;
 
 use axum::http::{StatusCode, header};
 use common::*;
-use logbook_core::{State, Topic};
+use logbook_core::State;
 use logbook_server::{
     db,
     headers::{CSP, SECURITY_HEADERS},
@@ -354,7 +354,7 @@ async fn slugs_are_unique_and_fall_back_to_the_id() {
     let p = NewPost {
         title: "Same title",
         summary: "",
-        topic: Topic::Rust,
+        topic: "rust",
         tags: &[],
         body_md: "x",
         state: State::Draft,
