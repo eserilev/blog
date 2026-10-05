@@ -99,7 +99,7 @@ Sidebar (navy):
 
 1. Site: Home, Latest post, Compose (owner only), Edit site (owner only), RSS feed. There is no About page (removed 2026-10-05).
 2. Topics: the owner's list (4.2). The server writes the links into the page.
-3. Find me: GitHub, X, Discord, with small white icons.
+3. Find me: GitHub (`github.com/eserilev`) and X (`x.com/0xUncleBill`), with small white icons. No Discord for now.
 4. Visitors: green LCD counter.
 
 Main column:
@@ -1028,7 +1028,7 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 
 ## 10. Open questions
 
-1. GitHub, X, Discord handles.
+1. ~~GitHub, X, Discord handles.~~ GitHub `eserilev`, X `0xUncleBill`, no Discord (2026-10-05).
 2. Now box content.
 3. Final name.
 4. Logo: keep the "E" with waves?
@@ -1114,7 +1114,6 @@ T6, T7, T8 and T9 are proved in `proofs/Logbook/SlugExact.lean` (7.6). The prope
 
 ### 11.6 Content and small fixes [not started]
 
-- The GitHub, X and Discord links in the sidebar point to `#home`. Replace them with the real profile URLs (open question 1).
 - The footer says "Last updated October 1, 2026", a fixed string. Show the date of the newest public post, or remove it.
 - GitHub-style callouts (`> [!NOTE]`) render as plain blockquotes with the literal text. Add support (comrak alerts plus the sanitizer allow-list), or keep `> **Note:**`.
 
