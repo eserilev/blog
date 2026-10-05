@@ -41,7 +41,7 @@ Chrome, all kept:
 - Toolbar: Back, Home, Latest, Compose (owner only), Print.
 - Location bar: shows a path, for example `file:///home/eitan/www/index.html`.
 - Status bar.
-- Taskbar: Start, one button per view, clock.
+- Taskbar: Start (opens the Start menu, 11.3), one button per view, clock.
 - Teal desktop.
 
 No "Netscape" text anywhere. The window title is the page name.
@@ -290,6 +290,7 @@ Native custom elements, light DOM.
 | `<sign-in>` | Passkey dialog. |
 | `<dos-shell>` | MS-DOS mode (11.1): the prompt, the commands, and the F-key bar. Follows the router. |
 | `<phone-shell>` | Phone mode (11.8): standby, menu, lists, reading, Snake, and softkeys. Follows the router. |
+| `<start-menu>` | The Win98 Start menu, the Shut Down dialog, and the end screen (11.3). |
 
 Rules:
 
@@ -317,7 +318,7 @@ The site uses CSS Grid and Flexbox only. These rules apply to all three modes:
 - **Touch.** Phone mode and the MS-DOS F-key bar have tap targets of 44 px or more.
 - **Look.** The fixes keep the Win98 bevels, the MS-DOS screen, and the phone LCD.
 
-Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e2e/tests/layout.spec.js` opens every view at each width that applies: Win98 (guest and owner views, a post with a long code line, a long address, and a wide table), MS-DOS mode (prompt, HELP, DIR, TYPE), and phone mode at 390 px (standby, menu, lists, a post, Options, Profiles, Snake). For each view it checks:
+Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e2e/tests/layout.spec.js` opens every view at each width that applies: Win98 (guest and owner views, a post with a long code line, a long address, and a wide table, the open Start menu, the Topics submenu, the Shut Down dialog, and the end screen), MS-DOS mode (prompt, HELP, DIR, TYPE), and phone mode at 390 px (standby, menu, lists, a post, Options, Profiles, Snake). For each view it checks:
 
 - `scrollWidth` is not more than the screen width.
 - No visible element passes the left or right edge, except inside a box that scrolls or clips sideways.
@@ -856,6 +857,7 @@ Playwright, Chromium:
 - Screenshot comparison: home, post, editor.
 - MS-DOS mode (`dos.spec.js`): toggle and reload, DIR then TYPE, a deep link, Back, WIN, F-keys, keyboard only, 390 px layout.
 - Phone mode (`phone.spec.js`): see 11.8.
+- Start menu (`start.spec.js`): see 11.3.
 
 ### 7.6 Formal verification (Aeneas)
 
@@ -1053,7 +1055,7 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
 - **One mode key.** `localStorage` key `logbook.mode` holds the view: `general` (Win98, light) or `night` (MS-DOS, dark). Phone mode (11.8) adds `phone`, on phones only. All storage access is in try/catch. If storage fails, a change lasts for the page only. No cookie: public responses never change per visitor.
 - **First visit** is always `general` on a desktop, whatever the OS dark setting. A saved value that the device cannot show is ignored.
 - **No flash.** `static/js/mode.js` is a blocking `<script src>` in `<head>`. It sets `<html data-mode="...">` before the page paints. Its `Mode` object reads and saves the key. A change fires `modechange` on `document`.
-- **Back to Windows.** `WIN`, `EXIT`, and F10 save `general`. The toolbar button saves `night`.
+- **Back to Windows.** `WIN`, `EXIT`, and F10 save `general`. The toolbar button and "Restart in MS-DOS mode" in the Shut Down dialog (11.3) save `night`.
 - **Screen.** Black, full width, text from the top-left corner (real DOS was never centered). Gray top bar: `LOGBOOK.EXE`, the host, a real clock. Text white `#f0f0f0`, headings `#ffffff`, dim text at least `#8a8a8a` (4.5:1). Faint scanlines and glow, off under `prefers-contrast: more`.
 - **Font.** IBM Plex Mono 400/600, self-hosted, with `OFL-IBMPlexMono.txt`. No Google Fonts.
 - **Start state.** Empty: only the prompt `C:\LOGBOOK>` and one dim hint line, "Type HELP for a list of commands. Type WIN to go back to Windows." No banner, no auto-run.
@@ -1092,9 +1094,26 @@ In DOS mode, `/write` looks like MS-DOS EDIT. It is a CSS skin on the existing e
 - The preview `.prose` uses DOS colors.
 - Tests in DOS mode: open, save, a 409 from a second tab, an upload, a state change, dialogs with Escape.
 
-### 11.3 Start menu toggle [later]
+### 11.3 Start menu [done]
 
-A Win98 Start menu: Home, Latest post, Topics, then Shut Down…. The Shut Down dialog offers "Stay in Windows (light mode)" and "Restart in MS-DOS mode (dark mode)". Build it after 11.1. The toolbar button stays the main toggle.
+The Start button in the taskbar opens a Win98 Start menu. Files: `<start-menu>` and the two dialogs in `index.html`, `<start-menu>` in `components.js`, the Start menu part of `logbook.css`, `e2e/tests/start.spec.js`. The toolbar button stays the main toggle for MS-DOS mode.
+
+- **Start button.** A `<button>` with `aria-haspopup="menu"` and `aria-expanded`. It looks as before. It shows pressed while the menu is open.
+- **Menu.** A raised gray box right above the taskbar. A navy-to-blue band on the left with "Logbook 98" in vertical text. Rows with 24 px pixel icons (inline SVG). The row under the focus or the mouse is navy with white text.
+- **Items.** Home (`/`), Latest post (the newest post, the same `latest` path as the toolbar), Topics ▸, RSS feed (`/feed.xml`), a separator, Shut Down…. There is no About item.
+- **Topics ▸.** A submenu with the topic links of the page (`TOPICS`), in their order. Each goes to `/topics/{slug}`. On a wide screen it opens beside the menu and moves up so it ends above the taskbar. Below 520 px it opens inside the menu.
+- **Keyboard.** Enter, Space, or Down on Start opens the menu at the first item. Up opens it at the last item. Up and Down move, with wrap. Home and End go to the first and last item. Right opens Topics. Left and Escape close one level, and the focus goes back to Topics or Start. Enter activates. Tab closes the menu.
+- **Mouse and touch.** The highlight follows the mouse, and Topics opens on hover. A tap on Topics opens or closes it. A click outside the menu closes it. A view change or a mode change closes it.
+- **Phones (Win98 view).** The menu fits above the taskbar and scrolls if it is too tall. Rows are 44 px high.
+- **Shut Down dialog.** A native `<dialog>` with `showModal()`: focus trap, Escape, and the focus goes back to Start. Title "Shut Down Logbook", a monitor icon, and the question "What do you want the computer to do?". Choices:
+  - "Stay in Windows" (the default): closes the dialog.
+  - "Restart in MS-DOS mode": `Mode.set('night')`, the same as the Dark mode button. The choice persists.
+  - "Restart in phone mode": `Mode.set('phone')`. Phones only: on a desktop the choice is removed from the page.
+  - "Shut down": the end screen.
+
+  Buttons: OK and Cancel. A restart shows a black screen for 0.7 s first. With `prefers-reduced-motion` the mode changes at once.
+- **End screen.** A full-screen native `<dialog>`, black, with "It's now safe to turn off your computer." in large bold orange (`#ff8c00`). The text shows after 0.8 s (at once with `prefers-reduced-motion`). Its label is "Shut down screen". A hint for screen readers only says "Press any key to return.". Any key, click, or tap closes it. The page stays at the same scroll position, and the focus goes back to Start. The saved mode does not change.
+- **Tests** (`start.spec.js`): open and close (click, Escape, a click outside), keyboard navigation, Topics to a topic page, Latest post, Stay and Cancel, MS-DOS mode that persists after a reload, the black screen, the end screen and a key press back, no phone choice on a desktop, and the phone choice in the Win98 view of an iPhone context. `layout.spec.js` checks the open menu, the submenu, the dialog, and the end screen at 390, 768, and 1280 px.
 
 ### 11.4 Security proofs T13–T17 [done]
 
@@ -1130,7 +1149,7 @@ T6, T7, T8 and T9 are proved in `proofs/Logbook/SlugExact.lean` (7.6). The prope
 On phones, the site looks and works like a monochrome phone from 2000: the page is the green LCD. Design: "Logbook Designs" canvas, artboard "Mobile: 2000 phone style". It is not a picture of a phone.
 
 - **Default.** A phone opens in phone mode: `(pointer: coarse)` and a viewport 600 px wide or less when the page loads, with no saved choice. A desktop never shows phone mode or any switch to it. On a desktop, a saved `phone` is ignored, and the page opens in `general`.
-- **Switching, on phones only.** Phone mode → Profiles: Phone (this view), General (Win98, light), Night (MS-DOS, dark). Win98 footer: "View: Mobile | Desktop". MS-DOS: the `MOBILE` command and the F8 Mobile key. The choice persists in the one mode key of 11.1: `localStorage` `logbook.mode` = `phone`, `general`, or `night`, in try/catch. On a desktop these switches do not render: CSS hides `.phone-only` unless `<html data-device="phone">`, and the `MOBILE` command gives "Bad command or file name".
+- **Switching, on phones only.** Phone mode → Profiles: Phone (this view), General (Win98, light), Night (MS-DOS, dark). Win98 footer: "View: Mobile | Desktop". Win98 Shut Down dialog: "Restart in phone mode" (11.3). MS-DOS: the `MOBILE` command and the F8 Mobile key. The choice persists in the one mode key of 11.1: `localStorage` `logbook.mode` = `phone`, `general`, or `night`, in try/catch. On a desktop these switches do not render: CSS hides `.phone-only` unless `<html data-device="phone">`, and the `MOBILE` command gives "Bad command or file name".
 - **Look.** Ink `#1d2b14` on a `#bcd193`–`#a6bd79` gradient (9.0:1 and 7.2:1, AAA). VT323 (self-hosted). A faint 3 px grid, off under `prefers-contrast: more`. Status row: signal bars side by side and rising, the time, a horizontal battery.
 - **Standby.** "Eitan's Logbook", the logo as pixel art in a 1 px box (ink E and waves on clear LCD), a live clock and date. With an unread post: "1 new post", softkeys Read / Menu. Without: Menu / Posts. "Unread" is per browser (`localStorage`), against the newest `published_at`.
 - **Softkeys.** Two plain words at the bottom of the LCD, left (main action) and right (Back). No border, no background, no arrow buttons. Each half is a 64 px tap area. A tap shows the word in inverse.

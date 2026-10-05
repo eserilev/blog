@@ -392,12 +392,54 @@
   </phone-shell>
 
   <div class="taskbar">
-    <button class="btn98 start" data-goto="/"><span class="flag"></span>Start</button>
+    <!-- The Start menu (spec 11.3). -->
+    <start-menu>
+      <button class="btn98 start" type="button" id="start-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="start-menu"><span class="flag"></span>Start</button>
+      <div class="start-menu raised" id="start-menu" role="menu" aria-labelledby="start-btn" tabindex="-1" hidden>
+        <div class="start-band" aria-hidden="true"><span>Logbook <b>98</b></span></div>
+        <div class="start-items" role="none">
+          <a class="start-item" role="menuitem" tabindex="-1" href="/"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v9h14v-9h3z" fill="#ffff99" stroke="#000"/><path d="M10 14h4v7h-4z" fill="#804000"/><path d="M16 5h2v4h-2z" fill="#c00000" stroke="#000"/></svg><span>Home</span></a>
+          <button class="start-item" role="menuitem" tabindex="-1" type="button" data-goto="latest"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#000"/><path d="M15 2v4h4" fill="#c0c0c0" stroke="#000"/><path d="M8 10h8v1H8zM8 13h8v1H8zM8 16h5v1H8z" fill="#000080"/></svg><span>Latest post</span></button>
+          <div class="start-sub-wrap" role="none">
+            <button class="start-item" role="menuitem" tabindex="-1" type="button" id="start-topics" aria-haspopup="menu" aria-expanded="false" aria-controls="start-sub" data-topics><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h8l2 2h10v13H2z" fill="#ffd84a" stroke="#000"/><path d="M2 9h20" stroke="#c09000"/></svg><span>Topics</span><span class="start-arrow" aria-hidden="true">▸</span></button>
+            <div class="start-sub raised" id="start-sub" role="menu" aria-labelledby="start-topics" hidden></div>
+          </div>
+          <a class="start-item" role="menuitem" tabindex="-1" href="/feed.xml"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z" fill="#ff8c00" stroke="#000"/><path d="M6 15h3v3H6z" fill="#fff"/><path d="M6 10h2a6 6 0 0 1 6 6v2h-2v-2a4 4 0 0 0-4-4H6zM6 6h2a10 10 0 0 1 10 10v2h-2v-2a8 8 0 0 0-8-8H6z" fill="#fff"/></svg><span>RSS feed</span></a>
+          <div class="start-sep" role="separator"></div>
+          <button class="start-item" role="menuitem" tabindex="-1" type="button" data-shutdown><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v13H3z" fill="#c0c0c0" stroke="#000"/><path d="M5 5h14v9H5z" fill="#000080"/><path d="M9 17h6v2H9zM6 19h12v2H6z" fill="#c0c0c0" stroke="#000"/></svg><span>Shut Down…</span></button>
+        </div>
+      </div>
+      <template data-topic-item><a class="start-item" role="menuitem" tabindex="-1"><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3h5l1 2h8v9H1z" fill="#ffd84a" stroke="#000"/></svg><span></span></a></template>
+    </start-menu>
     <button class="btn98 task" data-goto="/" data-nav="home">Home</button>
     <button class="btn98 task" data-goto="latest" data-nav="post">Latest post</button>
     <button class="btn98 task owner-only" data-goto="/write" data-nav="write">Notepad</button>
     <span class="tray sunken" id="ns-clock">12:00 PM</span>
   </div>
+
+  <!-- Shut Down dialog (spec 11.3). -->
+  <dialog class="window raised shutdown" id="shutdown" aria-labelledby="shutdown-title">
+    <form method="dialog" id="shutdown-form">
+      <div class="titlebar"><span class="ttl" id="shutdown-title">Shut Down Logbook</span><button type="button" class="ctl raised" data-shutdown-cancel aria-label="Close">×</button></div>
+      <div class="shutdown-body">
+        <svg class="shutdown-ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M2 3h28v19H2z" fill="#c0c0c0" stroke="#000"/><path d="M4 5h24v15H4z" fill="#000080"/><path d="M11 23h10v3H11zM6 26h20v3H6z" fill="#c0c0c0" stroke="#000"/></svg>
+        <fieldset>
+          <legend>What do you want the computer to do?</legend>
+          <label class="radio"><input type="radio" name="shutdown" value="stay" checked> Stay in Windows</label>
+          <label class="radio"><input type="radio" name="shutdown" value="night"> Restart in MS-DOS mode</label>
+          <label class="radio phone-only" data-phone-choice><input type="radio" name="shutdown" value="phone"> Restart in phone mode</label>
+          <label class="radio"><input type="radio" name="shutdown" value="off"> Shut down</label>
+        </fieldset>
+      </div>
+      <div class="row row-end shutdown-buttons"><button class="btn98 default" type="submit">OK</button><button class="btn98" type="button" data-shutdown-cancel>Cancel</button></div>
+    </form>
+  </dialog>
+  <!-- The black screen of a restart, and the end screen of "Shut down". -->
+  <div class="blackout" data-blackout hidden></div>
+  <dialog class="safe-off" id="safe-off" tabindex="-1" aria-label="Shut down screen" aria-describedby="safe-off-text safe-off-hint">
+    <p id="safe-off-text">It’s now safe to turn off<br> your computer.</p>
+    <p class="sr-only" id="safe-off-hint">Press any key to return.</p>
+  </dialog>
 </blog-app>
 </body>
 </html>

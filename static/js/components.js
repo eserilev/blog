@@ -1046,3 +1046,191 @@ customElements.define('dos-shell', class extends HTMLElement {
     }
   }
 });
+
+/* <start-menu>: the Win98 Start menu, the Shut Down dialog, and the "safe to turn
+   off" screen (spec 11.3). The menu follows the WAI-ARIA menu button pattern: the
+   arrow keys move, Right opens Topics, Left and Escape close one level, Enter
+   activates. Links and [data-goto] items go through the <blog-app> router. */
+customElements.define('start-menu', class extends HTMLElement {
+  connectedCallback() {
+    this.app = this.closest('blog-app');
+    this.btn = this.querySelector('.start');
+    this.menu = this.querySelector('#start-menu');
+    this.topics = this.querySelector('[data-topics]');
+    this.sub = this.querySelector('#start-sub');
+    this.dialog = document.getElementById('shutdown');
+    this.safe = document.getElementById('safe-off');
+    this.blackout = document.querySelector('[data-blackout]');
+    // Phone mode is for phones only: a desktop gets no choice for it (spec 11.8).
+    if (!Mode.phone) this.dialog.querySelector('[data-phone-choice]').remove();
+
+    // A keyboard click (detail 0) puts the focus on the first item.
+    this.btn.addEventListener('click', e => (this.isOpen() ? this.close(true) : this.open(e.detail === 0 ? 0 : null)));
+    this.btn.addEventListener('keydown', e => {
+      if (e.key === 'Escape') this.close(true);
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      this.open(e.key === 'ArrowDown' ? 0 : -1);
+    });
+    this.menu.addEventListener('keydown', e => this.onKey(e));
+    this.menu.addEventListener('click', e => this.onClick(e));
+    // The highlight follows the mouse, like Windows 98. Topics opens on hover.
+    // Only a real move counts: a menu that opens under a still mouse keeps the focus.
+    this.menu.addEventListener('pointermove', e => {
+      const item = e.target.closest('[role="menuitem"]');
+      if (!item || e.pointerType !== 'mouse' || item === document.activeElement) return;
+      item.focus({ preventScroll: true });
+      if (item === this.topics) this.openSub(false);
+      else if (!this.sub.contains(item)) this.closeSub(false);
+    });
+    document.addEventListener('pointerdown', e => { if (this.isOpen() && !this.contains(e.target)) this.close(false); });
+    this.app.addEventListener('viewchange', () => this.close(false));
+    document.addEventListener('modechange', () => this.close(false));
+
+    const form = this.dialog.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const choice = form.elements.shutdown.value;
+      this.dialog.close();
+      if (choice === 'night' || choice === 'phone') this.restart(() => Mode.set(choice));
+      else if (choice === 'off') this.shutDown();
+    });
+    this.dialog.querySelectorAll('[data-shutdown-cancel]').forEach(b => b.addEventListener('click', () => this.dialog.close()));
+    // Closing a modal dialog gives the focus back to Start. Say so, for older browsers.
+    this.dialog.addEventListener('close', () => { if (!this.safe.open && Mode.current === 'general') this.btn.focus(); });
+
+    // Any key, click, or tap leaves the end screen. The saved mode does not change.
+    this.safe.addEventListener('keydown', e => { e.preventDefault(); this.safe.close(); });
+    this.safe.addEventListener('click', () => this.safe.close());
+    this.safe.addEventListener('close', () => this.btn.focus());
+  }
+
+  isOpen() { return !this.menu.hidden; }
+  items(menu) { return [...menu.querySelectorAll('[role="menuitem"]')].filter(el => menu === this.sub || !this.sub.contains(el)); }
+
+  /* Opens the menu. `at` is the index of the item to focus (-1 is the last). With
+     null the menu itself gets the focus, so the arrow keys still work. */
+  open(at) {
+    this.fillTopics();
+    this.menu.hidden = false;
+    this.btn.setAttribute('aria-expanded', 'true');
+    const items = this.items(this.menu);
+    (at === null ? this.menu : items.at(at)).focus();
+  }
+
+  close(focusStart) {
+    if (!this.isOpen()) return;
+    const inside = this.menu.contains(document.activeElement);
+    this.closeSub(false);
+    this.menu.hidden = true;
+    this.btn.setAttribute('aria-expanded', 'false');
+    if (focusStart || inside) this.btn.focus();
+  }
+
+  /* The Topics submenu lists the topic links of the page (TOPICS), in their order. */
+  fillTopics() {
+    const tpl = this.querySelector('template[data-topic-item]').content.firstElementChild;
+    const links = Object.entries(TOPICS).map(([slug, name]) => {
+      const a = tpl.cloneNode(true);
+      a.href = `/topics/${slug}`;
+      a.querySelector('span').textContent = name;
+      return a;
+    });
+    if (!links.length) {
+      const empty = document.createElement('span');
+      empty.className = 'start-item';
+      empty.setAttribute('role', 'menuitem');
+      empty.setAttribute('aria-disabled', 'true');
+      empty.tabIndex = -1;
+      empty.textContent = '(Empty)';
+      links.push(empty);
+    }
+    this.sub.replaceChildren(...links);
+  }
+
+  openSub(focusFirst) {
+    if (this.sub.hidden) {
+      this.sub.hidden = false;
+      this.topics.setAttribute('aria-expanded', 'true');
+      this.placeSub();
+    }
+    if (focusFirst) this.items(this.sub)[0].focus();
+  }
+
+  closeSub(focusTopics) {
+    if (this.sub.hidden) return;
+    this.sub.hidden = true;
+    this.topics.setAttribute('aria-expanded', 'false');
+    if (focusTopics) this.topics.focus();
+  }
+
+  /* A submenu beside the menu moves up until it ends above the taskbar. On narrow
+     screens it opens inside the menu, so it needs no move. */
+  placeSub() {
+    this.sub.style.removeProperty('translate');
+    if (getComputedStyle(this.sub).position !== 'absolute') return;
+    const r = this.sub.getBoundingClientRect();
+    const floor = this.closest('.taskbar').getBoundingClientRect().top;
+    const up = Math.min(r.bottom - floor, r.top);
+    if (up > 0) this.sub.style.translate = `0 ${-up}px`;
+  }
+
+  onKey(e) {
+    const inSub = this.sub.contains(e.target);
+    const items = this.items(inSub ? this.sub : this.menu);
+    const i = items.indexOf(document.activeElement);
+    const move = n => items.at(n % items.length).focus();
+    switch (e.key) {
+      case 'ArrowDown': move(i + 1); break;
+      case 'ArrowUp': move(i < 0 ? -1 : i - 1); break;
+      case 'Home': move(0); break;
+      case 'End': move(-1); break;
+      case 'ArrowRight': if (e.target === this.topics) this.openSub(true); break;
+      case 'ArrowLeft': case 'Escape': if (inSub) this.closeSub(true); else this.close(true); break;
+      case 'Tab': this.close(true); break;
+      case ' ': if (e.target.matches('a[role="menuitem"]')) e.target.click(); else return; break;
+      default: return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  onClick(e) {
+    const item = e.target.closest('[role="menuitem"]');
+    if (!item || item.getAttribute('aria-disabled') === 'true') return;
+    if (item === this.topics) {
+      // A mouse click keeps the submenu open; a tap opens or closes it. Enter or
+      // Space (a click with detail 0) opens it and focuses the first topic.
+      const keyboard = e.detail === 0;
+      if (!keyboard && e.pointerType !== 'mouse' && !this.sub.hidden) this.closeSub(false);
+      else this.openSub(keyboard);
+      return;
+    }
+    if (item.hasAttribute('data-shutdown')) {
+      this.close(true);
+      this.openShutdown();
+      return;
+    }
+    // The <blog-app> router handles the link or the [data-goto] after this.
+    this.close(true);
+  }
+
+  openShutdown() {
+    const stay = this.dialog.querySelector('input[value="stay"]');
+    stay.checked = true;
+    this.dialog.showModal();
+    stay.focus();
+  }
+
+  /* A short black screen, like a real restart. None with reduced motion. */
+  restart(fn) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { fn(); return; }
+    this.blackout.hidden = false;
+    setTimeout(() => { fn(); this.blackout.hidden = true; }, 700);
+  }
+
+  shutDown() {
+    this.safe.showModal();
+    this.safe.focus();
+  }
+});
