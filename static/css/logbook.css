@@ -36,6 +36,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--desk); color: var(--text); font-family: var(--f-ui); font-size: 13px; min-height: 100vh; }
 .desktop { padding: 16px 16px 64px; max-width: 1180px; margin: 0 auto; }
+/* Compose is a maximized window: the editor and the preview get the full width. */
+blog-app[data-current="write"] .desktop { max-width: none; }
 
 /* Win98 bevels */
 .raised { background: var(--chrome); box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid); }
@@ -168,8 +170,9 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
 
 /* Write view */
 .write-area { background: var(--desk); padding: 16px; }
-.editor-desk { display: grid; gap: 16px; }
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.editor-desk { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* minmax(0, 1fr): a long code line scrolls inside its box and never widens the column. */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .notepad textarea { display: block; width: 100%; height: 520px; resize: vertical; border: 0; outline: none; margin: 0; padding: 8px 10px; font: 14px/1.6 var(--f-mono); color: #000; background: #fff; tab-size: 4; }
 .notepad .well, .preview-win .well { margin-top: 3px; padding: 2px; background: #fff; }
 .notepad textarea:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
@@ -224,7 +227,7 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
   .page-grid { grid-template-columns: 1fr; }
   /* On a narrow screen the posts come first and the menu goes below them. */
   .nav { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); order: 2; }
-  .split { grid-template-columns: 1fr; }
+  .split { grid-template-columns: minmax(0, 1fr); }
   .notepad textarea, .preview-win [data-preview] { height: 380px; }
   .logo, .menubar { display: none; }
 }
