@@ -16,6 +16,7 @@ pub mod pages;
 pub mod posts;
 pub mod routes;
 pub mod seed;
+pub mod site;
 pub mod surf;
 pub mod topic;
 
@@ -85,6 +86,9 @@ impl AppState {
                     head::END
                 ));
             }
+        }
+        if let Some(m) = site::MARKERS.iter().find(|m| !index_html.contains(**m)) {
+            return Err(format!("{} has no {m} marker", path.display()));
         }
         Ok(Self {
             index_html: index_html.into(),

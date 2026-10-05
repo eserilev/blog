@@ -19,18 +19,6 @@ set_option maxRecDepth 2048
 
 namespace logbook_core
 
-/-- [logbook_core::post::Topic]
-    Source: 'crates/logbook-core/src/post.rs', lines 19:0-26:1
-    Visibility: public -/
-@[discriminant isize]
-inductive post.Topic where
-| Ethereum : post.Topic
-| Rust : post.Topic
-| Surf : post.Topic
-| Snowboarding : post.Topic
-| JiuJitsu : post.Topic
-| ClassicWow : post.Topic
-
 /-- [logbook_core::post::State]
     Source: 'crates/logbook-core/src/post.rs', lines 8:0-15:1
     Visibility: public -/
@@ -41,12 +29,12 @@ inductive post.State where
 | Public : post.State
 
 /-- [logbook_core::post::Post]
-    Source: 'crates/logbook-core/src/post.rs', lines 33:0-48:1
+    Source: 'crates/logbook-core/src/post.rs', lines 22:0-38:1
     Visibility: public -/
 structure post.Post where
   id : Std.U64
   state : post.State
-  topic : post.Topic
+  topic : alloc.vec.Vec Std.U8
   word_count : Std.U32
   slug : alloc.vec.Vec Std.U8
   title : alloc.vec.Vec Std.U8

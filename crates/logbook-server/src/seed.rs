@@ -1,7 +1,7 @@
 //! `logbook seed-sample`: sample posts for local development and screenshots.
 //! It refuses to run on a database that already has posts.
 
-use logbook_core::{State, Topic};
+use logbook_core::State;
 use sqlx::SqlitePool;
 
 use crate::posts::{self, NewPost};
@@ -24,7 +24,7 @@ fn sample() -> Vec<NewPost<'static>> {
         public(
             "Splitboarding: end of season notes",
             "Route, gear, and conditions from the last backcountry tour of the season.",
-            Topic::Snowboarding,
+            "snowboarding",
             &["snow", "backcountry"],
             "Sample post. Route, gear, and conditions from the last tour of the season.\n",
             "2026-04-11T16:00:00Z",
@@ -32,7 +32,7 @@ fn sample() -> Vec<NewPost<'static>> {
         public(
             "Surf log, summer 2026",
             "Conditions, a new board, and why I keep my mornings free of calls.",
-            Topic::Surf,
+            "surf",
             &["surf"],
             "Sample post. A short entry about conditions and a new board.\n",
             "2026-07-30T14:00:00Z",
@@ -40,7 +40,7 @@ fn sample() -> Vec<NewPost<'static>> {
         public(
             "Four years of jiu jitsu",
             "Notes on training consistently while working on a protocol.",
-            Topic::JiuJitsu,
+            "jiu-jitsu",
             &["bjj"],
             "Sample post. Notes on training while working on a protocol.\n",
             "2026-08-19T18:00:00Z",
@@ -48,7 +48,7 @@ fn sample() -> Vec<NewPost<'static>> {
         public(
             "What classic WoW addons got right about interfaces",
             "Raid frames and threat meters solved information density problems that many dashboards still get wrong.",
-            Topic::ClassicWow,
+            "classic-wow",
             &["design", "wow"],
             "Sample post. Raid frames and threat meters, and what dashboards can learn.\n",
             "2026-09-02T17:00:00Z",
@@ -56,7 +56,7 @@ fn sample() -> Vec<NewPost<'static>> {
         public(
             "Zero-copy SSZ decoding in Rust",
             "Decoding beacon state without allocations: borrowing from the input buffer, and where it paid off.",
-            Topic::Rust,
+            "rust",
             &["rust", "ssz", "performance"],
             "Sample post.\n\n```rust\npub fn decode<'a>(bytes: &'a [u8]) -> Result<View<'a>, Error> {\n    View::new(bytes)\n}\n```\n",
             "2026-09-14T15:00:00Z",
@@ -64,7 +64,7 @@ fn sample() -> Vec<NewPost<'static>> {
         public(
             "Block-level access lists and parallel execution",
             "EIP-7928 makes each block declare the accounts and storage slots it touches. What this gives clients, and what it costs builders.",
-            Topic::Ethereum,
+            "ethereum",
             &["glamsterdam", "eip-7928", "clients"],
             BAL,
             "2026-09-28T14:02:00Z",
@@ -72,7 +72,7 @@ fn sample() -> Vec<NewPost<'static>> {
         NewPost {
             title: "ePBS from a client's perspective",
             summary: "Fork choice now has to track the payload, not only the block.",
-            topic: Topic::Ethereum,
+            topic: "ethereum",
             tags: &["glamsterdam", "epbs"],
             body_md: EPBS,
             state: State::Draft,
@@ -81,7 +81,7 @@ fn sample() -> Vec<NewPost<'static>> {
         NewPost {
             title: "Molten Core as a scheduling problem",
             summary: "Private notes.",
-            topic: Topic::ClassicWow,
+            topic: "classic-wow",
             tags: &["wow"],
             body_md: "Private sample post.\n",
             state: State::Private,

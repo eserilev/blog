@@ -1,11 +1,5 @@
 //! `<head>` tags for page responses (spec 6.3). All values are HTML-escaped.
 
-/// Site name in titles and `og:site_name`.
-pub const SITE_NAME: &str = "Eitan's Logbook";
-/// Default description.
-pub const SITE_DESCRIPTION: &str =
-    "An Ethereum core developer keeps notes on protocol work, Rust, and the time between.";
-
 /// What the `<head>` describes.
 #[derive(Debug, Clone, Copy)]
 pub struct Head<'a> {
@@ -18,6 +12,8 @@ pub struct Head<'a> {
     pub article: bool,
     /// Adds `<meta name="robots" content="noindex">`.
     pub noindex: bool,
+    /// The site title (spec 4.9), in titles and `og:site_name`.
+    pub site: &'a str,
 }
 
 /// Escapes text for use in element content and double-quoted attributes.
@@ -41,10 +37,10 @@ pub fn escape(s: &str) -> String {
 #[must_use]
 pub fn head_tags(h: &Head<'_>) -> String {
     let full_title = match h.title {
-        Some(t) => format!("{t} · {SITE_NAME}"),
-        None => SITE_NAME.to_string(),
+        Some(t) => format!("{t} · {}", h.site),
+        None => h.site.to_string(),
     };
-    let og_title = h.title.unwrap_or(SITE_NAME);
+    let og_title = h.title.unwrap_or(h.site);
     let (title, og_title, desc, url) = (
         escape(&full_title),
         escape(og_title),
@@ -61,7 +57,7 @@ pub fn head_tags(h: &Head<'_>) -> String {
 <meta property=\"og:type\" content=\"{og_type}\">\n\
 <meta property=\"og:url\" content=\"{url}\">\n\
 <meta name=\"twitter:card\" content=\"summary\">\n",
-        site = escape(SITE_NAME),
+        site = escape(h.site),
     );
     if h.noindex {
         out.push_str("<meta name=\"robots\" content=\"noindex\">\n");
@@ -99,6 +95,7 @@ mod tests {
             url: "https://e.com/\"",
             article: true,
             noindex: false,
+            site: "S",
         };
         let tags = head_tags(&h);
         assert!(!tags.contains("<script"));
@@ -114,6 +111,7 @@ mod tests {
             url: "/",
             article: false,
             noindex: false,
+            site: "S",
         };
         assert!(!head_tags(&h).contains("noindex"));
         h.noindex = true;

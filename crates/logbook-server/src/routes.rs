@@ -12,7 +12,10 @@ use axum::{
 };
 use tower_http::set_header::SetResponseHeaderLayer;
 
-use crate::{AppState, auth, checks, counter, export, feed, guard, media, now, pages, posts, surf};
+use crate::{
+    AppState, auth, checks, counter, export, feed, guard, media, now, pages, posts, site, surf,
+    topic,
+};
 
 /// HTTP method of a route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,6 +72,13 @@ pub enum Kind {
     Media,
     Upload,
     Surf,
+    ApiTopics,
+    CreateTopic,
+    SaveTopics,
+    DeleteTopic,
+    ApiSite,
+    OwnerSite,
+    SaveSite,
 }
 
 /// Every route kind. The test `every_kind_is_routed` checks that each one is in
@@ -104,6 +114,13 @@ pub const ALL_KINDS: &[Kind] = &[
     Kind::Media,
     Kind::Upload,
     Kind::Surf,
+    Kind::ApiTopics,
+    Kind::CreateTopic,
+    Kind::SaveTopics,
+    Kind::DeleteTopic,
+    Kind::ApiSite,
+    Kind::OwnerSite,
+    Kind::SaveSite,
 ];
 
 const fn _all_kinds_listed(k: Kind) {
@@ -137,7 +154,14 @@ const fn _all_kinds_listed(k: Kind) {
         | Kind::ExportZip
         | Kind::Media
         | Kind::Upload
-        | Kind::Surf => {}
+        | Kind::Surf
+        | Kind::ApiTopics
+        | Kind::CreateTopic
+        | Kind::SaveTopics
+        | Kind::DeleteTopic
+        | Kind::ApiSite
+        | Kind::OwnerSite
+        | Kind::SaveSite => {}
     }
 }
 
@@ -281,6 +305,28 @@ pub const ROUTES: &[Route] = &[
         Kind::Upload,
     ),
     r(Verb::Get, "/api/surf", Access::Public, Kind::Surf),
+    r(Verb::Get, "/api/topics", Access::Public, Kind::ApiTopics),
+    r(
+        Verb::Post,
+        "/api/owner/topics",
+        Access::Owner,
+        Kind::CreateTopic,
+    ),
+    r(
+        Verb::Put,
+        "/api/owner/topics",
+        Access::Owner,
+        Kind::SaveTopics,
+    ),
+    r(
+        Verb::Delete,
+        "/api/owner/topics/{topic}",
+        Access::Owner,
+        Kind::DeleteTopic,
+    ),
+    r(Verb::Get, "/api/site", Access::Public, Kind::ApiSite),
+    r(Verb::Get, "/api/owner/site", Access::Owner, Kind::OwnerSite),
+    r(Verb::Put, "/api/owner/site", Access::Owner, Kind::SaveSite),
 ];
 
 fn handler(kind: Kind) -> MethodRouter<AppState> {
@@ -317,6 +363,13 @@ fn handler(kind: Kind) -> MethodRouter<AppState> {
             post(media::upload).layer(DefaultBodyLimit::max(media::UPLOAD_MAX + 64 * 1024))
         }
         Kind::Surf => get(surf::api_surf),
+        Kind::ApiTopics => get(topic::api_topics),
+        Kind::CreateTopic => post(topic::create),
+        Kind::SaveTopics => put(topic::save),
+        Kind::DeleteTopic => delete(topic::delete),
+        Kind::ApiSite => get(site::api_site),
+        Kind::OwnerSite => get(site::owner_site),
+        Kind::SaveSite => put(site::save_site),
     }
 }
 

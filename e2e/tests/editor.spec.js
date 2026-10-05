@@ -11,9 +11,9 @@ test('write, preview, save, publish, read', async ({ page }) => {
   const editor = page.locator('md-editor');
   await expect(editor).toHaveAttribute('data-loaded', '');
 
-  await page.getByLabel('Title').fill('Testing the editor');
+  await page.locator('md-editor').getByLabel('Title', { exact: true }).fill('Testing the editor');
   await page.getByLabel('Summary').fill('A post written by the browser test.');
-  await page.getByLabel('Topic').selectOption('rust');
+  await page.locator('md-editor').getByLabel('Topic', { exact: true }).selectOption('rust');
   await page.getByLabel('Tags').fill('Rust, Testing');
   await page.getByLabel('Post markdown').fill('# Hello\n\nSome **bold** text.\n\n```rust\nfn main() {}\n```\n\n<b>raw</b>');
 
@@ -26,7 +26,7 @@ test('write, preview, save, publish, read', async ({ page }) => {
   await expect(page.locator('[data-dirty]')).toBeVisible();
 
   // Save keeps it a draft; guests cannot see it.
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('md-editor').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('[data-dirty]')).toBeHidden();
   await expect(page.locator('[data-file]')).toHaveText('testing-the-editor.md');
   expect((await page.request.get('/api/posts/testing-the-editor')).status()).toBe(404);
@@ -60,19 +60,19 @@ test('a save from an old tab is a conflict', async ({ page, context }) => {
   const tab2 = await context.newPage();
   await tab2.goto(url);
   await expect(tab2.locator('md-editor')).toHaveAttribute('data-loaded', '');
-  await tab2.getByLabel('Title').fill('Saved in tab two');
-  await tab2.getByRole('button', { name: 'Save', exact: true }).click();
+  await tab2.locator('md-editor').getByLabel('Title', { exact: true }).fill('Saved in tab two');
+  await tab2.locator('md-editor').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(tab2.locator('[data-dirty]')).toBeHidden();
 
   // The first tab still has the old version.
-  await page.getByLabel('Title').fill('Saved in tab one');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('md-editor').getByLabel('Title', { exact: true }).fill('Saved in tab one');
+  await page.locator('md-editor').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('md-editor [data-status]')).toHaveText('Conflict: reload to see the newer version.');
   await expect(page.locator('[data-dirty]')).toBeVisible();
 
   // The server kept tab two's save.
   await page.reload();
-  await expect(page.getByLabel('Title')).toHaveValue('Saved in tab two');
+  await expect(page.locator('md-editor').getByLabel('Title', { exact: true })).toHaveValue('Saved in tab two');
 });
 
 test('delete needs two clicks', async ({ page }) => {
@@ -80,7 +80,7 @@ test('delete needs two clicks', async ({ page }) => {
   await page.getByRole('button', { name: 'New post' }).click();
   await expect(page.locator('md-editor')).toHaveAttribute('data-loaded', '');
   const id = page.url().split('/').pop();
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.locator('md-editor').getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('button', { name: 'Click again to delete' })).toBeVisible();
   await page.getByRole('button', { name: 'Click again to delete' }).click();
   await expect(page).toHaveURL('/write');

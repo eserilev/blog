@@ -1,5 +1,6 @@
 //! Page routes. Every page is `index.html`; the web components pick the view.
-//! The server only fills the `<head>` and picks the status (spec 6.3).
+//! The server fills the `<head>`, the title section, and the topic list, and picks
+//! the status (spec 6.3).
 
 use axum::{
     extract::{Path, State},
@@ -9,48 +10,73 @@ use axum::{
 
 use crate::{
     AppState,
-    head::{self, Head, SITE_DESCRIPTION},
-    posts, topic,
+    head::{self, Head},
+    posts, site, topic,
 };
 
-fn page(s: &AppState, status: StatusCode, h: &Head<'_>) -> Response {
-    (
-        status,
-        Html(head::inject(&s.index_html, &head::head_tags(h))),
-    )
-        .into_response()
+/// What a page shows in its head, without the site values.
+struct Page<'a> {
+    title: Option<&'a str>,
+    /// `None` uses the site tagline.
+    description: Option<&'a str>,
+    path: &'a str,
+    article: bool,
+    noindex: bool,
 }
 
-fn not_found_page(s: &AppState, path: &str) -> Response {
-    let url = format!("{}{path}", s.origin);
+fn internal(e: &sqlx::Error) -> Response {
+    tracing::error!("database error: {e}");
+    (StatusCode::INTERNAL_SERVER_ERROR, "internal error").into_response()
+}
+
+async fn page(s: &AppState, status: StatusCode, p: &Page<'_>) -> Response {
+    let (site, topics) = match (site::get(&s.pool).await, topic::all(&s.pool).await) {
+        (Ok(site), Ok(topics)) => (site, topics),
+        (Err(e), _) | (_, Err(e)) => return internal(&e),
+    };
+    let url = format!("{}{}", s.origin, p.path);
+    let tags = head::head_tags(&Head {
+        title: p.title,
+        description: p.description.unwrap_or(&site.tagline),
+        url: &url,
+        article: p.article,
+        noindex: p.noindex,
+        site: &site.title,
+    });
+    let html = site::fill(&head::inject(&s.index_html, &tags), &site, &topics);
+    (status, Html(html)).into_response()
+}
+
+async fn not_found_page(s: &AppState, path: &str) -> Response {
     page(
         s,
         StatusCode::NOT_FOUND,
-        &Head {
+        &Page {
             title: Some("Not found"),
-            description: "",
-            url: &url,
+            description: Some(""),
+            path,
             article: false,
             noindex: true,
         },
     )
+    .await
 }
 
 /// `/`, `/about`, `/write`, `/write/{id}`: the default head.
 pub async fn index(State(s): State<AppState>, headers: HeaderMap) -> Response {
     s.counter.hit(&headers);
-    let url = format!("{}/", s.origin);
     page(
         &s,
         StatusCode::OK,
-        &Head {
+        &Page {
             title: None,
-            description: SITE_DESCRIPTION,
-            url: &url,
+            description: None,
+            path: "/",
             article: false,
             noindex: false,
         },
     )
+    .await
 }
 
 /// `/posts/{slug}`. A public post gets its title and summary in the head. Any other
@@ -66,24 +92,22 @@ pub async fn post(
             let p = pp.post();
             let title = String::from_utf8_lossy(&p.title);
             let summary = String::from_utf8_lossy(&p.summary);
-            let url = format!("{}/posts/{}", s.origin, String::from_utf8_lossy(&p.slug));
+            let path = format!("/posts/{}", String::from_utf8_lossy(&p.slug));
             page(
                 &s,
                 StatusCode::OK,
-                &Head {
+                &Page {
                     title: Some(&title),
-                    description: &summary,
-                    url: &url,
+                    description: Some(&summary),
+                    path: &path,
                     article: true,
                     noindex: false,
                 },
             )
+            .await
         }
-        Ok(None) => not_found_page(&s, "/posts/"),
-        Err(e) => {
-            tracing::error!("database error: {e}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal error").into_response()
-        }
+        Ok(None) => not_found_page(&s, "/posts/").await,
+        Err(e) => internal(&e),
     }
 }
 
@@ -94,22 +118,24 @@ pub async fn topic(
     headers: HeaderMap,
 ) -> Response {
     s.counter.hit(&headers);
-    match topic::parse(&t) {
-        Some(t) => {
-            let url = format!("{}/topics/{}", s.origin, topic::slug(t));
+    match topic::get(&s.pool, &t).await {
+        Ok(Some(t)) => {
+            let path = format!("/topics/{}", t.slug);
             page(
                 &s,
                 StatusCode::OK,
-                &Head {
-                    title: Some(topic::name(t)),
-                    description: SITE_DESCRIPTION,
-                    url: &url,
+                &Page {
+                    title: Some(&t.name),
+                    description: None,
+                    path: &path,
                     article: false,
                     noindex: false,
                 },
             )
+            .await
         }
-        None => not_found_page(&s, "/topics/"),
+        Ok(None) => not_found_page(&s, "/topics/").await,
+        Err(e) => internal(&e),
     }
 }
 

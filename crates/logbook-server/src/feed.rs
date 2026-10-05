@@ -12,7 +12,7 @@ use time::{
     format_description::well_known::{Rfc2822, Rfc3339},
 };
 
-use crate::{AppState, head, posts, topic};
+use crate::{AppState, posts, site, topic};
 
 /// RFC 3339 → RFC 2822, the date format of RSS.
 fn rss_date(rfc3339: &str) -> Option<String> {
@@ -31,8 +31,15 @@ pub fn absolute_urls(html: &str, origin: &str) -> String {
 
 /// `GET /feed.xml`.
 pub async fn feed(State(s): State<AppState>) -> Response {
-    let posts = match posts::all(&s.pool).await {
-        Ok(p) => p,
+    let loaded = async {
+        Ok::<_, sqlx::Error>((
+            posts::all(&s.pool).await?,
+            topic::names(&s.pool).await?,
+            site::get(&s.pool).await?,
+        ))
+    };
+    let (posts, names, site) = match loaded.await {
+        Ok(v) => v,
         Err(e) => {
             tracing::error!("database error: {e}");
             return (StatusCode::INTERNAL_SERVER_ERROR, "internal error").into_response();
@@ -44,13 +51,14 @@ pub async fn feed(State(s): State<AppState>) -> Response {
         .map(|pp| {
             let p = pp.post();
             let link = format!("{}/posts/{}", s.origin, text(&p.slug));
+            let topic = text(&p.topic);
             ItemBuilder::default()
                 .title(Some(text(&p.title)))
                 .link(Some(link))
                 .description(Some(text(&p.summary)))
                 .content(Some(absolute_urls(&text(&p.body_html), &s.origin)))
                 .categories(vec![rss::Category {
-                    name: topic::name(p.topic).into(),
+                    name: names.get(&topic).cloned().unwrap_or(topic),
                     domain: None,
                 }])
                 .guid(Some(
@@ -64,9 +72,9 @@ pub async fn feed(State(s): State<AppState>) -> Response {
         })
         .collect();
     let channel = ChannelBuilder::default()
-        .title(head::SITE_NAME)
+        .title(site.title)
         .link(format!("{}/", s.origin))
-        .description(head::SITE_DESCRIPTION)
+        .description(site.tagline)
         .language(Some("en".into()))
         .items(items)
         .build();

@@ -1,4 +1,4 @@
-//! Posts, states, topics, reading time (spec 4.1, 4.2).
+//! Posts, states, reading time (spec 4.1, 4.2).
 
 /// Words per minute for the reading time (spec 4.2).
 pub const WORDS_PER_MINUTE: u32 = 220;
@@ -14,17 +14,6 @@ pub enum State {
     Public,
 }
 
-/// Post topic (spec 4.2).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Topic {
-    Ethereum,
-    Rust,
-    Surf,
-    Snowboarding,
-    JiuJitsu,
-    ClassicWow,
-}
-
 /// A post as the core logic sees it. Text fields are UTF-8 bytes.
 ///
 /// `Clone` is written out by hand: Aeneas models `Vec::clone` but not
@@ -33,7 +22,8 @@ pub enum Topic {
 pub struct Post {
     pub id: u64,
     pub state: State,
-    pub topic: Topic,
+    /// Topic slug, for example `rust`. The owner manages the topic list (spec 4.2).
+    pub topic: Vec<u8>,
     pub word_count: u32,
     pub slug: Vec<u8>,
     pub title: Vec<u8>,
@@ -59,7 +49,7 @@ impl Clone for Post {
         Self {
             id: self.id,
             state: self.state,
-            topic: self.topic,
+            topic: self.topic.clone(),
             word_count: self.word_count,
             slug: self.slug.clone(),
             title: self.title.clone(),
