@@ -702,6 +702,8 @@ const DOS_HELP = [
   ['LOGOUT', 'sign out'],
   ['WIN, EXIT', 'go back to Windows'],
 ];
+/* Phones only (spec 11.8). */
+const DOS_HELP_PHONE = [['MOBILE', 'switch to the phone view']];
 
 /* <dos-shell>: the MS-DOS mode terminal (spec 11.1). Commands print lines with textContent.
    Only server-sanitized body_html goes into innerHTML (TYPE and NOW).
@@ -734,7 +736,8 @@ customElements.define('dos-shell', class extends HTMLElement {
     this.addEventListener('keydown', e => {
       if (e.altKey || e.ctrlKey || e.metaKey || !/^F\d+$/.test(e.key)) return;
       const key = this.querySelector(`[data-key="${e.key}"]`);
-      if (key) { e.preventDefault(); this.run(key.dataset.cmd); }
+      // A key that does not show (F8 on a desktop) does nothing.
+      if (key && key.getClientRects().length) { e.preventDefault(); this.run(key.dataset.cmd); }
     });
     this.addEventListener('click', e => {
       const key = e.target.closest('[data-cmd]');
@@ -863,6 +866,10 @@ customElements.define('dos-shell', class extends HTMLElement {
       case 'SURF': await this.surf(box); break;
       case 'VER': this.say(box, 'Logbook DOS Version 6.22'); break;
       case 'WIN': case 'EXIT': Mode.set('general'); return;
+      case 'MOBILE':
+        if (Mode.phone) { Mode.set('phone'); return; }
+        this.say(box, 'Bad command or file name');
+        break;
       case 'LOGIN': await this.login(box); break;
       case 'LOGOUT': await this.logout(box); break;
       default: this.say(box, 'Bad command or file name');
@@ -873,7 +880,7 @@ customElements.define('dos-shell', class extends HTMLElement {
   help(box) {
     const grid = document.createElement('div');
     grid.className = 'dos-help dos-line';
-    for (const [name, desc] of DOS_HELP) {
+    for (const [name, desc] of Mode.phone ? [...DOS_HELP, ...DOS_HELP_PHONE] : DOS_HELP) {
       const a = document.createElement('span'), b = document.createElement('span');
       a.textContent = name;
       b.textContent = desc;

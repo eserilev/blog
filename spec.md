@@ -289,6 +289,7 @@ Native custom elements, light DOM.
 | `<md-editor>` | Textarea, WASM preview, toolbar, word count, state choice, Save and Publish, message box. |
 | `<sign-in>` | Passkey dialog. |
 | `<dos-shell>` | MS-DOS mode (11.1): the prompt, the commands, and the F-key bar. Follows the router. |
+| `<phone-shell>` | Phone mode (11.8): standby, menu, lists, reading, Snake, and softkeys. Follows the router. |
 
 Rules:
 
@@ -829,6 +830,7 @@ Playwright, Chromium:
 - Keyboard: every control reachable, focus visible.
 - Screenshot comparison: home, post, editor.
 - MS-DOS mode (`dos.spec.js`): toggle and reload, DIR then TYPE, a deep link, Back, WIN, F-keys, keyboard only, 390 px layout.
+- Phone mode (`phone.spec.js`): see 11.8.
 
 ### 7.6 Formal verification (Aeneas)
 
@@ -983,14 +985,14 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 
 ## 11. Planned work
 
-Work that was discussed and decided, but not built yet. Each item names its state. Designs: the "Logbook Designs" canvas (artboards: Home with the Dark mode button, MS-DOS mode, Write in DOS EDIT, Start menu). The design files use inline styles and Google Fonts. The build must not copy those (CSP, 6.9).
+Work that was discussed and decided, but not built yet. Each item names its state. Designs: the "Logbook Designs" canvas (artboards: Home with the Dark mode button, MS-DOS mode, Write in DOS EDIT, Start menu, Mobile: 2000 phone style). The design files use inline styles and Google Fonts. The build must not copy those (CSP, 6.9).
 
 ### 11.1 Dark mode = MS-DOS mode (PR 1) [built]
 
 Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `static/js/mode.js`, `<dos-shell>` in `index.html` and `components.js`, the MS-DOS part of `logbook.css`, `e2e/tests/dos.spec.js`.
 
 - **Toggle.** A toolbar button "Dark mode" with a black `C:\` icon, after Print. Accessible name: "Dark mode (MS-DOS)". It is a `<button>`.
-- **One mode key.** `localStorage` key `logbook.mode` holds the view: `general` (Win98, light) or `night` (MS-DOS, dark). All storage access is in try/catch. If storage fails, a change lasts for the page only. No cookie: public responses never change per visitor.
+- **One mode key.** `localStorage` key `logbook.mode` holds the view: `general` (Win98, light) or `night` (MS-DOS, dark). Phone mode (11.8) adds `phone`, on phones only. All storage access is in try/catch. If storage fails, a change lasts for the page only. No cookie: public responses never change per visitor.
 - **First visit** is always `general` on a desktop, whatever the OS dark setting. A saved value that the device cannot show is ignored.
 - **No flash.** `static/js/mode.js` is a blocking `<script src>` in `<head>`. It sets `<html data-mode="...">` before the page paints. Its `Mode` object reads and saves the key. A change fires `modechange` on `document`.
 - **Back to Windows.** `WIN`, `EXIT`, and F10 save `general`. The toolbar button saves `night`.
@@ -1066,3 +1068,23 @@ T6 (a plain title is its own slug), T7 (no letters or digits gives `post-<id>`),
 - **Mutation testing** (7.8): `cargo-mutants --in-diff` in CI, and a full run nightly.
 - **Nightly workflow** (7.9): long fuzz runs, full mutants, fresh `cargo deny` advisories. A failure opens an issue.
 - **Restore test speed**: cache the dependency build in the Docker image (cargo-chef), so the restore job takes less than 4 minutes.
+
+### 11.8 Phone mode: the 2000 phone view [built]
+
+On phones, the site looks and works like a monochrome phone from 2000: the page is the green LCD. Design: "Logbook Designs" canvas, artboard "Mobile: 2000 phone style". It is not a picture of a phone.
+
+- **Default.** A phone opens in phone mode: `(pointer: coarse)` and a viewport 600 px wide or less when the page loads, with no saved choice. A desktop never shows phone mode or any switch to it. On a desktop, a saved `phone` is ignored, and the page opens in `general`.
+- **Switching, on phones only.** Phone mode → Profiles: Phone (this view), General (Win98, light), Night (MS-DOS, dark). Win98 footer: "View: Mobile | Desktop". MS-DOS: the `MOBILE` command and the F8 Mobile key. The choice persists in the one mode key of 11.1: `localStorage` `logbook.mode` = `phone`, `general`, or `night`, in try/catch. On a desktop these switches do not render: CSS hides `.phone-only` unless `<html data-device="phone">`, and the `MOBILE` command gives "Bad command or file name".
+- **Look.** Ink `#1d2b14` on a `#bcd193`–`#a6bd79` gradient (9.0:1 and 7.2:1, AAA). VT323 (self-hosted). A faint 3 px grid, off under `prefers-contrast: more`. Status row: signal bars side by side and rising, the time, a horizontal battery.
+- **Standby.** "Eitan's Logbook", the logo as pixel art in a 1 px box (ink E and waves on clear LCD), a live clock and date. With an unread post: "1 new post", softkeys Read / Menu. Without: Menu / Posts. "Unread" is per browser (`localStorage`), against the newest `published_at`.
+- **Softkeys.** Two plain words at the bottom of the LCD, left (main action) and right (Back). No border, no background, no arrow buttons. Each half is a 64 px tap area. A tap shows the word in inverse.
+- **Menu.** One item per screen: a large pixel icon, the label, and the index number. Items: Posts, Topics, Now, Surf, About, Profiles, Games. Tap the icon to open. Swipe or tap the pixel arrows to move. Keys 1–7 open an item directly.
+- **Lists.** Real links (`<a href="/posts/{slug}">`) in a `<ul>`, inverse video for the selected row. Topics filter the post list. An empty list says "No posts yet."
+- **Reading.** The real `body_html` (sanitized) in a scroll area with native touch scrolling. ▲ ▼ keys page by 85 %. "3/12" at the top right. A thin scroll bar. The battery drains with reading progress. Options (left softkey): Top, Jump to section (from the post headings), Text size (Small 20 / Normal 24 / Large 30 px), Font (Pixel / Clean monospace), Copy link. Code blocks scroll sideways. Images are grayscale and tinted green.
+- **Snake** (Games): 20×16 board, +9 per food, no wall wrap. Keys 2/4/6/8 on a 3×3 pad with 5 = pause, swipe on the board, arrow keys. It pauses when the tab is hidden. A full board is a win. A `role="status"` region reads the score and "Game over".
+- **Keyboard (desktop testing, external keyboards).** Arrows and Page Up/Down, Enter = left softkey, Esc or Backspace = Back.
+- **Routing.** `/` = standby, `/posts/{slug}` = the post (Back goes to the Posts list), `/topics/{t}` = the filtered list, `/about` = About. Softkey Back and browser Back do the same thing.
+- **Unread.** `localStorage` `logbook.seen` holds the `published_at` of the newest post that this browser opened.
+- **History.** Each screen change is a history entry. Screens without their own address (Menu, Posts, Topics, Now, Surf, Profiles, Games) live at `/` with their name in `history.state`. Read on standby adds Menu and Posts before the post, so Back goes to Posts. A screen opened from a shared link has no earlier entry. Then Back goes to its parent screen: a post to Posts, a topic to Topics, the others to Menu.
+- **Build.** `mode.js` sets `<html data-mode="phone">` and `<html data-device="phone">` before paint. One `<phone-shell>` element (`static/js/phone.js`) sits next to the Win98 views. It uses the same data code: `Api`, `TOPICS`, `matchRoute`, and the `<blog-app>` router. All styles are in `static/css/phone.css`. The battery and the scroll bar change through CSSOM. No inline styles or scripts (CSP), no Google Fonts. `/write` and `/setup` keep the Win98 view.
+- **Tests** (`phone.spec.js`, iPhone 13 context in Chromium): phone mode is the default, Read opens the newest post, Back, menu keys 1–7, Options and Jump to section, Snake start and pause, Profiles to General and Night and back, no horizontal scroll at 390 px. A desktop context shows no phone mode and no switch to it.

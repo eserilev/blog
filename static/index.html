@@ -11,9 +11,11 @@
 <link rel="stylesheet" href="/static/css/code.css">
 <link rel="alternate" type="application/rss+xml" title="<!--site:title-->" href="/feed.xml">
 <link rel="stylesheet" href="/static/css/logbook.css">
+<link rel="stylesheet" href="/static/css/phone.css">
 <script src="/static/js/mode.js"></script>
 <script src="/static/js/components.js" defer></script>
 <script src="/static/js/app.js" defer></script>
+<script src="/static/js/phone.js" defer></script>
 </head>
 <body>
 <noscript><p class="noscript">This site needs JavaScript.</p></noscript>
@@ -136,6 +138,7 @@
             </div>
 
             <p class="foot-note">Last updated October 1, 2026. Best viewed at 800 × 600. <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
+            <p class="foot-note view-switch phone-only">View: <button class="lnk" type="button" data-mode-set="phone">Mobile</button> | <b>Desktop</b></p>
           </div>
         </section>
 
@@ -327,10 +330,81 @@
       <button type="button" data-cmd="TYPE ABOUT.TXT" data-key="F3" aria-label="F3 About"><span class="n">3</span><span class="t">About</span></button>
       <button type="button" data-cmd="NOW" data-key="F4" aria-label="F4 Now"><span class="n">4</span><span class="t">Now</span></button>
       <button type="button" data-cmd="SURF" data-key="F5" aria-label="F5 Surf"><span class="n">5</span><span class="t">Surf</span></button>
+      <button type="button" class="phone-only" data-cmd="MOBILE" data-key="F8" aria-label="F8 Mobile"><span class="n">8</span><span class="t">Mobile</span></button>
       <button type="button" data-cmd="CLS" data-key="F9" aria-label="F9 Cls"><span class="n">9</span><span class="t">Cls</span></button>
       <button type="button" data-cmd="WIN" data-key="F10" aria-label="F10 Win"><span class="n">10</span><span class="t">Win</span></button>
     </nav>
   </dos-shell>
+
+  <!-- Phone mode (spec 11.8). CSS shows it only under html[data-mode="phone"]. -->
+  <phone-shell>
+    <div class="ph-status" aria-hidden="true">
+      <span class="ph-signal"><svg class="pix" viewBox="0 0 7 9"><path d="M0 0h7v1H0zM3 1h1v8H3zM1 1h1v1H1zM5 1h1v1H5z"/></svg><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="ph-time" data-time></span>
+      <span class="ph-batt"><span class="ph-batt-box"><span data-batt></span></span><span class="ph-batt-tip"></span></span>
+    </div>
+    <main class="ph-main" tabindex="-1">
+      <div class="ph-col">
+        <section class="ph-standby" data-screen="standby">
+          <h1 data-site></h1>
+          <svg class="pix ph-logo" viewBox="0 0 18 18" role="img" aria-label="Logbook logo"><path d="M0 0h18v18H0zM1 1v16h16V1z"/><g transform="translate(1 1)"><path d="M4 2h8v2h-1V3H7v3h3V5h1v3h-1V7H7v3h4V9h1v2H4v-1h1V3H4z"/><path d="M1 13h2v-1h2v1h2v-1h2v1h2v-1h2v1h2v1h-2v-1h-2v1H9v-1H7v1H5v-1H3v1H1z"/><path class="far" d="M2 15h2v-1h2v1h2v-1h2v1h2v-1h2v1h1v1H2z"/></g></svg>
+          <p class="ph-clock" data-clock></p>
+          <p class="ph-date" data-date></p>
+          <button class="ph-new" type="button" data-new hidden>1 new post</button>
+        </section>
+        <section data-screen="menu" hidden>
+          <div class="ph-head"><h1>Menu</h1><span data-menu-index></span></div>
+          <div class="ph-menu">
+            <button class="ph-arrow" type="button" data-step="-1" aria-label="Previous item"><svg class="pix" viewBox="0 0 5 7" aria-hidden="true"><path d="M4 0h1v7H4V6H3V5H2V4H1V3h1V2h1V1h1z"/></svg></button>
+            <button class="ph-item" type="button" data-menu-open><svg class="pix" viewBox="0 0 16 12" aria-hidden="true"><path data-menu-icon/></svg><span data-menu-label></span></button>
+            <button class="ph-arrow" type="button" data-step="1" aria-label="Next item"><svg class="pix" viewBox="0 0 5 7" aria-hidden="true"><path d="M0 0h1v1h1v1h1v1h1v1H3v1H2v1H1v1H0z"/></svg></button>
+          </div>
+        </section>
+        <section data-screen="list" hidden>
+          <div class="ph-head"><h1 data-list-title></h1></div>
+          <ul class="ph-list" data-list></ul>
+          <p class="ph-empty" data-list-empty hidden></p>
+        </section>
+        <section data-screen="text" hidden>
+          <div class="ph-head"><h1 data-text-title></h1><span data-pages></span></div>
+          <div class="ph-read" data-read tabindex="0"></div>
+        </section>
+        <section data-screen="snake" hidden>
+          <div class="ph-head"><h1>Snake</h1><span data-score>0000</span></div>
+          <div class="ph-board" data-board>
+            <svg class="pix" viewBox="0 0 20 16" aria-hidden="true"><path data-snake/><rect data-food width=".7" height=".7"/></svg>
+            <p class="ph-banner" data-banner hidden></p>
+          </div>
+          <p class="ph-sr" role="status" data-snake-status></p>
+          <div class="ph-pad">
+            <button type="button" data-dir="2" aria-label="Up (2)">2</button>
+            <button type="button" data-dir="4" aria-label="Left (4)">4</button>
+            <button type="button" data-dir="5" aria-label="Pause (5)">5</button>
+            <button type="button" data-dir="6" aria-label="Right (6)">6</button>
+            <button type="button" data-dir="8" aria-label="Down (8)">8</button>
+          </div>
+        </section>
+        <section data-screen="profiles" hidden>
+          <div class="ph-head"><h1>Profiles</h1></div>
+          <ul class="ph-list">
+            <li><button type="button" data-profile="phone">Phone<small>This view</small></button></li>
+            <li><button type="button" data-profile="general">General<small>Windows 98 (light)</small></button></li>
+            <li><button type="button" data-profile="night">Night<small>MS-DOS (dark)</small></button></li>
+          </ul>
+        </section>
+      </div>
+      <div class="ph-thumb" data-thumb hidden><span></span></div>
+      <div class="ph-options" role="menu" aria-labelledby="ph-options-title" data-options hidden>
+        <p id="ph-options-title">Options</p>
+        <div data-option-items></div>
+      </div>
+      <p class="ph-toast" role="status" data-toast></p>
+    </main>
+    <nav class="ph-soft" aria-label="Softkeys">
+      <button type="button" data-soft="left"><span></span></button>
+      <button type="button" data-soft="right"><span></span></button>
+    </nav>
+  </phone-shell>
 
   <div class="taskbar">
     <button class="btn98 start" data-goto="/"><span class="flag"></span>Start</button>
