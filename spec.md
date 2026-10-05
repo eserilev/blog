@@ -494,6 +494,8 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
 
 1. comrak: CommonMark + GitHub tables, footnotes, task lists. Raw HTML is escaped and shows as text (comrak's default drops it silently).
 2. syntect: code highlighting with classes, not inline styles (CSP).
+   - Line numbers with the HackMD fence syntax: ```` ```rust= ```` numbers from 1, ```` ```rust=10 ```` from 10. No `=`, no numbers. Each number is a `<span class="hl-ln">` that copying skips (`user-select: none`).
+   - `bend` and `bend2` use the Python grammar (no Bend grammar exists). An unknown language stays plain text, with numbers if asked.
 3. ammonia: allow-list of tags and attributes. Links get `rel="noopener noreferrer"`. Only `http`, `https`, `mailto`, and relative URLs.
 
 ### 6.8 Uploads

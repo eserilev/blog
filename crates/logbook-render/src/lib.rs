@@ -30,6 +30,8 @@ static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_ne
 /// - CommonMark, plus GitHub tables, strikethrough, autolinks, task lists, footnotes.
 /// - Raw HTML in the markdown is escaped, not passed through.
 /// - Code blocks get syntax classes (`hl-*`), not inline styles, so the CSP holds.
+/// - A fence like `` ```rust= `` (the `HackMD` syntax) adds line numbers; `rust=10`
+///   starts them at 10. Each number is a `<span class="hl-ln">` at the start of a line.
 /// - The result passes the ammonia allow-list in [`sanitize`].
 #[must_use]
 pub fn render(md: &str) -> String {
@@ -90,15 +92,64 @@ fn escape_attr(value: &str) -> String {
     out
 }
 
-/// The language tag for `data-lang`: the first word of the info string, if it is plain.
-fn lang_tag(lang: Option<&str>) -> Option<&str> {
-    let lang = lang?.split_whitespace().next()?;
-    let ok = !lang.is_empty()
-        && lang.len() <= 20
-        && lang
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"+#-_".contains(&b));
-    ok.then_some(lang)
+/// Most digits in a line number start (`rust=123456`).
+const START_DIGITS_MAX: usize = 6;
+
+/// A fence info string, split: the language and the first line number, if any.
+#[derive(Debug, PartialEq, Eq)]
+struct Fence<'a> {
+    lang: &'a str,
+    /// `Some(n)`: number the lines from `n` (`rust=` is 1, `rust=10` is 10).
+    start: Option<u32>,
+}
+
+/// Parses the first word of an info string: `rust`, `rust=`, or `rust=10`.
+/// The language must be plain (`a-z`, `0-9`, `+#-_`, at most 20 bytes).
+fn fence(info: Option<&str>) -> Option<Fence<'_>> {
+    let word = info?.split_whitespace().next()?;
+    let (lang, start) = match word.split_once('=') {
+        None => (word, None),
+        Some((l, "")) => (l, Some(1)),
+        Some((l, n)) if n.len() <= START_DIGITS_MAX && n.bytes().all(|b| b.is_ascii_digit()) => {
+            (l, Some(n.parse().ok()?))
+        }
+        Some(_) => return None,
+    };
+    plain_token(lang, 20).then_some(Fence { lang, start })
+}
+
+/// The syntax for a language tag. Bend has no grammar; its syntax is close to Python.
+fn syntax_for(lang: &str) -> Option<&'static syntect::parsing::SyntaxReference> {
+    let lang = match lang.to_ascii_lowercase().as_str() {
+        "bend" | "bend2" => "py",
+        _ => return SYNTAXES.find_syntax_by_token(lang),
+    };
+    SYNTAXES.find_syntax_by_token(lang)
+}
+
+/// Puts a line number span at the start of each of the first `lines` lines of
+/// `html` (the source line count). Text after the last source line, for example
+/// syntect's closing `</span>`, gets no number. The numbers are right-aligned to
+/// the widest one. Each number span opens and closes inside one line, so a span
+/// that stays open across a line break remains valid.
+fn number_lines(html: &str, start: u32, lines: usize) -> String {
+    let last = start.saturating_add(u32::try_from(lines.saturating_sub(1)).unwrap_or(u32::MAX));
+    let width = last.to_string().len();
+    let mut out = String::with_capacity(html.len() + lines * 32);
+    for (i, segment) in html.split('\n').enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        if i < lines {
+            let n = start.saturating_add(u32::try_from(i).unwrap_or(u32::MAX));
+            let _ = fmt::Write::write_fmt(
+                &mut out,
+                format_args!("<span class=\"hl-ln\">{n:>width$}</span>"),
+            );
+        }
+        out.push_str(segment);
+    }
+    out
 }
 
 impl SyntaxHighlighterAdapter for Highlighter {
@@ -108,21 +159,25 @@ impl SyntaxHighlighterAdapter for Highlighter {
         lang: Option<&str>,
         code: &str,
     ) -> fmt::Result {
-        let syntax = lang_tag(lang).and_then(|l| SYNTAXES.find_syntax_by_token(l));
-        let Some(syntax) = syntax else {
-            return output.write_str(&escape_attr(code));
-        };
-        let mut generator =
-            ClassedHTMLGenerator::new_with_class_style(syntax, &SYNTAXES, CLASS_STYLE);
-        for line in LinesWithEndings::from(code) {
-            if generator
-                .parse_html_for_line_which_includes_newline(line)
-                .is_err()
-            {
-                return output.write_str(&escape_attr(code));
-            }
+        let f = fence(lang);
+        let html = f
+            .as_ref()
+            .and_then(|f| syntax_for(f.lang))
+            .and_then(|syntax| {
+                let mut generator =
+                    ClassedHTMLGenerator::new_with_class_style(syntax, &SYNTAXES, CLASS_STYLE);
+                for line in LinesWithEndings::from(code) {
+                    generator
+                        .parse_html_for_line_which_includes_newline(line)
+                        .ok()?;
+                }
+                Some(generator.finalize())
+            })
+            .unwrap_or_else(|| escape_attr(code));
+        match f.and_then(|f| f.start) {
+            Some(start) => output.write_str(&number_lines(&html, start, code.lines().count())),
+            None => output.write_str(&html),
         }
-        output.write_str(&generator.finalize())
     }
 
     /// Writes nothing. comrak gives the language to the `<code>` tag only, so
@@ -144,8 +199,8 @@ impl SyntaxHighlighterAdapter for Highlighter {
             .get("class")
             .and_then(|c| c.strip_prefix("language-"))
             .map(ToString::to_string);
-        match lang_tag(lang.as_deref()) {
-            Some(l) => {
+        match fence(lang.as_deref()) {
+            Some(Fence { lang: l, .. }) => {
                 let l = escape_attr(l);
                 write!(
                     output,
@@ -302,6 +357,60 @@ mod tests {
         assert!(html.contains("<code class=\"language-rust\">"), "{html}");
         assert!(html.contains("class=\"hl-"), "{html}");
         assert!(!html.contains("style="), "{html}");
+    }
+
+    #[test]
+    fn hackmd_fences_number_the_lines() {
+        let html = render("```rust=\nfn a() {}\nlet x = 1;\n```\n");
+        assert!(html.contains("<pre data-lang=\"rust\">"), "{html}");
+        assert!(html.contains("<code class=\"language-rust\">"), "{html}");
+        assert!(html.contains("<span class=\"hl-ln\">1</span>"), "{html}");
+        assert!(html.contains("<span class=\"hl-ln\">2</span>"), "{html}");
+        assert!(!html.contains("<span class=\"hl-ln\">3</span>"), "{html}");
+        assert!(
+            html.contains("class=\"hl-source hl-rust\""),
+            "highlighted: {html}"
+        );
+
+        let html = render("```python=99\na = 1\nb = 2\n```\n");
+        assert!(
+            html.contains("<span class=\"hl-ln\"> 99</span>"),
+            "aligned: {html}"
+        );
+        assert!(html.contains("<span class=\"hl-ln\">100</span>"), "{html}");
+
+        let plain = render("```rust\nfn a() {}\n```\n");
+        assert!(!plain.contains("hl-ln"), "no = means no numbers: {plain}");
+
+        let unknown = render("```nolang=\n<b>x</b>\n```\n");
+        assert!(
+            unknown.contains("<span class=\"hl-ln\">1</span>&lt;b&gt;"),
+            "{unknown}"
+        );
+        assert_safe(&unknown);
+    }
+
+    #[test]
+    fn bad_fences_fall_back_to_plain() {
+        for md in [
+            "```rust=x\na\n```\n",
+            "```rust=1234567\na\n```\n",
+            "```=5\na\n```\n",
+            "```a\"b=\nx\n```\n",
+        ] {
+            let html = render(md);
+            assert!(!html.contains("hl-ln"), "{md}: {html}");
+            assert!(!html.contains("data-lang"), "{md}: {html}");
+            assert_safe(&html);
+        }
+    }
+
+    #[test]
+    fn bend_uses_python_highlighting() {
+        let html = render("```bend2=\ndef main():\n  return 1\n```\n");
+        assert!(html.contains("<pre data-lang=\"bend2\">"), "{html}");
+        assert!(html.contains("hl-python"), "{html}");
+        assert!(html.contains("<span class=\"hl-ln\">2</span>"), "{html}");
     }
 
     #[test]

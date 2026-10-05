@@ -162,6 +162,8 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
 .prose code { font-family: var(--f-mono); font-size: .9em; background: var(--tint); padding: 0 3px; }
 .prose pre { background: #000; color: #d0d0d0; padding: 12px 14px; overflow-x: auto; border: 2px inset #888; font-size: 13.5px; line-height: 1.55; }
 .prose pre code { background: none; padding: 0; color: inherit; }
+/* Line numbers (```rust=): a gray gutter, like an IDE of 1998. Copying the code skips them. */
+.prose pre .hl-ln { display: inline-block; margin-right: 12px; padding-right: 8px; border-right: 1px solid #555; color: #808080; text-align: right; user-select: none; -webkit-user-select: none; }
 .prose pre[data-lang]::before { content: "C:\\> type example." attr(data-lang); display: block; color: #fff; margin-bottom: 6px; }
 
 /* Write view */
