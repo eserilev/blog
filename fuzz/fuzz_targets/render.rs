@@ -5,6 +5,21 @@
 use libfuzzer_sys::fuzz_target;
 use scraper::{Html, Node};
 
+/// Attributes that a browser reads as a URL.
+const URL_ATTRS: &[&str] = &[
+    "href",
+    "src",
+    "srcset",
+    "action",
+    "formaction",
+    "xlink:href",
+    "poster",
+    "cite",
+    "background",
+    "data",
+    "ping",
+];
+
 fuzz_target!(|data: &[u8]| {
     let md = String::from_utf8_lossy(data);
     let html = logbook_render::render(&md);
@@ -34,13 +49,17 @@ fuzz_target!(|data: &[u8]| {
                     !attr.starts_with("on") && attr != "style",
                     "attribute {attr}"
                 );
-                let v = value.trim().to_ascii_lowercase();
-                assert!(
-                    !v.starts_with("javascript:")
-                        && !v.starts_with("data:")
-                        && !v.starts_with("vbscript:"),
-                    "URL {value}"
-                );
+                // Only attributes that hold a URL can load one. Text such as
+                // `alt="data:..."` is shown, never fetched.
+                if URL_ATTRS.contains(&attr) {
+                    let v = value.trim().to_ascii_lowercase();
+                    assert!(
+                        !v.starts_with("javascript:")
+                            && !v.starts_with("data:")
+                            && !v.starts_with("vbscript:"),
+                        "URL {attr}={value}"
+                    );
+                }
             }
         }
     }
