@@ -115,6 +115,19 @@ table.posts .ex { display: block; color: var(--muted); font-size: 13.5px; margin
 table.posts .topic { white-space: nowrap; font-size: 13px; color: var(--muted); }
 .new { display: inline-block; margin-left: 8px; padding: 1px 5px 0; font: 700 10px/1.4 var(--f-ui); color: #fff; background: var(--navy); text-transform: uppercase; letter-spacing: .08em; vertical-align: 2px; white-space: nowrap; }
 .tablewrap { overflow-x: auto; }
+/* Phones: each post is a block. Title and summary get the full width; date, topic,
+   and length share one small line under them. */
+@media (max-width: 600px) {
+  table.posts thead { display: none; }
+  table.posts tr { display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: "title title title" "date topic len"; column-gap: 12px; padding: 10px; border-bottom: 1px solid var(--rule); }
+  table.posts tr:last-child { border-bottom: 0; }
+  table.posts td { padding: 0; border-bottom: 0; }
+  table.posts td:nth-child(1) { grid-area: date; }
+  table.posts td:nth-child(2) { grid-area: title; margin-bottom: 6px; }
+  table.posts td:nth-child(3) { grid-area: topic; }
+  table.posts td:nth-child(4) { grid-area: len; }
+  table.posts td.empty { grid-column: 1 / -1; padding: 8px 0; }
+}
 
 .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 28px; }
 fieldset { border: 2px groove #ddd; padding: 10px 16px 14px; margin: 0; }
