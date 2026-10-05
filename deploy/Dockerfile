@@ -6,10 +6,14 @@ FROM rust:1.97.1-bookworm AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml ./
 COPY crates/ crates/
+COPY editor-wasm/ editor-wasm/
+RUN rustup target add wasm32-unknown-unknown
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked -p logbook-server \
-    && cp target/release/logbook /logbook
+    && cargo build --locked -p logbook-editor-wasm --target wasm32-unknown-unknown --profile wasm \
+    && cp target/release/logbook /logbook \
+    && cp target/wasm32-unknown-unknown/wasm/logbook_editor_wasm.wasm /logbook_render.wasm
 
 FROM debian:12-slim AS litestream
 ARG LITESTREAM_VERSION=0.5.17
@@ -26,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=build /logbook /usr/local/bin/logbook
 COPY --from=litestream /litestream /usr/local/bin/litestream
 COPY static/ /app/static/
+COPY --from=build /logbook_render.wasm /app/static/wasm/logbook_render.wasm
 COPY deploy/litestream.yml /etc/litestream.yml
 COPY --chmod=0755 deploy/entrypoint.sh /usr/local/bin/entrypoint
 USER app

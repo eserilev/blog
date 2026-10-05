@@ -40,6 +40,8 @@ pub fn render(md: &str) -> String {
     options.extension.tasklist = true;
     options.extension.footnotes = true;
     options.render.r#unsafe = false;
+    // Show raw HTML as text, so the author sees what they typed. (The default drops it.)
+    options.render.escape = true;
 
     let mut plugins = Plugins::default();
     plugins.render.codefence_syntax_highlighter = Some(&Highlighter);
@@ -306,6 +308,13 @@ mod tests {
     fn unknown_languages_stay_plain_and_escaped() {
         let html = render("```nolang\n<b>x</b>\n```\n");
         assert!(html.contains("&lt;b&gt;x&lt;/b&gt;"), "{html}");
+    }
+
+    #[test]
+    fn raw_html_shows_as_text() {
+        let html = render("<b>bold?</b> and <script>x</script>\n");
+        assert!(html.contains("&lt;b&gt;bold?&lt;/b&gt;"), "{html}");
+        assert!(html.contains("&lt;script&gt;"), "{html}");
     }
 
     #[test]

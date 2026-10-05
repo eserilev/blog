@@ -1,28 +1,5 @@
-/* Stand-ins for the editor and the Now box, until steps 5 and 6.
-   md() escapes all input text and emits a fixed set of tags only.
-   Step 5 replaces it with the WASM render(). Then this file goes away. */
-
-const DRAFT_MD = `# ePBS from a client's perspective
-
-Glamsterdam splits the block in two. The proposer commits to a builder bid. The builder reveals the payload later.
-
-## What changes for fork choice
-
-- Fork choice now tracks **payload presence**, not only the block.
-- The payload timeliness committee (PTC) votes on whether the payload arrived on time.
-- An *empty* slot is now different from a *missed* slot.
-
-## First pass at the type
-
-\`\`\`rust
-pub enum PayloadStatus {
-    Pending,
-    Revealed { block_hash: Hash256 },
-    Withheld,
-}
-\`\`\`
-
-> TODO: add the fork choice diagram before publishing.`;
+/* A stand-in renderer for the Now box, until step 6 stores it on the server.
+   md() escapes all input text and emits a fixed set of tags only. */
 
 /* Tiny markdown renderer. It covers headings, paragraphs, lists, quotes, fences, rules,
    bold, italic, inline code, and links. A real build swaps in a full parser. */

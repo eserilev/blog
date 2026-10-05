@@ -8,5 +8,6 @@ export LOGBOOK_ORIGIN=http://localhost:18100
 mkdir -p "$(dirname "$LOGBOOK_DB")"
 rm -f "$LOGBOOK_DB" "$LOGBOOK_DB"-*
 cargo build -q -p logbook-server
+editor-wasm/build.sh
 ./target/debug/logbook seed-sample
 exec ./target/debug/logbook serve

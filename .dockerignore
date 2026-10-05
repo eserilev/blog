@@ -1,0 +1,9 @@
+target/
+fuzz/
+proofs/
+e2e/
+designs/
+static/wasm/
+.git/
+*.db
+*.db-*

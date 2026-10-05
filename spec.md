@@ -178,7 +178,7 @@ Reading time: `max(1, ceil(words / 220))` minutes.
 
 ### 4.3 Slugs
 
-- Made once, from the title, on create. A later title change does not change it. Old links never break.
+- Follows the title while the post has never been public. Frozen on the first publish: a later title change does not change it. Old links never break, because no public link exists before the first publish.
 - Rules: `a-z`, `0-9`, `-`. 1–80 bytes. No `-` at either end. No `--`.
 - A title with no ASCII letters or digits (for example, Hebrew) gets `post-<id>`.
 - If the slug is already taken, the new post gets `post-<id>`.
@@ -267,7 +267,9 @@ Rules:
 - No inline scripts or inline event handlers (CSP, 6.9).
 - `GET /api/me` decides if owner controls show. Hidden controls are not security.
 
-Preview: the same Rust `render()` as the server (comrak, syntect, ammonia), compiled to WASM. Loaded on `/write` only. Its output is sanitized, so it is safe in `innerHTML`. syntect uses the `fancy-regex` feature on both sides, so outputs match. [build-check] WASM size. If it is too big, drop syntax colors from the preview only.
+Preview: the same Rust `render()` as the server (comrak, syntect, ammonia), compiled to WASM. Loaded on `/write` only. Its output is sanitized, so it is safe in `innerHTML`. syntect uses the `fancy-regex` feature on both sides, so outputs match. [build-check done] Size: 2.8 MB, 1.1 MB gzipped (mostly syntect's syntax data). The first render takes about 80 ms; later renders about 1 ms per post. Only the owner loads it.
+
+The WASM interface is three exported functions (`buf_alloc`, `buf_free`, `render`), no bindings generator. This small shim in `editor-wasm` is the only `unsafe` code in the project (7.1).
 
 ## 6. Back end
 
@@ -450,7 +452,7 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
 
 `render(md) -> html`, one function, used by the server at save time and by the WASM preview:
 
-1. comrak: CommonMark + GitHub tables, footnotes, task lists. Raw HTML off.
+1. comrak: CommonMark + GitHub tables, footnotes, task lists. Raw HTML is escaped and shows as text (comrak's default drops it silently).
 2. syntect: code highlighting with classes, not inline styles (CSP).
 3. ammonia: allow-list of tags and attributes. Links get `rel="noopener noreferrer"`. Only `http`, `https`, `mailto`, and relative URLs.
 
@@ -653,7 +655,7 @@ blog/
 │       └── src/ main.rs routes.rs config.rs db.rs auth.rs pages.rs posts.rs
 │                now.rs surf.rs media.rs uploads.rs headers.rs checks.rs
 │                feed.rs export.rs counter.rs cli.rs
-├── editor-wasm/               logbook-render for the browser
+├── editor-wasm/               logbook-render for the browser; build.sh → static/wasm/
 ├── static/                    index.html, CSS, JS components, fonts, logo
 ├── fuzz/                      cargo-fuzz targets, seed inputs in fuzz/seeds/
 ├── proofs/                    Lean 4: Aeneas output + proofs
@@ -693,7 +695,7 @@ Each step ends working, with its tests.
 
 ### 7.1 Rules
 
-- `#![forbid(unsafe_code)]` in every crate.
+- `#![forbid(unsafe_code)]` in every crate, except the `abi` module of `editor-wasm`: the WASM memory shim (three functions, each with a `SAFETY` comment). The rest of that crate denies unsafe code.
 - `cargo fmt --check`, `cargo clippy -- -D warnings` with `clippy::pedantic`.
 - `cargo deny`: licenses, duplicates, advisories.
 - Each bug fix adds a test that fails without it.
@@ -713,7 +715,7 @@ Each step ends working, with its tests.
 |---|---|---|
 | `render` | markdown bytes | No panic. Passes the sanitizer check. |
 | `frontmatter` | export file bytes | No panic. Parses → round trip holds. |
-| `post_input` | JSON body of `PUT /api/owner/posts/{id}` | No panic. Bad input → clean 4xx. |
+| `post_input` | JSON body of `PUT /api/owner/posts/{id}` | No panic. Accepted input always meets the limits (title, summary, tags, body). |
 | `slug` | title bytes + id | Passes the slug rules (4.3). |
 | `media_key` | path bytes | No panic. Agrees with T10. |
 | `head_tags` | title + summary, plus a private post | Output never breaks out of an attribute. Never contains the private title. |

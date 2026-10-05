@@ -64,7 +64,7 @@ test('every page renders with no CSP violations or script errors', async ({ page
 test('hidden and missing posts show Not found', async ({ page }) => {
   for (const slug of ['epbs-from-a-clients-perspective', 'molten-core-as-a-scheduling-problem', 'nope']) {
     await page.goto(`/posts/${slug}`);
-    await expect(page.locator('post-view h1')).toHaveText('Not found');
+    await expect(page.locator('post-view h1.t')).toHaveText('Not found');
   }
 });
 
@@ -76,7 +76,7 @@ test('the path router changes views without a full page load', async ({ page }) 
   await expect(page.locator('#list-title')).toHaveText('Writing: Rust');
   await page.getByRole('link', { name: 'Zero-copy SSZ decoding in Rust' }).click();
   await expect(page).toHaveURL('/posts/zero-copy-ssz-decoding-in-rust');
-  await expect(page.locator('post-view h1')).toHaveText('Zero-copy SSZ decoding in Rust');
+  await expect(page.locator('post-view h1.t')).toHaveText('Zero-copy SSZ decoding in Rust');
   await page.goBack();
   await expect(page).toHaveURL('/topics/rust');
   expect(await page.evaluate(() => window.__marker)).toBe('same-page');
