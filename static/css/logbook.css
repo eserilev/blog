@@ -250,6 +250,65 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
   box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo), inset -2px -2px var(--chrome-mid); }
 .tray { margin-left: auto; padding: 4px 10px; font: 13px var(--f-ui); }
 
+/* Start menu (spec 11.3): a raised box above the Start button, a navy band on the
+   left, and rows that turn navy with white text under the focus or the mouse. */
+/* The menu is placed against the taskbar (a fixed box), right above it. */
+start-menu { display: flex; }
+.start[aria-expanded="true"] { box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo), inset -2px -2px var(--chrome-mid); }
+.start-menu { position: absolute; left: 2px; bottom: 100%; z-index: 55; display: grid; grid-template-columns: 26px minmax(0, 1fr);
+  width: min(240px, calc(100vw - 8px)); padding: 3px; outline: none; color: #000; font: 13px var(--f-ui); }
+.start-band { display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; background: linear-gradient(0deg, var(--title-a), var(--title-b)); }
+.start-band span { writing-mode: vertical-rl; transform: rotate(180deg); color: #fff; font: 700 18px/1 var(--f-head); letter-spacing: .04em; white-space: nowrap; }
+.start-band b { font-weight: 400; }
+.start-items { display: grid; align-content: start; min-width: 0; }
+.start-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 10px 0 8px; border: 0; background: transparent;
+  font: 13px var(--f-ui); color: #000; text-align: left; text-decoration: none; cursor: pointer; }
+.start-item > span:not(.start-arrow) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-item:visited { color: #000; }
+.start-item:focus, .start-item[aria-expanded="true"] { background: var(--title-a); color: #fff; outline: none; }
+.start-item:focus-visible { outline: 1px dotted #fff; outline-offset: -3px; }
+.start-item[aria-disabled="true"] { color: var(--chrome-lo); cursor: default; }
+.start-arrow { font-size: 11px; }
+.pix24 { width: 24px; height: 24px; flex: none; shape-rendering: crispEdges; }
+.pix16 { width: 16px; height: 16px; flex: none; shape-rendering: crispEdges; }
+.start-sep { height: 2px; margin: 3px 2px; box-shadow: inset 0 1px var(--chrome-lo), inset 0 -1px var(--chrome-hi); }
+.start-sub-wrap { position: relative; display: grid; }
+.start-sub { position: absolute; left: calc(100% + 7px); top: -3px; z-index: 56; display: grid; align-content: start; width: 190px; padding: 3px;
+  max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; }
+.start-sub .start-item { min-height: 32px; }
+/* Phones: the menu fits above the taskbar and scrolls. Topics opens inside it. */
+@media (max-width: 520px) {
+  .start-menu { max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+  .start-item, .start-sub .start-item { min-height: 44px; }
+  .start-sub { position: static; width: auto; max-height: none; overflow: visible; padding: 0 0 0 16px; background: none; box-shadow: none; }
+}
+
+/* Shut Down dialog. A native <dialog>: showModal() traps the focus and Escape closes it. */
+.shutdown { width: min(400px, calc(100vw - 32px)); max-width: none; border: 0; margin: auto; color: #000; font: 13px var(--f-ui); grid-template-rows: auto auto auto; }
+.shutdown:not([open]) { display: none; }
+.shutdown::backdrop { background: rgba(0,0,0,.25); }
+.shutdown form { display: contents; }
+.shutdown-body { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 14px; padding: 14px 14px 6px; }
+.shutdown-ico { width: 32px; height: 32px; shape-rendering: crispEdges; }
+.shutdown fieldset { border: 0; margin: 0; padding: 0; display: grid; min-width: 0; }
+.shutdown legend { padding: 0 0 6px; font: 13px var(--f-ui); }
+.shutdown .radio { min-height: 32px; }
+.shutdown-buttons { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px 12px; }
+.shutdown-buttons .btn98 { min-width: 84px; min-height: 28px; }
+@media (max-width: 520px) { .shutdown .radio, .shutdown-buttons .btn98 { min-height: 44px; } }
+
+/* A restart: a short black screen. Shut down: "It's now safe to turn off your computer." */
+.blackout { position: fixed; inset: 0; z-index: 90; background: #000; cursor: none; }
+.safe-off { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 16px; border: 0; outline: none;
+  display: none; place-items: center; background: #000; cursor: pointer; }
+.safe-off[open] { display: grid; }
+.safe-off::backdrop { background: #000; }
+.safe-off p { margin: 0; max-width: 18em; color: #ff8c00; font: 700 clamp(26px, 6vw, 56px)/1.25 var(--f-ui); text-align: center; animation: safe-on 0s .8s both; }
+@keyframes safe-on { from { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .safe-off p { animation: none; } }
+:root:has(.safe-off[open]) { overflow: hidden; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 @media (max-width: 860px) {
   .page-grid { grid-template-columns: 1fr; }
   /* On a narrow screen the posts come first and the menu goes below them. */

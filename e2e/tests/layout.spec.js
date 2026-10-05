@@ -27,6 +27,8 @@ const ROWS = [
   ['.dos-prompt', ':scope > *'],
   ['.dos-keys', ':scope > button'],
   ['.ph-soft', ':scope > button'],
+  ['.start-item', ':scope > *'],
+  ['.shutdown-buttons', ':scope > *'],
 ];
 
 /* Runs in the page. Returns the layout faults it finds. */
@@ -108,6 +110,22 @@ for (const [size, viewport] of Object.entries(WIDTHS)) {
       await check(page, `${size}-404`);
       await go(page, '/setup', p => p.locator('#setup-form'));
       await check(page, `${size}-setup`);
+
+      // The Start menu, the Topics submenu, the Shut Down dialog, and the end screen.
+      await go(page, '/', p => p.locator('#ns-rows a.ttl').first());
+      await page.getByRole('button', { name: 'Start' }).click();
+      await check(page, `${size}-start`);
+      await page.getByRole('menuitem', { name: 'Topics' }).click();
+      await expect(page.getByRole('menu', { name: 'Topics' })).toBeVisible();
+      await check(page, `${size}-start-topics`);
+      await page.getByRole('menuitem', { name: 'Shut Down…' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Shut Down Logbook' });
+      await check(page, `${size}-shutdown`);
+      await dialog.getByLabel('Shut down', { exact: true }).check();
+      await dialog.getByRole('button', { name: 'OK' }).click();
+      await expect(page.getByText('It’s now safe to turn off your computer.')).toBeVisible();
+      await check(page, `${size}-safe-off`);
+      await page.keyboard.press('Enter');
       expect(errors.filter(e => !e.includes('404')), errors.join('\n')).toEqual([]);
     });
   });
