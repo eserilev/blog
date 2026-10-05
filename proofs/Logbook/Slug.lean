@@ -2,7 +2,7 @@ import LogbookCore.Funs
 import Mathlib.Data.List.Chain
 open Aeneas Aeneas.Std Result logbook_core
 
-/-! Slugs (spec 7.6): T4, T5, T7, with T12 (no panic) built in. -/
+/-! Slugs (spec 7.6): T4 and T5, with T12 (no panic) built in. `SlugExact.lean` has T6–T9. -/
 
 namespace Logbook
 

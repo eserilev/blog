@@ -1,6 +1,7 @@
 import Logbook.Policy
 import Logbook.Media
 import Logbook.Slug
+import Logbook.SlugExact
 import Logbook.Post
 
 /-! The build fails if a theorem below depends on any axiom other than Lean's three
@@ -34,3 +35,19 @@ standard ones: no `sorry`, and none of the generated `Option` axioms in
 /-- info: 'Logbook.slug_charset' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms Logbook.slug_charset
+
+/-- info: 'Logbook.slug_plain' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.slug_plain
+
+/-- info: 'Logbook.slug_fallback' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.slug_fallback
+
+/-- info: 'Logbook.slug_lower' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.slug_lower
+
+/-- info: 'Logbook.slug_idempotent' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.slug_idempotent
