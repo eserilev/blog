@@ -698,11 +698,13 @@ const DOS_HELP = [
   ['NOW', 'show the Now box'],
   ['SURF', 'get the swell report for Redondo Beach'],
   ['VER', 'show the version'],
+  ['LINKS', 'show my GitHub and X links'],
   ['CLS', 'clear the screen'],
   ['LOGIN', 'sign in with a passkey (owner only)'],
   ['LOGOUT', 'sign out'],
   ['WIN, EXIT', 'go back to Windows'],
 ];
+const DOS_LINKS = [['GITHUB', 'https://github.com/eserilev'], ['X', 'https://x.com/0xUncleBill']];
 /* Phones only (spec 11.8). */
 const DOS_HELP_PHONE = [['MOBILE', 'switch to the phone view']];
 
@@ -865,6 +867,7 @@ customElements.define('dos-shell', class extends HTMLElement {
       case 'NOW': await this.now(box); break;
       case 'SURF': await this.surf(box); break;
       case 'VER': this.say(box, 'Logbook DOS Version 6.22'); break;
+      case 'LINKS': this.links(box); break;
       case 'WIN': case 'EXIT': Mode.set('general'); return;
       case 'MOBILE':
         if (Mode.phone) { Mode.set('phone'); return; }
@@ -887,6 +890,17 @@ customElements.define('dos-shell', class extends HTMLElement {
       grid.append(a, b);
     }
     box.append(grid);
+  }
+
+  /* LINKS: a padded name, then the address as a real link. */
+  links(box) {
+    for (const [name, href] of DOS_LINKS) {
+      const a = document.createElement('a');
+      a.href = href;
+      a.rel = 'me noopener';
+      a.textContent = href;
+      this.say(box, name.padEnd(8)).append(a);
+    }
   }
 
   /* One DIR row: a CSS grid row, not padded spaces. The long name is a real link. */

@@ -24,6 +24,7 @@ const ROWS = [
   ['.now-foot', ':scope > *'],
   ['.topic-list li', ':scope > *'],
   ['.passkey-list li', ':scope > *'],
+  ['.dos-bar', ':scope > *'],
   ['.dos-prompt', ':scope > *'],
   ['.dos-keys', ':scope > button'],
   ['.ph-soft', ':scope > button'],
@@ -69,8 +70,8 @@ function measure({ rows, phone }) {
       }
     }
   }
-  // Phone mode: every control is a 44 px touch target.
-  const small = !phone ? [] : [...document.querySelectorAll('phone-shell button')].filter(shown)
+  // Phone mode: every control is a 44 px touch target. Links in post text are prose, not controls.
+  const small = !phone ? [] : [...document.querySelectorAll('phone-shell button, phone-shell a:not(.ph-read a)')].filter(shown)
     .map(el => [el, el.getBoundingClientRect()]).filter(([, r]) => r.height < 44 || r.width < 44)
     .map(([el, r]) => `${path(el)}: ${Math.round(r.width)} x ${Math.round(r.height)}`);
   return { scroll: document.documentElement.scrollWidth, width: W, edges, misaligned, small };
