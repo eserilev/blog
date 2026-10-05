@@ -1042,3 +1042,20 @@ T6 (a plain title is its own slug), T7 (no letters or digits gives `post-<id>`),
 - **Mutation testing** (7.8): `cargo-mutants --in-diff` in CI, and a full run nightly.
 - **Nightly workflow** (7.9): long fuzz runs, full mutants, fresh `cargo deny` advisories. A failure opens an issue.
 - **Restore test speed**: cache the dependency build in the Docker image (cargo-chef), so the restore job takes less than 4 minutes.
+
+### 11.8 Phone mode: the 2000 phone view [designed, not built]
+
+On phones, the site looks and works like a monochrome phone from 2000: the page is the green LCD. Design: "Logbook Designs" canvas, artboard "Mobile: 2000 phone style". It is not a picture of a phone.
+
+- **Default.** A phone opens in phone mode: `(pointer: coarse)` and a viewport 600 px wide or less, with no saved choice. A desktop never shows phone mode or any switch to it.
+- **Switching, on phones only.** Phone mode → Profiles: Phone (this view), General (Win98, light), Night (MS-DOS, dark). Win98 footer: "View: Mobile | Desktop". MS-DOS: the `MOBILE` command and the F8 Mobile key. The choice persists in `localStorage` (`logbook.view`), in try/catch. On a desktop these switches do not render.
+- **Look.** Ink `#1d2b14` on a `#bcd193`–`#a6bd79` gradient (9.0:1 and 7.2:1, AAA). VT323 (self-hosted). A faint 3 px grid, off under `prefers-contrast: more`. Status row: signal bars side by side and rising, the time, a horizontal battery.
+- **Standby.** "Eitan's Logbook", the logo as pixel art in a 1 px box (ink E and waves on clear LCD), a live clock and date. With an unread post: "1 new post", softkeys Read / Menu. Without: Menu / Posts. "Unread" is per browser (`localStorage`), against the newest `published_at`.
+- **Softkeys.** Two plain words at the bottom of the LCD, left (main action) and right (Back). No border, no background, no arrow buttons. Each half is a 64 px tap area. A tap shows the word in inverse.
+- **Menu.** One item per screen: a large pixel icon, the label, and the index number. Items: Posts, Topics, Now, Surf, About, Profiles, Games. Tap the icon to open. Swipe or tap the pixel arrows to move. Keys 1–7 open an item directly.
+- **Lists.** Real links (`<a href="/posts/{slug}">`) in a `<ul>`, inverse video for the selected row. Topics filter the post list. An empty list says "No posts yet."
+- **Reading.** The real `body_html` (sanitized) in a scroll area with native touch scrolling. ▲ ▼ keys page by 85 %. "3/12" at the top right. A thin scroll bar. The battery drains with reading progress. Options (left softkey): Top, Jump to section (from the post headings), Text size (Small 20 / Normal 24 / Large 30 px), Font (Pixel / Clean monospace), Copy link. Code blocks scroll sideways. Images are grayscale and tinted green.
+- **Snake** (Games): 20×16 board, +9 per food, no wall wrap. Keys 2/4/6/8 on a 3×3 pad with 5 = pause, swipe on the board, arrow keys. It pauses when the tab is hidden. A full board is a win. A `role="status"` region reads the score and "Game over".
+- **Keyboard (desktop testing, external keyboards).** Arrows and Page Up/Down, Enter = left softkey, Esc or Backspace = Back.
+- **Routing.** `/` = standby, `/posts/{slug}` = the post (Back goes to the Posts list), `/topics/{t}` = the filtered list, `/about` = About. Softkey Back and browser Back do the same thing.
+- **Build.** A skin attribute (`<html data-view="phone">`) set by `mode.js` before paint, and one `<phone-shell>` element around the existing views. All styles in `static/css/phone.css`. No inline styles or scripts (CSP), no Google Fonts.
