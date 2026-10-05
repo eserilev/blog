@@ -71,7 +71,8 @@ blog-app[data-current="write"] .desktop { max-width: none; }
 .location .field { flex: 1; min-width: 0; background: #fff; padding: 3px 6px; font: 13px var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .viewport { background: var(--page); margin-top: 3px; min-width: 0; }
 .status { display: flex; gap: 3px; padding-top: 3px; font: 12px var(--f-ui); }
-.status > span { padding: 2px 6px; }
+/* One fixed height and line height: every cell centers its text, emoji included. */
+.status > span { padding: 0 6px; height: 22px; line-height: 22px; overflow: hidden; }
 .status .grow { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* The page inside the browser */
