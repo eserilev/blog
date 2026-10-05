@@ -259,7 +259,7 @@ On the server (the real protection): section 6.6.
 - The server keeps only `SHA-256(daily salt, IP, user agent)`, truncated to 16 bytes, in memory for the current day. At the next UTC day it drops all hashes and makes a new random salt, so no day links to another. At most 100,000 hashes per day; above that, every visitor counts.
 - The client IP follows the trusted-proxy rule (6.6), so a visitor cannot pick an IP to count again.
 - A restart empties the list, so a visitor can count twice on the day of a deploy.
-- Daily totals are flushed to SQLite (`visits`) once per minute. Rows before 2026-10-05 count page loads.
+- Daily totals are flushed to SQLite (`visits`) once per minute. Migration 0003 reset the count to zero on 2026-10-05, when the rule changed from page loads to visitors.
 
 ### 4.9 Title section
 

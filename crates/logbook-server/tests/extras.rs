@@ -235,3 +235,49 @@ async fn git_export_pushes_public_posts_only() {
     assert!(!check.join("posts/an-older-public-post.md").exists());
     assert_eq!(git(&check, &["rev-list", "--count", "HEAD"]).trim(), "2");
 }
+
+/// Migration 0003 resets the old page-load counts. Nothing else changes.
+#[tokio::test]
+async fn migration_0003_resets_only_the_visits() {
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("old.db");
+    let opts = SqliteConnectOptions::from_str("sqlite:")
+        .unwrap()
+        .filename(&path)
+        .create_if_missing(true)
+        .foreign_keys(true);
+    let pool = SqlitePoolOptions::new().connect_with(opts).await.unwrap();
+    let mut old = sqlx::migrate!("./migrations");
+    old.migrations = old
+        .migrations
+        .iter()
+        .take(2)
+        .cloned()
+        .collect::<Vec<_>>()
+        .into();
+    old.run(&pool).await.unwrap();
+    sqlx::query("INSERT INTO visits (day, count) VALUES ('2026-10-04', 120), ('2026-10-05', 33)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO now_box (id, body_md, body_html, updated_at) VALUES (1, 'x', '<p>x</p>', '2026-10-04T00:00:00Z')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+
+    let pool = logbook_server::db::connect(&path).await.unwrap();
+    let visits: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM visits")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(visits, 0);
+    let now: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM now_box")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(now, 1, "other tables keep their rows");
+}
