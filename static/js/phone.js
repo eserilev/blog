@@ -4,9 +4,9 @@
    views (Api, TOPICS, matchRoute). Only server-sanitized body_html goes into
    innerHTML. All other text uses textContent.
 
-   Screens: standby, menu, posts, topics, topic, post, now, surf, about, profiles,
-   games, missing. Four of them have their own address: / (standby), /posts/{slug},
-   /topics/{t}, and /about. The others live at / with their name in history.state.
+   Screens: standby, menu, posts, topics, topic, post, now, surf, profiles, games,
+   missing. Three of them have their own address: / (standby), /posts/{slug}, and
+   /topics/{t}. The others live at / with their name in history.state.
    Each screen change is a history entry, so the Back softkey and the browser Back
    button do the same thing. */
 (() => {
@@ -19,14 +19,13 @@
     ['Topics', 'topics', 'M1 2h5l1 1h7v8H1zM2 5v5h12V5z'],
     ['Now', 'now', 'M6 1h4v1h2v1h1v2h1v4h-1v1h-1v1h-2v1H6v-1H4v-1H3V9H2V5h1V3h1V2h2zM7 3v4h3V6H8V3z'],
     ['Surf', 'surf', 'M0 7h1V6h2v1h1V6h2v1h1V6h2v1h1V6h2v1h1V6h2v1h1v2H0zM0 10h16v1H0zM9 1h3v1h1v2h-1V3H9z'],
-    ['About', 'about', 'M7 1h2v2H7zM5 4h5v5h1v2H5V9h2V6H5z'],
     ['Profiles', 'profiles', 'M3 1h10v10H3zM4 2v8h8V2zM5 3h1v6H5zM7 5h1v4H7zM9 4h1v5H9zM11 6h1v3h-1z'],
     ['Games', 'games', 'M1 4h3v1h1v1h4V5h1V4h3v1h1v4h-1v1h-1v1h-1v-1H6v1H5v-1H4V9H3V5h1zM4 6v1h1V6zM11 6v1h1V6zM10 7v1h1V7z'],
   ];
   /* Back from a screen that has no earlier history entry (a shared link). */
   const PARENT = {
     menu: ['standby', '/'], posts: ['menu', '/'], topics: ['menu', '/'], now: ['menu', '/'],
-    surf: ['menu', '/'], about: ['menu', '/'], profiles: ['menu', '/'], games: ['menu', '/'],
+    surf: ['menu', '/'], profiles: ['menu', '/'], games: ['menu', '/'],
     topic: ['topics', '/'], post: ['posts', '/'], missing: ['standby', '/'],
   };
   const AT_ROOT = ['standby', 'menu', 'posts', 'topics', 'now', 'surf', 'profiles', 'games'];
@@ -78,10 +77,13 @@
         this.turn(Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]);
         return true;
       });
-      this.el.read.addEventListener('scroll', () => this.measure(), { passive: true });
+      // One scroll container: the page. The reading area is not a scroll box.
+      window.addEventListener('scroll', () => this.measure(), { passive: true });
       // Images change the height of a post when they load.
       this.el.read.addEventListener('load', () => this.measure(), true);
       window.addEventListener('resize', () => this.measure());
+      // The pixel font changes the height of a post when it loads.
+      document.fonts?.ready.then(() => this.measure());
       // Page links inside the shell (lists, post bodies) become history entries here.
       this.addEventListener('click', e => this.onLink(e));
       document.addEventListener('keydown', e => this.onKey(e));
@@ -146,14 +148,13 @@
       const url = new URL(a.href, location.href);
       if (url.origin !== location.origin) return;
       const r = matchRoute(url.pathname);
-      if (!['post', 'about', 'home'].includes(r.view)) return;
+      if (!['post', 'home'].includes(r.view)) return;
       e.preventDefault();
       this.go(this.screenFor(r), { path: url.pathname });
     }
 
     screenFor(r) {
       if (r.view === 'post') return 'post';
-      if (r.view === 'about') return 'about';
       if (r.view === 'home' && r.param) return 'topic';
       if (r.view === 'home') {
         const s = history.state?.phone;
@@ -181,7 +182,6 @@
         topic: () => this.showPosts(r.param),
         topics: () => this.showTopics(),
         post: () => this.showPost(r.param),
-        about: () => this.showAbout(),
         now: () => this.showNow(),
         surf: () => this.showSurf(),
         profiles: () => this.showProfiles(),
@@ -193,6 +193,8 @@
     /* Shows one section. Moves the focus there unless the page just loaded. */
     show(name, focus) {
       for (const [k, s] of Object.entries(this.sections)) s.hidden = k !== name;
+      // A new screen starts at the top of the page.
+      window.scrollTo({ top: 0 });
       this.el.thumb.hidden = true;
       this.setBattery(75);
       this.soft();
@@ -249,7 +251,7 @@
       const up = k === 'ArrowUp' || k === 'PageUp', down = k === 'ArrowDown' || k === 'PageDown';
       if (this.optionsOpen && (up || down)) return run(() => this.moveOption(down ? 1 : -1));
       if (this.screen === 'menu') {
-        if (/^[1-7]$/.test(k)) return run(() => this.openMenu(Number(k) - 1));
+        if (/^[1-9]$/.test(k)) return run(() => this.openMenu(Number(k) - 1));
         if (up || k === 'ArrowLeft') return run(() => this.step(-1));
         if (down || k === 'ArrowRight') return run(() => this.step(1));
       }
@@ -300,7 +302,7 @@
       if (!MENU[i]) return;
       this.sel = i;
       const screen = MENU[i][1];
-      this.go(screen, { path: screen === 'about' ? '/about' : '/' });
+      this.go(screen, { path: '/' });
     }
 
     /* Moves the selection in the menu or a list, with wrap-around. */
@@ -338,8 +340,9 @@
       this.el.listEmpty.textContent = empty || '';
       this.el.listEmpty.hidden = items.length > 0;
       this.sel = Math.min(this.sel, Math.max(0, items.length - 1));
-      this.select(this.sel, false);
       this.show('list', this.listLinks()[this.sel] || this.querySelector('.ph-main'));
+      // After show: Back to a list scrolls the selected row into view again.
+      this.select(this.sel, false);
     }
 
     async showPosts(topic) {
@@ -356,7 +359,7 @@
       this.drawList('Topics', Object.entries(TOPICS).map(([slug, name]) => [name, `/topics/${slug}`]), 'No topics yet.');
     }
 
-    /* ---- Text screens: post, about, now, surf ---- */
+    /* ---- Text screens: post, now, surf ---- */
 
     para(text, cls) {
       const p = document.createElement('p');
@@ -374,7 +377,6 @@
       read.toggleAttribute('data-clean', this.clean);
       read.replaceChildren(...nodes);
       read.setAttribute('aria-label', title);
-      read.scrollTop = 0;
       this.show('text', read);
       this.measure();
     }
@@ -400,15 +402,6 @@
       // Reading the newest post clears "1 new post" on standby.
       const newest = (await Api.posts().catch(() => null))?.[0];
       if (newest?.slug === slug) store.set(SEEN_KEY, newest.published_at);
-    }
-
-    /* About is the About section of the page, copied as it is. */
-    showAbout() {
-      const body = document.createElement('div');
-      body.className = 'ph-body';
-      const src = document.querySelector('section[data-view="about"] .prose');
-      body.append(...[...src.childNodes].map(n => n.cloneNode(true)));
-      this.showText('About', [body], '/about');
     }
 
     async showNow() {
@@ -450,15 +443,22 @@
       this.showText('Surf', nodes);
     }
 
-    /* Page number, scroll bar, and battery from the scroll position. */
+    /* The height of the post that shows between the sticky title and the softkeys. */
+    view() {
+      const h = el => el.getBoundingClientRect().height;
+      const bars = h(this.querySelector('.ph-status')) + h(this.sections.text.querySelector('.ph-head')) + h(this.querySelector('.ph-soft'));
+      return Math.max(1, window.innerHeight - bars);
+    }
+
+    /* Page number, scroll bar, and battery from the scroll position of the page. */
     measure() {
-      if (this.sections.text.hidden) return;
-      const el = this.el.read;
-      const h = Math.max(1, el.clientHeight);
-      const pages = Math.max(1, Math.ceil((el.scrollHeight - 2) / h));
-      const max = el.scrollHeight - el.clientHeight;
-      const frac = max > 0 ? Math.min(1, el.scrollTop / max) : 0;
-      const page = Math.min(pages, Math.floor(el.scrollTop / h + 0.15) + 1);
+      if (!this.on() || this.sections.text.hidden) return;
+      const h = this.view();
+      const pages = Math.max(1, Math.ceil((this.el.read.scrollHeight - 2) / h));
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const frac = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+      // The top of the page is page 1, the end is the last page.
+      const page = Math.min(pages, Math.round(frac * (pages - 1)) + 1);
       this.el.pages.textContent = `${page}/${pages}`;
       this.el.pages.setAttribute('aria-label', `Page ${page} of ${pages}`);
       this.el.thumb.hidden = pages < 2;
@@ -470,8 +470,7 @@
 
     /* Page Up/Down: 85 % of the visible height. */
     page(d) {
-      const el = this.el.read;
-      el.scrollBy({ top: d * el.clientHeight * 0.85, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      window.scrollBy({ top: d * this.view() * 0.85, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
 
     /* ---- Options ---- */
@@ -485,7 +484,7 @@
       const items = kind === 'sections'
         ? heads.map(h => [`§ ${h.textContent}`, () => { this.closeOptions(); h.scrollIntoView({ behavior: smooth, block: 'start' }); }])
         : [
-          ['Top', () => { this.closeOptions(); read.scrollTo({ top: 0, behavior: smooth }); }],
+          ['Top', () => { this.closeOptions(); window.scrollTo({ top: 0, behavior: smooth }); }],
           ...(heads.length ? [['Jump to section', () => this.openOptions('sections')]] : []),
           [`Text size: ${SIZE_NAMES[this.size]}`, () => {
             this.size = SIZES[(SIZES.indexOf(this.size) + 1) % SIZES.length];

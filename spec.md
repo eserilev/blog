@@ -97,7 +97,7 @@ Body 15–15.5 px, line height 1.65–1.75, max about 68 characters per line.
 
 Sidebar (navy):
 
-1. Site: Home, Latest post, Compose (owner only), Edit site (owner only), About, RSS feed.
+1. Site: Home, Latest post, Compose (owner only), Edit site (owner only), RSS feed. There is no About page (removed 2026-10-05).
 2. Topics: the owner's list (4.2). The server writes the links into the page.
 3. Find me: GitHub, X, Discord, with small white icons.
 4. Visitors: green LCD counter.
@@ -281,7 +281,7 @@ Native custom elements, light DOM.
 
 | Element | Job |
 |---|---|
-| `<blog-app>` | Path router (History API). Maps `/`, `/posts/{slug}`, `/topics/{topic}`, `/about`, `/write`, `/write/{id}` to views. Intercepts same-origin link clicks. Fires `viewchange`. |
+| `<blog-app>` | Path router (History API). Maps `/`, `/posts/{slug}`, `/topics/{topic}`, `/write`, `/write/{id}` to views. It replaces `/about` with `/` (`history.replaceState`), so old links open the home page. Intercepts same-origin link clicks. Fires `viewchange`. |
 | `<post-list>` | Fetches a list API. Stamps its `<template>` per post, with `textContent` only. |
 | `<post-view>` | Fetches one post. Puts `body_html` into the page. |
 | `<now-box>` | Shows the Now box. Owner: edit and save. |
@@ -300,6 +300,31 @@ Rules:
 Preview: the same Rust `render()` as the server (comrak, syntect, ammonia), compiled to WASM. Loaded on `/write` only. Its output is sanitized, so it is safe in `innerHTML`. syntect uses the `fancy-regex` feature on both sides, so outputs match. [build-check done] Size: 2.8 MB, 1.1 MB gzipped (mostly syntect's syntax data). The first render takes about 80 ms; later renders about 1 ms per post. Only the owner loads it.
 
 The WASM interface is three exported functions (`buf_alloc`, `buf_free`, `render`), no bindings generator. This small shim in `editor-wasm` is the only `unsafe` code in the project (7.1).
+
+### 5.1 Layout rules
+
+The site uses CSS Grid and Flexbox only. These rules apply to all three modes:
+
+- **No sideways page scroll.** The page is never wider than the screen. Wide content scrolls inside its own box.
+- **Long content in a grid or flex child.** Use `minmax(0, 1fr)` for the column and `min-width: 0` on the child. A long address or code line then cannot widen the column.
+- **Wide content.** Code blocks and tables in a post get `overflow-x: auto`. Never put it on the page. Long words and addresses in post text wrap (`overflow-wrap`).
+- **Bars.** Toolbar, status bar, taskbar, F-key bar, and softkeys: `align-items: center` and one fixed row height, so every item sits on one center line.
+- **Table rows.** Cells align on the text baseline. Below 600 px, each post row is a block: the title on the first line, date, topic, and length on the second.
+- **Rows of buttons and fields.** `flex-wrap: wrap`. A field gets `flex: 1 1 <basis>` and `min-width: 0`.
+- **Reading columns.** `max-width` and `margin-inline: auto`.
+- **Spacing.** `gap` between siblings, not margins.
+- **Breakpoints.** 520 px (phones), 600 px (post table, phone mode), 860 px (one column). Do not add others without a reason.
+- **Touch.** Phone mode and the MS-DOS F-key bar have tap targets of 44 px or more.
+- **Look.** The fixes keep the Win98 bevels, the MS-DOS screen, and the phone LCD.
+
+Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e2e/tests/layout.spec.js` opens every view at each width that applies: Win98 (guest and owner views, a post with a long code line, a long address, and a wide table), MS-DOS mode (prompt, HELP, DIR, TYPE), and phone mode at 390 px (standby, menu, lists, a post, Options, Profiles, Snake). For each view it checks:
+
+- `scrollWidth` is not more than the screen width.
+- No visible element passes the left or right edge, except inside a box that scrolls or clips sideways.
+- The items of each bar have the same center line (1 px tolerance).
+- In phone mode, every button is 44 × 44 px or more.
+
+It saves a full-page screenshot of each view in `e2e/test-results`. CI uploads that folder when a test fails.
 
 ## 6. Back end
 
@@ -355,7 +380,7 @@ Pages (return `index.html`):
 
 | Path | Notes |
 |---|---|
-| `/`, `/about` | |
+| `/`, `/about` | The client sends `/about` to `/`. A later PR removes the `/about` route. |
 | `/posts/{slug}` | 6.3 |
 | `/topics/{topic}` | |
 | `/write`, `/write/{id}` | Same page for everyone. Data needs a session. |
@@ -977,7 +1002,7 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 5. RSS: keep?
 6. ~~Webring.~~ Removed (2026-10-05).
 7. ~~Counter: real or fixed?~~ Real: unique visitors per day (4.8, PR #17).
-8. About page content.
+8. ~~About page content.~~ Removed: the site has no About page (2026-10-05).
 9. ~~Domain.~~ `unclebill.blog` (2026-10-04).
 10. Words per minute: 220?
 11. The exact MS-DOS font (IBM VGA 8×16, "Px437", CC BY-SA) instead of IBM Plex Mono for MS-DOS mode? It must be self-hosted.
@@ -1006,7 +1031,7 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
   | `HELP` | The command list. DIR is "list files". SURF is "get the swell report for Redondo Beach". | local |
   | `DIR` | Public posts as DOS files: an 8.3 name from the slug (`~1`, `~2` on a clash, in published order), `TXT`, word count as size, date, and the slug as a long-name link to `/posts/{slug}`. Then a dim hint: "To read a file, type TYPE and the file name. Example: TYPE <first file>". Grid rows, not padded spaces. | `/api/posts` |
   | `DIR <topic>` | The files of one topic. It goes to `/topics/{t}`. | `/api/topics/{t}` |
-| `TYPE <file>` | The title, then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. `TYPE ABOUT.TXT` prints the real About text. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
+| `TYPE <file>` | The title, then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
   | `NOW` | The Now box, or "Nothing here yet." | `/api/now` |
   | `SURF` | Swell, period, wind, water, next tides, stale marks, NOAA attribution. | `/api/surf` |
   | `VER` | `Logbook DOS Version 6.22` | local |
@@ -1016,10 +1041,10 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
   | other | `Bad command or file name` | local |
 
 - **Safety.** Only `body_html` (sanitized by the server) goes into `innerHTML`. All other text uses `textContent`. Scrollback is capped at about 500 lines.
-- **F-key bar.** Norton Commander style (white number, black label on cyan `#00aaaa`): F1 Help, F2 Dir, F3 About, F4 Now, F5 Surf, F9 Cls, F10 Win. Sticky at the bottom of a `100dvh` layout, with `env(safe-area-inset-bottom)`. Keyboard F-keys work only while focus is in the terminal. Below 520 px: 4 columns, 2 rows, 44 px keys.
+- **F-key bar.** Norton Commander style (white number, black label on cyan `#00aaaa`): F1 Help, F2 Dir, F3 Now, F4 Surf, F8 Mobile (phones only), F9 Cls, F10 Win. Sticky at the bottom of a `100dvh` layout, with `env(safe-area-inset-bottom)`. Keyboard F-keys work only while focus is in the terminal. Below 520 px: 4 columns, 2 rows, 44 px keys.
 - **Phones.** The prompt row is a 44 px tap target. Input attributes: `autocomplete="off" autocapitalize="characters" spellcheck="false" autocorrect="off" enterkeyhint="go"`. Autofocus only with `(pointer: fine)`. DIR hides the size and date columns on narrow screens.
 - **History.** Up and Down recall earlier commands.
-- **Router.** In DOS mode, `/posts/{slug}` runs CLS then TYPE, `/about` runs `TYPE ABOUT.TXT`, and `/topics/{t}` lists that topic. TYPE calls `app.go('/posts/…')`, so Back and shared links work. Tab titles stay as today.
+- **Router.** In DOS mode, `/posts/{slug}` runs CLS then TYPE, `/topics/{t}` lists that topic, and `/about` shows the empty prompt at `/`. TYPE calls `app.go('/posts/…')`, so Back and shared links work. Tab titles stay as today.
 - **Screen readers.** Output is `role="log"`. A long TYPE announces a short line ("Showing BLOCKACC.TXT") and moves focus to the title.
 - **Tests.** Toggle and reload, DIR then TYPE, a deep link, Back, WIN, a 390 px layout, keyboard-only use, no CSP errors.
 
@@ -1036,7 +1061,7 @@ In DOS mode, `/write` looks like MS-DOS EDIT. It is a CSS skin on the existing e
 
 ### 11.3 Start menu toggle [later]
 
-A Win98 Start menu: Home, Latest post, Topics, About, then Shut Down…. The Shut Down dialog offers "Stay in Windows (light mode)" and "Restart in MS-DOS mode (dark mode)". Build it after 11.1. The toolbar button stays the main toggle.
+A Win98 Start menu: Home, Latest post, Topics, then Shut Down…. The Shut Down dialog offers "Stay in Windows (light mode)" and "Restart in MS-DOS mode (dark mode)". Build it after 11.1. The toolbar button stays the main toggle.
 
 ### 11.4 Security proofs T13–T17 [not started]
 
@@ -1076,13 +1101,13 @@ On phones, the site looks and works like a monochrome phone from 2000: the page 
 - **Look.** Ink `#1d2b14` on a `#bcd193`–`#a6bd79` gradient (9.0:1 and 7.2:1, AAA). VT323 (self-hosted). A faint 3 px grid, off under `prefers-contrast: more`. Status row: signal bars side by side and rising, the time, a horizontal battery.
 - **Standby.** "Eitan's Logbook", the logo as pixel art in a 1 px box (ink E and waves on clear LCD), a live clock and date. With an unread post: "1 new post", softkeys Read / Menu. Without: Menu / Posts. "Unread" is per browser (`localStorage`), against the newest `published_at`.
 - **Softkeys.** Two plain words at the bottom of the LCD, left (main action) and right (Back). No border, no background, no arrow buttons. Each half is a 64 px tap area. A tap shows the word in inverse.
-- **Menu.** One item per screen: a large pixel icon, the label, and the index number. Items: Posts, Topics, Now, Surf, About, Profiles, Games. Tap the icon to open. Swipe or tap the pixel arrows to move. Keys 1–7 open an item directly.
+- **Menu.** One item per screen: a large pixel icon, the label, and the index number. Items: Posts, Topics, Now, Surf, Profiles, Games. Tap the icon to open. Swipe or tap the pixel arrows to move. Keys 1–6 open an item directly.
 - **Lists.** Real links (`<a href="/posts/{slug}">`) in a `<ul>`, inverse video for the selected row. Topics filter the post list. An empty list says "No posts yet."
-- **Reading.** The real `body_html` (sanitized) in a scroll area with native touch scrolling. ▲ ▼ keys page by 85 %. "3/12" at the top right. A thin scroll bar. The battery drains with reading progress. Options (left softkey): Top, Jump to section (from the post headings), Text size (Small 20 / Normal 24 / Large 30 px), Font (Pixel / Clean monospace), Copy link. Code blocks scroll sideways. Images are grayscale and tinted green.
+- **Reading.** The real `body_html` (sanitized). The page itself scrolls: it is the only vertical scroll container, so a swipe anywhere on the screen scrolls the post. The status row and the post title stick to the top, and the softkeys stick to the bottom (with `env(safe-area-inset-bottom)`). ▲ ▼ keys page by 85 % of the visible height. "3/12" at the top right. A thin scroll bar, fixed on the right. The battery drains with reading progress. These come from `window.scrollY`. A new screen starts at the top. Standby, Menu, and Snake fit in `100dvh` and do not scroll. Options (left softkey): Top, Jump to section (from the post headings), Text size (Small 20 / Normal 24 / Large 30 px), Font (Pixel / Clean monospace), Copy link. Code blocks scroll sideways. Images are grayscale and tinted green.
 - **Snake** (Games): 20×16 board, +9 per food, no wall wrap. Keys 2/4/6/8 on a 3×3 pad with 5 = pause, swipe on the board, arrow keys. It pauses when the tab is hidden. A full board is a win. A `role="status"` region reads the score and "Game over".
 - **Keyboard (desktop testing, external keyboards).** Arrows and Page Up/Down, Enter = left softkey, Esc or Backspace = Back.
-- **Routing.** `/` = standby, `/posts/{slug}` = the post (Back goes to the Posts list), `/topics/{t}` = the filtered list, `/about` = About. Softkey Back and browser Back do the same thing.
+- **Routing.** `/` = standby, `/posts/{slug}` = the post (Back goes to the Posts list), `/topics/{t}` = the filtered list, `/about` = standby (at `/`). Softkey Back and browser Back do the same thing.
 - **Unread.** `localStorage` `logbook.seen` holds the `published_at` of the newest post that this browser opened.
 - **History.** Each screen change is a history entry. Screens without their own address (Menu, Posts, Topics, Now, Surf, Profiles, Games) live at `/` with their name in `history.state`. Read on standby adds Menu and Posts before the post, so Back goes to Posts. A screen opened from a shared link has no earlier entry. Then Back goes to its parent screen: a post to Posts, a topic to Topics, the others to Menu.
 - **Build.** `mode.js` sets `<html data-mode="phone">` and `<html data-device="phone">` before paint. One `<phone-shell>` element (`static/js/phone.js`) sits next to the Win98 views. It uses the same data code: `Api`, `TOPICS`, `matchRoute`, and the `<blog-app>` router. All styles are in `static/css/phone.css`. The battery and the scroll bar change through CSSOM. No inline styles or scripts (CSP), no Google Fonts. `/write` and `/setup` keep the Win98 view.
-- **Tests** (`phone.spec.js`, iPhone 13 context in Chromium): phone mode is the default, Read opens the newest post, Back, menu keys 1–7, Options and Jump to section, Snake start and pause, Profiles to General and Night and back, no horizontal scroll at 390 px. A desktop context shows no phone mode and no switch to it.
+- **Tests** (`phone.spec.js`, iPhone 13 context in Chromium): phone mode is the default, Read opens the newest post, Back, menu keys 1–6, Options and Jump to section, Snake start and pause, Profiles to General and Night and back, no horizontal scroll at 390 px, one scroll container (touch swipes at the edge scroll the page). A desktop context shows no phone mode and no switch to it.

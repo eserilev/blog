@@ -65,7 +65,8 @@ test('DIR lists the posts as files; TYPE prints one; Back works', async ({ page 
   await expect(row.locator('.c-ext')).toHaveText('TXT');
   await expect(row.locator('.c-date')).toHaveText('09-28-26');
   await expect(row.locator('a.c-long')).toHaveAttribute('href', `/posts/${BAL}`);
-  await expect(out).toContainText('7 file(s)');
+  await expect(out).toContainText('6 file(s)');
+  await expect(out.locator('.dos-row .c-name', { hasText: /^ABOUT$/ })).toHaveCount(0);
   await expect(out).toContainText('Example: TYPE BLOCKLEV.TXT');
 
   await command(page, 'type blocklev.txt');
@@ -89,10 +90,17 @@ test('DIR lists the posts as files; TYPE prints one; Back works', async ({ page 
   await expect(out.locator('h1.dos-title')).toHaveText('Zero-copy SSZ decoding in Rust');
   await command(page, `type ${BAL}`);
   await expect(page).toHaveURL(`/posts/${BAL}`);
+  // Row 1 of DIR is the newest post.
+  const [newest] = await (await page.request.get('/api/posts')).json();
   await command(page, 'type 1');
-  await expect(page).toHaveURL('/about');
-  await expect(out.locator('h1.dos-title')).toHaveText('About');
-  await expect(out.locator('.dos-prose')).toContainText('I work on Ethereum client software');
+  await expect(page).toHaveURL(`/posts/${newest.slug}`);
+  await expect(out.locator('h1.dos-title')).toHaveText(newest.title);
+  // There is no About file. The old address goes to the empty prompt.
+  await command(page, 'type about.txt');
+  await expect(out).toContainText('File not found - ABOUT.TXT');
+  await page.goto('/about');
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('dos-shell [data-out]')).toBeEmpty();
 
   await command(page, 'type nope.txt');
   await expect(out).toContainText('File not found - NOPE.TXT');
@@ -128,9 +136,9 @@ test('HELP, NOW, SURF, and the F-key bar', async ({ page }) => {
   const keys = page.getByRole('navigation', { name: 'Function keys' });
   await keys.getByRole('button', { name: 'F1 Help' }).click();
   await expect(out.locator('.dos-help')).toContainText('get the swell report for Redondo Beach');
-  await keys.getByRole('button', { name: 'F4 Now' }).click();
+  await keys.getByRole('button', { name: 'F3 Now' }).click();
   await expect(out).toContainText('C:\\LOGBOOK>NOW');
-  await keys.getByRole('button', { name: 'F5 Surf' }).click();
+  await keys.getByRole('button', { name: 'F4 Surf' }).click();
   await expect(out).toContainText('No NOAA data yet.');
   await keys.getByRole('button', { name: 'F9 Cls' }).click();
   await expect(out).toBeEmpty();
@@ -148,7 +156,7 @@ test('keyboard only: F-keys, history, and Tab to the links', async ({ page }) =>
   await expect(input).toBeFocused();
   const out = page.locator('dos-shell [data-out]');
   await page.keyboard.press('F2');
-  await expect(out.locator('.dos-row')).toHaveCount(7);
+  await expect(out.locator('.dos-row')).toHaveCount(6);
   await page.keyboard.type('ver');
   await page.keyboard.press('Enter');
   await page.keyboard.press('ArrowUp');

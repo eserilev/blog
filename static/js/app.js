@@ -16,8 +16,7 @@
 
   const onView = ({ view, path }) => {
     locEl.textContent = `file:///home/eitan/www${fileFor(path)}`;
-    if (view === 'about') setTitle('About');
-    else if (view === 'write') setTitle('Compose');
+    if (view === 'write') setTitle('Compose');
     else if (view === 'missing') setTitle('Not found');
     else if (view === 'home') setTitle(TOPICS[topicOf(path)] || (path === '/' ? SITE : 'Not found'));
     const logo = document.getElementById('logo');
