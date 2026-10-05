@@ -110,7 +110,7 @@ table.posts td.date { white-space: nowrap; font: 13px var(--f-mono); color: var(
 table.posts .ttl { font-weight: 700; }
 table.posts .ex { display: block; color: var(--muted); font-size: 13.5px; margin-top: 3px; max-width: 70ch; }
 table.posts .topic { white-space: nowrap; font-size: 13px; color: var(--muted); }
-.new { margin-left: 6px; font: 700 10px var(--f-ui); color: var(--navy); text-transform: uppercase; letter-spacing: .08em; vertical-align: 1px; }
+.new { display: inline-block; margin-left: 8px; padding: 1px 5px 0; font: 700 10px/1.4 var(--f-ui); color: #fff; background: var(--navy); text-transform: uppercase; letter-spacing: .08em; vertical-align: 2px; white-space: nowrap; }
 .tablewrap { overflow-x: auto; }
 
 .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 28px; }
