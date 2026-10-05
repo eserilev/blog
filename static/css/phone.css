@@ -1,0 +1,158 @@
+/* Phone mode (spec 11.8): a monochrome phone from 2000. The page is the green LCD.
+   Only html[data-mode="phone"] shows it, and only a phone gets that mode (mode.js).
+   Ink #1d2b14 on #bcd193 to #a6bd79: 9.0:1 and 7.2:1. VT323 is self-hosted
+   (logbook.css). Dynamic values (battery, scroll bar) come from JS through CSSOM. */
+
+/* Switches to phone mode render on phones only. */
+:root:not([data-device="phone"]) .phone-only { display: none !important; }
+
+phone-shell { display: none; }
+:root[data-mode="phone"] { --ph-ink: #1d2b14; --ph-lcd: #bcd193; --ph-lcd-lo: #a6bd79; --ph-inv: #b4c98a; }
+[data-mode="phone"] body { background: var(--ph-lcd-lo); }
+[data-mode="phone"] .taskbar { display: none; }
+[data-mode="phone"] blog-app:not([data-current="write"], [data-current="setup"]) .desktop { display: none; }
+[data-mode="phone"] blog-app:not([data-current="write"], [data-current="setup"]) phone-shell {
+  position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; overflow: hidden;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: linear-gradient(var(--ph-lcd), var(--ph-lcd-lo)); color: var(--ph-ink);
+  font: 400 26px/1.1 var(--f-lcd); -webkit-tap-highlight-color: transparent;
+}
+/* A faint 3 px pixel grid. It never catches taps. */
+phone-shell::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(29,43,20,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(29,43,20,.03) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+phone-shell [hidden] { display: none !important; }
+phone-shell button { font: inherit; color: inherit; }
+phone-shell :focus-visible { outline: 3px dashed var(--ph-ink); outline-offset: -6px; }
+phone-shell .on:focus-visible { outline-color: var(--ph-inv); }
+.pix { shape-rendering: crispEdges; fill: currentColor; }
+
+/* Status row: signal bars, the time, and the battery (reading progress). */
+.ph-status { position: relative; display: flex; align-items: flex-end; justify-content: space-between; padding: 12px 14px 0; min-height: 34px; }
+.ph-signal { display: flex; align-items: flex-end; gap: 3px; }
+.ph-signal svg { width: 14px; height: 18px; }
+.ph-signal i { width: 5px; background: var(--ph-ink); }
+.ph-signal i:nth-of-type(1) { height: 6px; }
+.ph-signal i:nth-of-type(2) { height: 10px; }
+.ph-signal i:nth-of-type(3) { height: 14px; }
+.ph-signal i:nth-of-type(4) { height: 18px; }
+.ph-signal i:nth-of-type(5) { height: 22px; }
+.ph-time { font-size: 24px; }
+.ph-batt { display: flex; align-items: center; }
+.ph-batt-box { display: flex; width: 38px; height: 18px; padding: 2px; border: 3px solid var(--ph-ink); }
+.ph-batt-box span { width: 75%; background: var(--ph-ink); }
+.ph-batt-tip { width: 4px; height: 8px; background: var(--ph-ink); }
+
+.ph-main { position: relative; flex: 1; display: flex; gap: 8px; min-height: 0; padding: 10px 14px 0; outline: none; }
+.ph-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ph-col > section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.ph-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 3px solid var(--ph-ink); font-size: 34px; }
+.ph-head h1 { min-width: 0; margin: 0; overflow: hidden; font: inherit; white-space: nowrap; text-overflow: ellipsis; }
+.ph-head span { flex: none; font-size: 24px; }
+
+/* Standby. */
+.ph-standby { align-items: center; text-align: center; }
+.ph-standby h1 { margin: 24px 0 0; font: inherit; font-size: 34px; letter-spacing: .04em; }
+.ph-logo { width: 112px; height: 112px; margin-top: 14px; }
+.ph-logo .far { opacity: .45; }
+.ph-clock { margin: 12px 0 0; font-size: 96px; line-height: .9; }
+.ph-date { margin: 6px 0 0; }
+.ph-new { min-height: 48px; margin-top: 22px; padding: 6px 14px; border: 3px solid var(--ph-ink); background: transparent; cursor: pointer; }
+.ph-new:active { background: var(--ph-ink); color: var(--ph-inv); }
+
+/* Menu: one item per screen. */
+.ph-menu { flex: 1; display: flex; align-items: center; }
+.ph-arrow { display: grid; place-items: center; width: 44px; min-height: 88px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.ph-arrow svg { width: 20px; height: 28px; }
+.ph-item { flex: 1; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; min-width: 0; border: 0; background: transparent; font-size: 48px; cursor: pointer; touch-action: pan-y; }
+.ph-item svg { width: 176px; max-width: 100%; height: auto; aspect-ratio: 16 / 12; }
+
+/* Lists: real links, inverse video for the selected row. */
+.ph-list { min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.ph-list a, .ph-list button { display: block; width: 100%; min-height: 48px; padding: 6px 10px; border: 0; background: transparent; color: var(--ph-ink); font-size: 28px; text-align: left; text-decoration: none; cursor: pointer; }
+.ph-list .on { background: var(--ph-ink); color: var(--ph-inv); }
+.ph-list small { display: block; font-size: 20px; }
+/* The marks are decoration: aria-pressed gives the state. */
+.ph-list button::before { content: "○ " / ""; }
+.ph-list button[aria-pressed="true"]::before { content: "● " / ""; }
+.ph-empty { margin: 0; }
+
+/* Reading: the post body with native scrolling. Sizes: Small 20, Normal 24, Large 30 px. */
+.ph-read {
+  --ph-size: 24px;
+  flex: 1; min-height: 0; padding-right: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+  font-size: var(--ph-size); line-height: 1.15; overflow-wrap: anywhere; outline: none;
+}
+.ph-read::-webkit-scrollbar { display: none; }
+.ph-read[data-size="s"] { --ph-size: 20px; }
+.ph-read[data-size="l"] { --ph-size: 30px; }
+.ph-read[data-clean] { font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace; font-size: calc(var(--ph-size) * .72); line-height: 1.45; }
+.ph-read:focus-visible { outline-offset: 2px; }
+.ph-read h1, .ph-read h2, .ph-read h3, .ph-read h4 { margin: 14px 0 6px; font: inherit; font-size: 1.25em; }
+.ph-read .ph-title { margin-top: 0; }
+.ph-read p { margin: 0 0 12px; }
+.ph-read .ph-meta { margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px dashed var(--ph-ink); font-size: .9em; }
+.ph-read ul, .ph-read ol { margin: 0 0 12px; padding-left: 1.2em; }
+.ph-read li { margin-bottom: 6px; }
+.ph-read a { color: var(--ph-ink); }
+.ph-read blockquote { margin: 4px 0 14px; padding-left: 10px; border-left: 4px solid var(--ph-ink); }
+.ph-read code { font: inherit; }
+/* Code scrolls sideways. One ink color: the LCD has no other colors. */
+.ph-read pre { margin: 4px 0 14px; padding: 6px 8px; overflow-x: auto; border: 2px solid var(--ph-ink); font-size: .85em; line-height: 1.1; white-space: pre; overflow-wrap: normal; }
+.ph-read pre, .ph-read pre * { background: transparent !important; color: var(--ph-ink) !important; }
+.ph-read pre .hl-ln { display: inline-block; margin-right: 1ch; padding-right: 1ch; border-right: 1px solid var(--ph-ink); text-align: right; opacity: .6; user-select: none; -webkit-user-select: none; }
+.ph-read table { display: block; overflow-x: auto; border-collapse: collapse; }
+.ph-read th, .ph-read td { padding: 2px 6px; border: 2px solid var(--ph-ink); text-align: left; }
+.ph-read hr { border: 0; border-top: 2px dashed var(--ph-ink); }
+/* Images: grayscale, tinted green by the LCD under them. */
+.ph-read img { display: block; max-width: 100%; height: auto; filter: grayscale(1) contrast(1.1); mix-blend-mode: multiply; }
+
+.ph-thumb { position: relative; flex: none; width: 6px; margin: 52px 0 12px; background: rgba(29,43,20,.3); }
+.ph-thumb span { position: absolute; left: 0; top: 0; width: 6px; height: 28px; background: var(--ph-ink); }
+
+/* Options: a menu over the bottom of the screen. */
+.ph-options { position: absolute; left: 10px; right: 10px; bottom: 6px; z-index: 2; max-height: 70%; overflow-y: auto; border: 3px solid var(--ph-ink); background: var(--ph-inv); box-shadow: 6px 6px 0 rgba(29,43,20,.5); }
+.ph-options p { margin: 0; padding: 6px 12px; border-bottom: 3px solid var(--ph-ink); font-size: 30px; }
+.ph-options button { display: block; width: 100%; min-height: 48px; padding: 6px 12px; border: 0; background: transparent; font-size: 28px; text-align: left; cursor: pointer; }
+.ph-options button.on { background: var(--ph-ink); color: var(--ph-inv); }
+.ph-toast { position: absolute; left: 14px; right: 14px; bottom: 6px; z-index: 3; margin: 0; padding: 4px 8px; border: 3px solid var(--ph-ink); background: var(--ph-inv); text-align: center; pointer-events: none; }
+.ph-toast:empty { display: none; }
+
+/* Snake: a 20 x 16 board and a 3 x 3 key pad. */
+.ph-board { position: relative; width: 100%; aspect-ratio: 20 / 16; border: 3px solid var(--ph-ink); touch-action: none; }
+.ph-board svg { display: block; width: 100%; height: 100%; }
+.ph-board rect { fill: none; stroke: var(--ph-ink); stroke-width: .25; }
+.ph-banner { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; background: rgba(180,201,138,.85); font-size: 34px; text-align: center; }
+.ph-pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 52px); gap: 6px; justify-content: center; margin-top: 12px; }
+.ph-pad button { border: 3px solid var(--ph-ink); background: transparent; font-size: 28px; cursor: pointer; }
+.ph-pad button:active { background: var(--ph-ink); color: var(--ph-inv); }
+.ph-pad [data-dir="2"] { grid-area: 1 / 2; }
+.ph-pad [data-dir="4"] { grid-area: 2 / 1; }
+.ph-pad [data-dir="5"] { grid-area: 2 / 2; }
+.ph-pad [data-dir="6"] { grid-area: 2 / 3; }
+.ph-pad [data-dir="8"] { grid-area: 3 / 2; }
+.ph-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Softkeys: two plain words. Each half is a 64 px tap area. A tap shows the word in inverse. */
+.ph-soft { position: relative; display: flex; }
+.ph-soft button { flex: 1; display: flex; align-items: center; min-height: 64px; padding: 0 18px; border: 0; background: transparent; font-size: 30px; cursor: pointer; }
+.ph-soft [data-soft="right"] { justify-content: flex-end; }
+.ph-soft span { padding: 0 4px; }
+.ph-soft button:active span { background: var(--ph-ink); color: var(--ph-inv); }
+
+@media (max-height: 640px) {
+  .ph-standby h1 { margin-top: 8px; }
+  .ph-logo { width: 80px; height: 80px; }
+  .ph-clock { font-size: 72px; }
+  .ph-pad { grid-template-rows: repeat(3, 44px); }
+}
+@media (prefers-contrast: more) {
+  phone-shell::before { content: none; }
+}
+@media print {
+  [data-mode="phone"] blog-app:not([data-current="write"], [data-current="setup"]) phone-shell { position: static; display: block; overflow: visible; background: #fff; }
+  .ph-status, .ph-soft, .ph-thumb, .ph-options, .ph-standby, phone-shell::before { display: none !important; }
+  .ph-read { overflow: visible; }
+}

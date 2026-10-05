@@ -273,6 +273,9 @@
     lcd.setAttribute('aria-label', `Visitor counter ${digits}`);
   }).catch(() => {});
 
+  // "View: Mobile | Desktop" in the footer (phones only, spec 11.8).
+  document.querySelectorAll('[data-mode-set]').forEach(b => b.addEventListener('click', () => Mode.set(b.dataset.modeSet)));
+
   // The taskbar clock, and the clock in the top bar of MS-DOS mode.
   const clock = () => {
     const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
