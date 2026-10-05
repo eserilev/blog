@@ -108,7 +108,7 @@
                 <legend>Now</legend>
                 <div class="now-view" id="now-view"></div>
                 <div class="now-edit" id="now-edit" hidden>
-                  <textarea id="now-text" aria-label="Edit the Now section (markdown)"></textarea>
+                  <textarea id="now-text" spellcheck="true" aria-label="Edit the Now section (markdown)"></textarea>
                   <div class="row"><button class="btn98" id="now-cancel">Cancel</button><button class="btn98 default" id="now-save">Save</button></div>
                 </div>
                 <div class="now-foot"><span id="now-date"></span><button class="btn98 owner-only" id="now-open">Edit</button></div>
@@ -191,11 +191,11 @@
               <div class="window raised notepad">
                 <div class="titlebar"><span class="ttl"><span data-file>untitled.md</span> - Notepad <span data-dirty hidden>*</span></span><span class="ctl raised" aria-hidden="true">×</span></div>
                 <div class="props">
-                  <label for="ed-title">Title</label><input id="ed-title" class="sunken" data-field="title" maxlength="200" required>
-                  <label for="ed-summary">Summary</label><input id="ed-summary" class="sunken" data-field="summary" maxlength="300">
+                  <label for="ed-title">Title</label><input id="ed-title" spellcheck="true" class="sunken" data-field="title" maxlength="200" required>
+                  <label for="ed-summary">Summary</label><input id="ed-summary" spellcheck="true" class="sunken" data-field="summary" maxlength="300">
                   <label for="ed-topic">Topic</label>
                   <select id="ed-topic" data-field="topic"><!--site:topic-options--></select>
-                  <label for="ed-tags">Tags</label><input id="ed-tags" class="sunken" data-field="tags" placeholder="rust, ssz">
+                  <label for="ed-tags">Tags</label><input id="ed-tags" spellcheck="false" class="sunken" data-field="tags" placeholder="rust, ssz">
                 </div>
                 <div class="fmtbar">
                   <button class="btn98" type="button" data-md="**" aria-label="Bold"><b>B</b></button>
@@ -240,10 +240,10 @@
             <div class="titlebar"><span class="ttl">Site Settings</span></div>
             <div class="dialog-body">
               <div class="props">
-                <label for="set-title">Title</label><input id="set-title" class="sunken" maxlength="80" required>
-                <label for="set-subtitle">Subtitle</label><input id="set-subtitle" class="sunken" maxlength="120">
-                <label for="set-tagline">Tagline</label><input id="set-tagline" class="sunken" maxlength="300">
-                <label for="set-intro">Intro</label><textarea id="set-intro" class="sunken" rows="5" maxlength="5000" aria-describedby="set-intro-help"></textarea>
+                <label for="set-title">Title</label><input id="set-title" spellcheck="true" class="sunken" maxlength="80" required>
+                <label for="set-subtitle">Subtitle</label><input id="set-subtitle" spellcheck="true" class="sunken" maxlength="120">
+                <label for="set-tagline">Tagline</label><input id="set-tagline" spellcheck="true" class="sunken" maxlength="300">
+                <label for="set-intro">Intro</label><textarea id="set-intro" spellcheck="true" class="sunken" rows="5" maxlength="5000" aria-describedby="set-intro-help"></textarea>
               </div>
               <p class="help" id="set-intro-help">The intro is markdown.</p>
               <p class="auth-status" id="settings-status" role="status"></p>
@@ -254,7 +254,7 @@
             <div class="titlebar"><span class="ttl">Topics</span></div>
             <div class="dialog-body">
               <ul class="topic-list" id="topic-list"></ul>
-              <form class="row" id="topic-add"><label for="topic-new">New topic:</label><input id="topic-new" class="sunken" maxlength="40" required><button class="btn98" type="submit">Add</button></form>
+              <form class="row" id="topic-add"><label for="topic-new">New topic:</label><input id="topic-new" spellcheck="true" class="sunken" maxlength="40" required><button class="btn98" type="submit">Add</button></form>
               <p class="help">The address of a topic does not change when you rename it. A topic with posts cannot be deleted.</p>
               <p class="auth-status" id="topics-status" role="status"></p>
               <div class="row row-end"><button class="btn98 default" type="button" id="topics-save">Save names and order</button></div>

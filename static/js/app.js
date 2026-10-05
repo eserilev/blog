@@ -184,6 +184,7 @@
     const name = document.createElement('input');
     name.value = t.name;
     name.maxLength = 40;
+    name.spellcheck = true;
     name.setAttribute('aria-label', `Name of topic ${t.slug}`);
     const slug = document.createElement('code');
     slug.textContent = `/topics/${t.slug}`;
