@@ -300,7 +300,9 @@ const Preview = {
   _ready: null,
   load() {
     this._ready ||= (async () => {
-      const res = await fetch('/static/wasm/logbook_render.wasm');
+      // The server adds the version hash to this URL (spec 6.9).
+      const url = document.querySelector('meta[name="asset-wasm"]')?.content || '/static/wasm/logbook_render.wasm';
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`preview: HTTP ${res.status}`);
       const { instance } = await WebAssembly.instantiateStreaming(res, {});
       return instance.exports;

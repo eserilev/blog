@@ -336,7 +336,7 @@ Output: one binary, one SQLite file, one static folder. No template library.
 2. The server looks up the slug **through `reveal`** (7.6).
    - Public: serve `index.html` with the title and summary in `<title>`, `og:*`, and `twitter:*` tags. Values are HTML-escaped.
    - Draft, private, or unknown: serve `index.html` with status **404**, a generic title, and `<meta name="robots" content="noindex">`. No post data.
-3. The browser loads the CSS and `components.js`.
+3. The browser loads the CSS and `components.js`. Their URLs carry a version hash (6.9).
 4. `<post-view>` calls `GET /api/posts/{slug}` and shows `body_html`.
 
 The same rule (real status, no leak) holds for `/topics/{topic}`: unknown topic → 404.
@@ -524,6 +524,23 @@ Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
 
+`Cache-Control`:
+
+- Pages, the public API, and unversioned static files: `no-cache`. The browser revalidates with `ETag` or `Last-Modified`.
+- `/static/*` with the current version hash in `v`: `public, max-age=31536000, immutable`.
+- `/media/*`: `public, max-age=31536000, immutable`. The key is a content hash (6.8).
+- `/feed.xml` and `/api/surf`: `public, max-age=300`.
+- Owner API, `/api/me`, and `/auth/*`: `no-store` (6.4, 6.6).
+
+Static file versions [decided]:
+
+- At startup the server hashes each file in `static/`. The version is the first 10 hex characters of the SHA-256 of the file. Each file has its own hash, so a change to one file keeps the cache of the others.
+- The server adds `?v=<hash>` to each double-quoted `"/static/..."` URL in `index.html` (`href`, `src`, and `<meta content>`). A new static file needs no code change.
+- The server adds `?v=<hash>` to each `url(...)` in the CSS files and sends the CSS from memory. The hash of a CSS file is the hash of this new text, so a new font also changes the CSS URL.
+- `components.js` reads the WASM URL from `<meta name="asset-wasm">`. Without it, the script uses the plain path.
+- A missing or wrong `v` gets the current file with `no-cache`, not a 404. Old pages and direct links still work.
+- The image is immutable, so the hashes do not go stale. If a file changes after startup, its hash no longer matches, and the file gets `no-cache`.
+
 ### 6.10 Export [decided; git export off in production]
 
 - Each public post → `posts/<slug>.md` with a front-matter header: `title`, `slug`, `summary`, `topic`, `tags`, `state`, `published`, `updated`. Values are JSON strings, so any title round-trips, and other YAML readers parse them too. The Now box → `now.md`. Images → `images/` (step 6b).
@@ -704,7 +721,7 @@ blog/
 │       ├── migrations/
 │       └── src/ main.rs routes.rs config.rs db.rs auth.rs pages.rs posts.rs
 │                now.rs surf.rs media.rs uploads.rs headers.rs checks.rs
-│                feed.rs export.rs counter.rs cli.rs
+│                feed.rs export.rs counter.rs cli.rs assets.rs
 ├── editor-wasm/               logbook-render for the browser; build.sh → static/wasm/
 ├── static/                    index.html, CSS, JS components, fonts, logo
 ├── fuzz/                      cargo-fuzz targets, seed inputs in fuzz/seeds/
