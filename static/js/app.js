@@ -140,6 +140,8 @@
   });
 
   refreshOwner();
+  // LOGIN and LOGOUT in MS-DOS mode (spec 11.1).
+  app.addEventListener('authchange', refreshOwner);
 
   // Site settings (spec 4.9): the title section of the home page.
   const setStatus = document.getElementById('settings-status');
@@ -271,6 +273,10 @@
     lcd.setAttribute('aria-label', `Visitor counter ${digits}`);
   }).catch(() => {});
 
-  const clock = () => { document.getElementById('ns-clock').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+  // The taskbar clock, and the clock in the top bar of MS-DOS mode.
+  const clock = () => {
+    const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    for (const id of ['ns-clock', 'dos-clock']) document.getElementById(id).textContent = now;
+  };
   clock(); setInterval(clock, 30000);
 })();

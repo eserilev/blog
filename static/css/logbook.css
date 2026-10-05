@@ -5,10 +5,13 @@
 @font-face { font-family: "Cousine"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/cousine-400.woff2") format("woff2"); }
 @font-face { font-family: "Cousine"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/cousine-700.woff2") format("woff2"); }
 @font-face { font-family: "VT323"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/vt323-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/ibm-plex-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/ibm-plex-mono-600.woff2") format("woff2"); }
 
 /* Layout: a 1998 desktop. One browser window holds the site, a taskbar switches views,
    and the editor is two Win98 windows side by side. The page inside the browser is quiet:
-   black serif headings, Verdana body, one navy accent. Single light theme by choice. */
+   black serif headings, Verdana body, one navy accent. This is light mode; dark mode is
+   MS-DOS mode, at the end of this file. */
 :root {
   color-scheme: light;
   --desk: #008080;
@@ -32,6 +35,7 @@
   --f-head: "Tinos", "Times New Roman", Times, serif;
   --f-mono: "Cousine", "Courier New", monospace;
   --f-lcd: "VT323", "Courier New", monospace;
+  --f-dos: "IBM Plex Mono", "Courier New", monospace;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--desk); color: var(--text); font-family: var(--f-ui); font-size: 13px; min-height: 100vh; }
@@ -60,6 +64,9 @@ blog-app[data-current="write"] .desktop { max-width: none; }
 .tb .g { font-size: 20px; line-height: 1; color: #222; }
 .tb.disabled { color: var(--chrome-lo); text-shadow: 1px 1px var(--chrome-hi); cursor: default; }
 .tb.disabled .g { color: var(--chrome-lo); }
+.tb .dos-ico { width: 22px; height: 20px; }
+.dos-ico .frame { stroke: currentColor; }
+.dos-ico .stand { fill: var(--chrome-lo); }
 .logo { margin-left: auto; width: 46px; height: 46px; display: block; flex: none; cursor: pointer; }
 .logo .wave { animation: swell 1.4s linear infinite paused; }
 .logo .wave.back { animation-duration: 2.2s; animation-direction: reverse; }
@@ -288,3 +295,93 @@ md-editor:not([data-loaded]) .split { opacity: .5; }
 .btn-link { display: inline-grid; place-items: center; text-decoration: none; color: #000; }
 .readouts div.stale .lcd-v { color: #2a6a2a; text-shadow: none; }
 .readouts div.stale dt::after { content: " (stale)"; font-weight: 400; }
+
+/* MS-DOS mode (spec 11.1): dark mode. White text on black, a gray top bar, and a
+   Norton Commander F-key bar. Only html[data-mode="night"] shows it. */
+dos-shell { display: none; }
+:root[data-mode="night"] { color-scheme: dark; --dos-fg: #f0f0f0; --dos-hi: #ffffff; --dos-dim: #8a8a8a; --dos-cyan: #00aaaa; --dos-gray: #aaaaaa; }
+[data-mode="night"] body { background: #000; }
+[data-mode="night"] .taskbar { display: none; }
+[data-mode="night"] blog-app:not([data-current="write"], [data-current="setup"]) .desktop { display: none; }
+[data-mode="night"] blog-app:not([data-current="write"], [data-current="setup"]) dos-shell {
+  display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+  background: #000; color: var(--dos-fg); font: 400 18px/1.45 var(--f-dos); text-shadow: 0 0 4px rgba(255,255,255,.3);
+}
+.dos-bar { display: flex; gap: 24px; padding: 0 12px; background: var(--dos-gray); color: #000; text-shadow: none; }
+.dos-prog { flex: 1; }
+.dos-screen { position: relative; flex: 1; padding: 8px 12px 16px; outline: none; }
+/* Faint scanlines. They never catch clicks. */
+.dos-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.18) 2px 3px); }
+.dos-line { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.45em; }
+.dos-line.cmd { color: var(--dos-fg); }
+.dos-line.hi, .dos-title { color: var(--dos-hi); letter-spacing: .08em; }
+.dos-line.dim, .dos-hint { color: var(--dos-dim); text-shadow: none; }
+.dos-title { font: 600 1em/1.45 var(--f-dos); text-transform: uppercase; margin: 0; outline: none; }
+.dos-title:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 2px; }
+.dos-help { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 2ch; white-space: normal; }
+.dos-row { display: grid; grid-template-columns: 9ch 4ch 8ch 10ch minmax(0, 1fr); white-space: nowrap; }
+.dos-row .c-size { text-align: right; padding-right: 2ch; }
+.dos-row .c-long { overflow: hidden; text-overflow: ellipsis; }
+.dos-line.sum { padding-left: 9ch; }
+dos-shell a { color: var(--dos-hi); text-decoration: underline; text-underline-offset: 3px; }
+dos-shell a:hover { color: #55ffff; }
+dos-shell a:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 2px; }
+.dos-prompt { display: flex; align-items: center; min-height: 44px; cursor: text; }
+.dos-prompt label { white-space: pre; cursor: text; }
+.dos-prompt input { flex: 1; min-width: 0; min-height: 32px; padding: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; text-shadow: inherit; text-transform: uppercase; caret-color: var(--dos-hi); }
+.dos-prompt:focus-within label { text-decoration: underline; text-underline-offset: 4px; }
+.dos-hint { margin: 20px 0 0; }
+.dos-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* TYPE output: the post body as terminal text. */
+.dos-prose { max-width: 80ch; margin: 0 0 8px; }
+.dos-prose > * { margin: 0 0 1.45em; }
+.dos-prose h1, .dos-prose h2, .dos-prose h3, .dos-prose h4 { font: 600 1em/1.45 var(--f-dos); color: var(--dos-hi); text-transform: uppercase; letter-spacing: .08em; margin-top: 1.45em; }
+.dos-prose ul, .dos-prose ol { padding-left: 4ch; }
+.dos-prose ul { list-style-type: "* "; }
+.dos-prose blockquote { margin-left: 0; margin-right: 0; padding-left: 2ch; border-left: 2px solid var(--dos-dim); color: var(--dos-fg); }
+.dos-prose code { font: inherit; color: var(--dos-hi); }
+.dos-prose pre { margin-left: 0; padding: 8px 0; overflow-x: auto; border-top: 1px dashed var(--dos-dim); border-bottom: 1px dashed var(--dos-dim); font-size: .9em; line-height: 1.5; text-shadow: none; }
+.dos-prose pre[data-lang]::before { content: "----- " attr(data-lang) " -----"; display: block; color: var(--dos-dim); }
+.dos-prose pre code { color: var(--dos-fg); }
+.dos-prose .hl-comment { color: var(--dos-dim); }
+.dos-prose pre .hl-ln { display: inline-block; margin-right: 1ch; padding-right: 1ch; border-right: 1px solid var(--dos-dim); color: var(--dos-dim); text-align: right; user-select: none; -webkit-user-select: none; }
+.dos-prose table { border-collapse: collapse; }
+.dos-prose th, .dos-prose td { border: 1px solid var(--dos-dim); padding: 2px 1ch; text-align: left; }
+.dos-prose hr { border: 0; border-top: 1px dashed var(--dos-dim); }
+.dos-prose img { display: block; }
+
+/* The F-key bar: white number, black label on cyan. Always on screen at the bottom. */
+.dos-keys { position: sticky; bottom: 0; z-index: 5; display: flex; background: #000; text-shadow: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.dos-keys button { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; align-items: stretch; padding: 0; border: 0; background: #000; font: inherit; cursor: pointer; }
+.dos-keys .n { display: flex; align-items: center; padding: 0 2px 0 8px; color: var(--dos-hi); }
+.dos-keys .t { flex: 1; display: flex; align-items: center; padding: 0 6px; overflow: hidden; white-space: nowrap; background: var(--dos-cyan); color: #000; }
+.dos-keys button:hover .t, .dos-keys button:focus-visible .t { background: #55ffff; }
+.dos-keys button:focus-visible { outline: 2px solid var(--dos-hi); outline-offset: -2px; }
+
+@media (max-width: 720px) {
+  [data-mode="night"] blog-app:not([data-current="write"], [data-current="setup"]) dos-shell { font-size: 15px; }
+  .dos-bar { gap: 12px; padding: 0 8px; }
+  .dos-screen { padding: 8px 8px 16px; }
+  /* Narrow screens: name, extension, and the long name only. */
+  .dos-row { grid-template-columns: 9ch 4ch minmax(0, 1fr); }
+  .dos-row .c-size, .dos-row .c-date { display: none; }
+  .dos-help { grid-template-columns: minmax(0, 1fr); }
+  .dos-help span:nth-child(even) { padding-left: 2ch; color: var(--dos-dim); margin-bottom: 4px; }
+}
+@media (max-width: 520px) {
+  .dos-keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 2px; }
+}
+@media (prefers-contrast: more) {
+  [data-mode="night"] dos-shell, [data-mode="night"] dos-shell * { text-shadow: none !important; }
+  .dos-screen::after { content: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-mode="night"] dos-shell * { animation: none !important; transition: none !important; }
+}
+@media print {
+  [data-mode="night"] body, [data-mode="night"] blog-app:not([data-current="write"], [data-current="setup"]) dos-shell { display: block; min-height: 0; background: #fff; color: #000; text-shadow: none; }
+  [data-mode="night"] dos-shell * { color: #000 !important; text-shadow: none !important; }
+  .dos-bar, .dos-prompt, .dos-hint, .dos-keys, .dos-screen::after { display: none !important; }
+}

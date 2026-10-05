@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/static/css/code.css">
 <link rel="alternate" type="application/rss+xml" title="<!--site:title-->" href="/feed.xml">
 <link rel="stylesheet" href="/static/css/logbook.css">
+<script src="/static/js/mode.js"></script>
 <script src="/static/js/components.js" defer></script>
 <script src="/static/js/app.js" defer></script>
 </head>
@@ -32,6 +33,7 @@
           <button class="tb" data-goto="latest" data-nav="post"><span class="g">❏</span>Latest</button>
           <button class="tb owner-only" data-goto="/write" data-nav="write"><span class="g">✎</span>Compose</button>
           <button class="tb disabled" type="button" tabindex="-1" aria-hidden="true"><span class="g">⎙</span>Print</button>
+          <button class="tb" type="button" data-dos-on aria-label="Dark mode (MS-DOS)"><svg class="dos-ico" viewBox="0 0 22 20" aria-hidden="true"><rect class="frame" x="0.5" y="0.5" width="21" height="15" fill="#000"/><text x="2.5" y="10.5" font-family="Cousine, 'Courier New', monospace" font-size="7" font-weight="700" fill="#fff">C:\</text><rect x="16" y="9" width="4" height="1.5" fill="#fff"/><rect class="stand" x="7" y="16" width="8" height="3"/></svg>Dark mode</button>
           <svg class="logo" id="logo" viewBox="0 0 46 46" role="img" aria-label="Site logo">
             <defs><clipPath id="logo-clip"><rect x="3" y="3" width="40" height="40"/></clipPath></defs>
             <rect width="46" height="46" fill="#000"/>
@@ -306,6 +308,29 @@
       <div class="row"><button class="btn98 default" type="submit" id="signin-ok">Sign in with passkey</button><button class="btn98" type="button" id="signin-cancel">Cancel</button></div>
     </form>
   </div>
+
+  <!-- MS-DOS mode (spec 11.1). CSS shows it only under html[data-mode="night"]. -->
+  <dos-shell>
+    <div class="dos-bar"><span class="dos-prog">LOGBOOK.EXE</span><span data-host></span><span id="dos-clock"></span></div>
+    <main class="dos-screen" tabindex="-1">
+      <div class="dos-out" role="log" aria-label="Command output" data-out></div>
+      <div class="dos-prompt" data-prompt>
+        <label for="dos-cmd">C:\LOGBOOK&gt;</label>
+        <input id="dos-cmd" type="text" aria-describedby="dos-hint" autocomplete="off" autocapitalize="characters" spellcheck="false" autocorrect="off" enterkeyhint="go">
+      </div>
+      <p class="dos-hint" id="dos-hint">Type HELP for a list of commands. Type WIN to go back to Windows.</p>
+      <p class="dos-sr" role="status" data-status></p>
+    </main>
+    <nav class="dos-keys" aria-label="Function keys">
+      <button type="button" data-cmd="HELP" data-key="F1" aria-label="F1 Help"><span class="n">1</span><span class="t">Help</span></button>
+      <button type="button" data-cmd="DIR" data-key="F2" aria-label="F2 Dir"><span class="n">2</span><span class="t">Dir</span></button>
+      <button type="button" data-cmd="TYPE ABOUT.TXT" data-key="F3" aria-label="F3 About"><span class="n">3</span><span class="t">About</span></button>
+      <button type="button" data-cmd="NOW" data-key="F4" aria-label="F4 Now"><span class="n">4</span><span class="t">Now</span></button>
+      <button type="button" data-cmd="SURF" data-key="F5" aria-label="F5 Surf"><span class="n">5</span><span class="t">Surf</span></button>
+      <button type="button" data-cmd="CLS" data-key="F9" aria-label="F9 Cls"><span class="n">9</span><span class="t">Cls</span></button>
+      <button type="button" data-cmd="WIN" data-key="F10" aria-label="F10 Win"><span class="n">10</span><span class="t">Win</span></button>
+    </nav>
+  </dos-shell>
 
   <div class="taskbar">
     <button class="btn98 start" data-goto="/"><span class="flag"></span>Start</button>
