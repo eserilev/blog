@@ -8,6 +8,7 @@ A personal blog with a 1998 desktop look. Rust (axum, SQLite, Litestream) and na
 ## Run locally
 
 ```bash
+editor-wasm/build.sh                         # the editor preview (needs the wasm32 target)
 cargo run -p logbook-server -- seed-sample   # optional: sample posts in logbook.db
 cargo run -p logbook-server                  # http://localhost:8080
 cargo run -p logbook-server -- setup-link    # one-time link to register your passkey

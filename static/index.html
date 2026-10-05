@@ -188,23 +188,45 @@
 
         <!-- WRITE -->
         <section data-view="write" class="page write-area" hidden>
-          <md-editor class="editor-desk" data-visibility="private">
+          <post-files class="window raised dialog files">
+            <div class="titlebar"><span class="ttl">Open Post</span></div>
+            <div class="dialog-body">
+              <div class="tablewrap files-well sunken">
+                <table class="files-table">
+                  <thead><tr><th scope="col">Title</th><th scope="col">State</th><th scope="col">Changed</th></tr></thead>
+                  <tbody data-rows></tbody>
+                </table>
+              </div>
+              <div class="row row-end"><button class="btn98" type="button" data-new>New post</button></div>
+            </div>
+          </post-files>
+          <md-editor class="editor-desk" hidden>
             <div class="split">
               <div class="window raised notepad">
-                <div class="titlebar"><span class="ttl">epbs-client-view.md - Notepad <span data-dirty hidden>*</span></span><span class="ctl raised" aria-hidden="true">×</span></div>
-                <div class="fmtbar">
-                  <button class="btn98" data-md="**" aria-label="Bold"><b>B</b></button>
-                  <button class="btn98" data-md="*" aria-label="Italic"><i>I</i></button>
-                  <button class="btn98" data-md="## " aria-label="Heading">H2</button>
-                  <button class="btn98" data-md="- " aria-label="List">•</button>
-                  <button class="btn98" data-md="`" aria-label="Code">&lt;/&gt;</button>
-                  <button class="btn98" data-md="link" aria-label="Link">URL</button>
+                <div class="titlebar"><span class="ttl"><span data-file>untitled.md</span> - Notepad <span data-dirty hidden>*</span></span><span class="ctl raised" aria-hidden="true">×</span></div>
+                <div class="props">
+                  <label for="ed-title">Title</label><input id="ed-title" class="sunken" data-field="title" maxlength="200" required>
+                  <label for="ed-summary">Summary</label><input id="ed-summary" class="sunken" data-field="summary" maxlength="300">
+                  <label for="ed-topic">Topic</label>
+                  <select id="ed-topic" data-field="topic">
+                    <option value="ethereum">Ethereum</option><option value="rust">Rust</option><option value="surf">Surf</option>
+                    <option value="snowboarding">Snowboarding</option><option value="jiu-jitsu">Jiu jitsu</option><option value="classic-wow">Classic WoW</option>
+                  </select>
+                  <label for="ed-tags">Tags</label><input id="ed-tags" class="sunken" data-field="tags" placeholder="rust, ssz">
                 </div>
-                <div class="well sunken"><textarea id="ns-draft" aria-label="Post markdown" spellcheck="true"></textarea></div>
+                <div class="fmtbar">
+                  <button class="btn98" type="button" data-md="**" aria-label="Bold"><b>B</b></button>
+                  <button class="btn98" type="button" data-md="*" aria-label="Italic"><i>I</i></button>
+                  <button class="btn98" type="button" data-md="## " aria-label="Heading">H2</button>
+                  <button class="btn98" type="button" data-md="- " aria-label="List">•</button>
+                  <button class="btn98" type="button" data-md="`" aria-label="Code">&lt;/&gt;</button>
+                  <button class="btn98" type="button" data-md="link" aria-label="Link">URL</button>
+                </div>
+                <div class="well sunken"><textarea id="ns-draft" data-field="body_md" aria-label="Post markdown" spellcheck="true"></textarea></div>
               </div>
               <div class="window raised preview-win">
                 <div class="titlebar inactive"><span class="ttl">Preview</span><span class="ctl raised" aria-hidden="true">×</span></div>
-                <div class="status"><span class="grow sunken" data-words="Document: Done · {w} words · {m} min read"></span></div>
+                <div class="status"><span class="grow sunken" data-words>Loading preview...</span></div>
                 <div class="well sunken"><div class="prose" data-preview></div></div>
               </div>
             </div>
@@ -212,19 +234,22 @@
               <div class="titlebar"><span class="ttl">Publish Post</span><span class="ctl raised" aria-hidden="true">?</span><span class="ctl raised" aria-hidden="true">×</span></div>
               <div class="dialog-body">
                 <fieldset>
-                  <legend>Visibility</legend>
+                  <legend>State</legend>
                   <div class="row">
-                    <label class="radio"><input type="radio" name="ns-vis" id="ns-vis-pub" data-vis="public"> Public: anyone can read it</label>
-                    <label class="radio"><input type="radio" name="ns-vis" id="ns-vis-priv" data-vis="private"> Private: only you</label>
+                    <label class="radio"><input type="radio" name="ed-state" id="ed-state-draft" value="draft"> Draft: work in progress</label>
+                    <label class="radio"><input type="radio" name="ed-state" id="ed-state-private" value="private"> Private: only you</label>
+                    <label class="radio"><input type="radio" name="ed-state" id="ed-state-public" value="public"> Public: anyone can read it</label>
                   </div>
                 </fieldset>
+                <p class="auth-status" data-status role="status"></p>
                 <div class="row row-end">
-                  <button class="btn98" data-save>Save Draft</button>
-                  <button class="btn98 default" data-publish>Publish</button>
+                  <button class="btn98" type="button" data-delete>Delete</button>
+                  <button class="btn98" type="button" data-save>Save</button>
+                  <button class="btn98 default" type="button" data-publish>Publish</button>
                 </div>
               </div>
             </div>
-            <div class="msgbox" data-toast hidden data-public="Post published. Anyone can read it now." data-private="Saved as private. Only you can see this post." data-saved="Draft saved."></div>
+            <div class="msgbox" data-toast hidden></div>
           </md-editor>
           <div class="window raised dialog passkeys" id="passkeys">
             <div class="titlebar"><span class="ttl">Passkeys</span></div>

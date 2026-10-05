@@ -59,6 +59,7 @@ async fn access_matrix() {
                 let req = match route.verb {
                     Verb::Get => Req::get(&path),
                     Verb::Post => Req::post(&path, serde_json::json!({})),
+                    Verb::Put => Req::put(&path, serde_json::json!({})),
                     Verb::Delete => Req::delete(&path),
                 };
                 let r = f.send(req.cookie(cookie)).await;

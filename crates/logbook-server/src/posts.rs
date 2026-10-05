@@ -306,3 +306,379 @@ pub async fn api_topic(
             .collect(),
     ))
 }
+
+// ---------------------------------------------------------------------------
+// Owner API (spec 6.4). Every handler takes `Owner`, so a request without a
+// session gets 401 before the handler runs. Routes add `Cache-Control: no-store`.
+// ---------------------------------------------------------------------------
+
+use crate::auth::Owner;
+use axum::http::HeaderMap;
+use serde::Deserialize;
+
+/// Limits on owner input.
+pub const TITLE_MAX: usize = 200;
+pub const SUMMARY_MAX: usize = 300;
+pub const TAGS_MAX: usize = 10;
+pub const TAG_MAX: usize = 30;
+pub const BODY_MAX: usize = 200_000;
+
+/// An owner API error.
+#[derive(Debug)]
+pub enum OwnerError {
+    NotFound,
+    BadRequest(&'static str),
+    /// The post changed since the editor loaded it (spec 3.8).
+    Conflict,
+    /// `If-Match` is missing or not a version number.
+    PreconditionRequired,
+    Internal(sqlx::Error),
+}
+
+impl From<sqlx::Error> for OwnerError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Internal(e)
+    }
+}
+
+impl IntoResponse for OwnerError {
+    fn into_response(self) -> Response {
+        let (status, msg) = match self {
+            Self::NotFound => (StatusCode::NOT_FOUND, "not found"),
+            Self::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
+            Self::Conflict => (
+                StatusCode::CONFLICT,
+                "this post changed on another device; reload to see the newer version",
+            ),
+            Self::PreconditionRequired => (
+                StatusCode::PRECONDITION_REQUIRED,
+                "send If-Match with the post version",
+            ),
+            Self::Internal(e) => {
+                tracing::error!("database error: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
+            }
+        };
+        (status, Json(serde_json::json!({ "error": msg }))).into_response()
+    }
+}
+
+/// The version in `If-Match`, with or without quotes.
+fn if_match(headers: &HeaderMap) -> Result<i64, OwnerError> {
+    let v = headers
+        .get(axum::http::header::IF_MATCH)
+        .and_then(|v| v.to_str().ok())
+        .ok_or(OwnerError::PreconditionRequired)?;
+    v.trim()
+        .trim_matches('"')
+        .parse()
+        .map_err(|_| OwnerError::PreconditionRequired)
+}
+
+/// A post in the owner's list.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct OwnerListItem {
+    pub id: i64,
+    pub slug: String,
+    pub title: String,
+    pub topic: String,
+    pub state: String,
+    pub version: i64,
+    pub published_at: Option<String>,
+    pub updated_at: String,
+}
+
+/// A post for the editor, with `body_md` and `version`.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct OwnerPost {
+    pub id: i64,
+    pub slug: String,
+    pub title: String,
+    pub summary: String,
+    pub topic: String,
+    #[serde(serialize_with = "tags_json")]
+    pub tags: String,
+    pub body_md: String,
+    pub state: String,
+    pub version: i64,
+    pub word_count: i64,
+    pub published_at: Option<String>,
+    pub updated_at: String,
+}
+
+fn tags_json<S: serde::Serializer>(tags: &str, s: S) -> Result<S::Ok, S::Error> {
+    let v: Vec<String> = serde_json::from_str(tags).unwrap_or_default();
+    v.serialize(s)
+}
+
+/// The editor's input for `PUT /api/owner/posts/{id}`.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostInput {
+    pub title: String,
+    pub summary: String,
+    pub topic: String,
+    pub tags: Vec<String>,
+    pub body_md: String,
+}
+
+/// Validated input.
+#[derive(Debug)]
+pub struct Valid {
+    pub title: String,
+    pub summary: String,
+    pub topic: logbook_core::Topic,
+    pub tags_json: String,
+    pub body_md: String,
+}
+
+impl PostInput {
+    /// Checks the limits. Never panics, for any input (fuzz target `post_input`).
+    ///
+    /// # Errors
+    ///
+    /// A message for the first rule that fails.
+    pub fn validate(self) -> Result<Valid, &'static str> {
+        let title = self.title.trim().to_string();
+        if title.is_empty() {
+            return Err("the title is empty");
+        }
+        if title.chars().count() > TITLE_MAX || title.chars().any(char::is_control) {
+            return Err("the title is too long or has control characters");
+        }
+        let summary = self.summary.trim().to_string();
+        if summary.chars().count() > SUMMARY_MAX || summary.chars().any(char::is_control) {
+            return Err("the summary is too long or has control characters");
+        }
+        let topic = topic::parse(&self.topic).ok_or("unknown topic")?;
+        if self.tags.len() > TAGS_MAX {
+            return Err("too many tags");
+        }
+        for t in &self.tags {
+            if t.is_empty()
+                || t.len() > TAG_MAX
+                || !t
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            {
+                return Err("tags use a-z, 0-9, and -, at most 30 characters");
+            }
+        }
+        if self.body_md.len() > BODY_MAX {
+            return Err("the post is too long");
+        }
+        let tags_json = serde_json::to_string(&self.tags).map_err(|_| "bad tags")?;
+        Ok(Valid {
+            title,
+            summary,
+            topic,
+            tags_json,
+            body_md: self.body_md,
+        })
+    }
+}
+
+/// `GET /api/owner/posts`: every post, every state, newest change first.
+///
+/// # Errors
+///
+/// 401 without a session. 500 on database errors.
+pub async fn owner_list(
+    _: Owner,
+    State(s): State<AppState>,
+) -> Result<Json<Vec<OwnerListItem>>, OwnerError> {
+    let rows = sqlx::query_as(
+        "SELECT id, slug, title, topic, state, version, published_at, updated_at FROM posts ORDER BY updated_at DESC, id DESC",
+    )
+    .fetch_all(&s.pool)
+    .await?;
+    Ok(Json(rows))
+}
+
+async fn owner_post(pool: &SqlitePool, id: i64) -> Result<OwnerPost, OwnerError> {
+    sqlx::query_as(
+        "SELECT id, slug, title, summary, topic, tags, body_md, state, version, word_count, published_at, updated_at
+         FROM posts WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(OwnerError::NotFound)
+}
+
+/// `GET /api/owner/posts/{id}`.
+///
+/// # Errors
+///
+/// 401 without a session. 404 for an unknown id.
+pub async fn owner_get(
+    _: Owner,
+    State(s): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<OwnerPost>, OwnerError> {
+    Ok(Json(owner_post(&s.pool, id).await?))
+}
+
+/// `POST /api/owner/posts`: a new, empty draft.
+///
+/// # Errors
+///
+/// 401 without a session. 500 on database errors.
+pub async fn owner_create(_: Owner, State(s): State<AppState>) -> Result<Response, OwnerError> {
+    let id = create(
+        &s.pool,
+        &NewPost {
+            title: "Untitled",
+            summary: "",
+            topic: logbook_core::Topic::Ethereum,
+            tags: &[],
+            body_md: "",
+            state: PostState::Draft,
+            published_at: None,
+        },
+    )
+    .await?;
+    let id = i64::try_from(id).unwrap_or(0);
+    let post = owner_post(&s.pool, id).await?;
+    Ok((StatusCode::CREATED, Json(post)).into_response())
+}
+
+/// The slug for `title`, or `post-<id>` if another post has it.
+async fn free_slug(
+    tx: &mut sqlx::SqliteConnection,
+    title: &str,
+    id: i64,
+) -> Result<String, sqlx::Error> {
+    let id_u = u64::try_from(id).unwrap_or(0);
+    let wanted = String::from_utf8(make_slug(title.as_bytes(), id_u)).unwrap_or_default();
+    let taken: bool =
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM posts WHERE slug = ? AND id != ?)")
+            .bind(&wanted)
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+    Ok(if taken {
+        String::from_utf8(make_slug(b"", id_u)).unwrap_or_default()
+    } else {
+        wanted
+    })
+}
+
+/// Fails with 409 if the post exists, else 404.
+async fn missing_or_conflict(pool: &SqlitePool, id: i64) -> OwnerError {
+    match sqlx::query_scalar::<_, bool>("SELECT EXISTS (SELECT 1 FROM posts WHERE id = ?)")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+    {
+        Ok(true) => OwnerError::Conflict,
+        Ok(false) => OwnerError::NotFound,
+        Err(e) => OwnerError::Internal(e),
+    }
+}
+
+/// `PUT /api/owner/posts/{id}`: save. Needs `If-Match: <version>`; a mismatch is 409.
+/// The slug follows the title until the first publish, then it never changes (spec 4.3).
+///
+/// # Errors
+///
+/// 401, 400 (bad input), 404, 409, 428.
+pub async fn owner_save(
+    _: Owner,
+    State(s): State<AppState>,
+    Path(id): Path<i64>,
+    headers: HeaderMap,
+    Json(input): Json<PostInput>,
+) -> Result<Json<OwnerPost>, OwnerError> {
+    let version = if_match(&headers)?;
+    let v = input.validate().map_err(OwnerError::BadRequest)?;
+    let body_html = logbook_render::render(&v.body_md);
+    let words = i64::from(logbook_render::word_count(&v.body_md));
+
+    let mut tx = s.pool.begin().await?;
+    let slug = free_slug(&mut tx, &v.title, id).await?;
+    let done = sqlx::query(
+        "UPDATE posts SET title = ?, summary = ?, topic = ?, tags = ?, body_md = ?, body_html = ?, word_count = ?,
+            slug = CASE WHEN published_at IS NULL THEN ? ELSE slug END,
+            version = version + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE id = ? AND version = ?",
+    )
+    .bind(&v.title)
+    .bind(&v.summary)
+    .bind(topic::slug(v.topic))
+    .bind(&v.tags_json)
+    .bind(&v.body_md)
+    .bind(body_html)
+    .bind(words)
+    .bind(slug)
+    .bind(id)
+    .bind(version)
+    .execute(&mut *tx)
+    .await?;
+    if done.rows_affected() != 1 {
+        drop(tx);
+        return Err(missing_or_conflict(&s.pool, id).await);
+    }
+    tx.commit().await?;
+    Ok(Json(owner_post(&s.pool, id).await?))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StateInput {
+    pub state: String,
+}
+
+/// `POST /api/owner/posts/{id}/state`: draft, private, or public. Needs `If-Match`.
+/// `published_at` is set on the first change to public and never changes after.
+///
+/// # Errors
+///
+/// 401, 400 (unknown state), 404, 409, 428.
+pub async fn owner_set_state(
+    _: Owner,
+    State(s): State<AppState>,
+    Path(id): Path<i64>,
+    headers: HeaderMap,
+    Json(input): Json<StateInput>,
+) -> Result<Json<OwnerPost>, OwnerError> {
+    let version = if_match(&headers)?;
+    let state = parse_state(&input.state)
+        .ok_or(OwnerError::BadRequest("state is draft, private, or public"))?;
+    let done = sqlx::query(
+        "UPDATE posts SET state = ?,
+            published_at = CASE WHEN ? = 'public' AND published_at IS NULL THEN strftime('%Y-%m-%dT%H:%M:%SZ', 'now') ELSE published_at END,
+            version = version + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE id = ? AND version = ?",
+    )
+    .bind(state_name(state))
+    .bind(state_name(state))
+    .bind(id)
+    .bind(version)
+    .execute(&s.pool)
+    .await?;
+    if done.rows_affected() != 1 {
+        return Err(missing_or_conflict(&s.pool, id).await);
+    }
+    Ok(Json(owner_post(&s.pool, id).await?))
+}
+
+/// `DELETE /api/owner/posts/{id}`.
+///
+/// # Errors
+///
+/// 401, 404.
+pub async fn owner_delete(
+    _: Owner,
+    State(s): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Response, OwnerError> {
+    let done = sqlx::query("DELETE FROM posts WHERE id = ?")
+        .bind(id)
+        .execute(&s.pool)
+        .await?;
+    if done.rows_affected() == 0 {
+        return Err(OwnerError::NotFound);
+    }
+    Ok(Json(serde_json::json!({ "ok": true })).into_response())
+}

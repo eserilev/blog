@@ -1,7 +1,7 @@
 /* Native web components for the Logbook (spec 5).
-   Rule: only server-rendered body_html goes into innerHTML. Everything else
-   uses textContent. (The editor and the Now box use the sample md() until
-   steps 5 and 6; its output is escaped.) */
+   Rule: only sanitized HTML goes into innerHTML: body_html from the server, or
+   the WASM render() output in the editor (same code, same allow-list). Everything
+   else uses textContent. (The Now box uses the sample md() until step 6.) */
 
 /* API calls. Lists are cached for the page's lifetime. */
 const Api = {
@@ -273,39 +273,127 @@ customElements.define('post-view', class extends HTMLElement {
   }
 });
 
-/* <md-editor>: markdown on one side, live preview on the other.
-   Parts: textarea, [data-preview], [data-words], [data-gutter], [data-md] buttons,
-   [data-vis] buttons, [data-publish], [data-save], [data-toast]. */
+/* The editor preview (spec 6.7): the server's render() compiled to WebAssembly.
+   Same code as the server, so the preview matches the published post. */
+const Preview = {
+  _ready: null,
+  load() {
+    this._ready ||= (async () => {
+      const res = await fetch('/static/wasm/logbook_render.wasm');
+      if (!res.ok) throw new Error(`preview: HTTP ${res.status}`);
+      const { instance } = await WebAssembly.instantiateStreaming(res, {});
+      return instance.exports;
+    })();
+    return this._ready;
+  },
+  /* Markdown → sanitized HTML, through the three WASM functions. */
+  async render(md) {
+    const { memory, buf_alloc, buf_free, render } = await this.load();
+    const input = new TextEncoder().encode(md);
+    const p = buf_alloc(input.length);
+    new Uint8Array(memory.buffer, p, input.length).set(input);
+    const r = render(p, input.length);
+    buf_free(p, input.length);
+    const hp = Number(r >> 32n), hl = Number(r & 0xffffffffn);
+    const html = new TextDecoder().decode(new Uint8Array(memory.buffer, hp, hl));
+    buf_free(hp, hl);
+    return html;
+  },
+};
+
+/* Owner post API. Writes send If-Match with the version the editor loaded. */
+const Posts = {
+  async call(method, url, { body, version } = {}) {
+    const headers = { Accept: 'application/json' };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (version !== undefined) headers['If-Match'] = String(version);
+    const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { const e = new Error(data.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
+    return data;
+  },
+  list() { return this.call('GET', '/api/owner/posts'); },
+  get(id) { return this.call('GET', `/api/owner/posts/${id}`); },
+  create() { return this.call('POST', '/api/owner/posts', { body: {} }); },
+  save(id, version, body) { return this.call('PUT', `/api/owner/posts/${id}`, { body, version }); },
+  setState(id, version, state) { return this.call('POST', `/api/owner/posts/${id}/state`, { body: { state }, version }); },
+  remove(id) { return this.call('DELETE', `/api/owner/posts/${id}`); },
+};
+
+/* <post-files>: the owner's post list in the Compose view. */
+customElements.define('post-files', class extends HTMLElement {
+  connectedCallback() {
+    this.rows = this.querySelector('[data-rows]');
+    this.querySelector('[data-new]').addEventListener('click', async () => {
+      try {
+        const p = await Posts.create();
+        this.closest('blog-app').go(`/write/${p.id}`);
+      } catch (e) {
+        alertBox(this, `Could not create a post. ${e.message}`);
+      }
+    });
+    const app = this.closest('blog-app');
+    app.addEventListener('viewchange', e => { if (e.detail.view === 'write') this.load(e.detail.param); });
+    app.addEventListener('postsaved', () => this.load(app.route?.param));
+  }
+  async load(current) {
+    if (!this.closest('blog-app').hasAttribute('data-owner')) return;
+    let posts;
+    try { posts = await Posts.list(); } catch { return; }
+    this.rows.replaceChildren(...posts.map(p => {
+      const tr = document.createElement('tr');
+      if (String(p.id) === String(current)) tr.setAttribute('aria-current', 'true');
+      const a = document.createElement('a');
+      a.href = `/write/${p.id}`;
+      a.textContent = p.title;
+      const td = document.createElement('td');
+      td.append(a);
+      const st = document.createElement('td');
+      st.textContent = p.state;
+      const ch = document.createElement('td');
+      ch.textContent = fmtDate(p.updated_at, 'us');
+      tr.append(td, st, ch);
+      return tr;
+    }));
+  }
+});
+
+/* A message in the editor's Win98 message box. */
+function alertBox(el, msg) {
+  const box = el.closest('section')?.querySelector('[data-toast]');
+  if (!box) return;
+  box.textContent = msg;
+  box.hidden = false;
+  clearTimeout(box._t);
+  box._t = setTimeout(() => { box.hidden = true; }, 3200);
+}
+
+/* <md-editor>: one post. Loads on "viewchange" to /write/{id}. Markdown left, WASM
+   preview right. Save and Publish send the version; a 409 means another device
+   saved first (spec 3.8). Fires "postsaved". */
 customElements.define('md-editor', class extends HTMLElement {
   connectedCallback() {
     const $ = s => this.querySelector(s);
-    const ta = $('textarea'), pv = $('[data-preview]'), gutter = $('[data-gutter]');
-    if (!ta.value.trim()) ta.value = DRAFT_MD;
-    this.dataset.visibility ||= 'private';
+    this.ta = $('textarea');
+    this.pv = $('[data-preview]');
+    this.words = $('[data-words]');
+    this.status = $('[data-status]');
+    this.fields = [...this.querySelectorAll('[data-field]')];
 
-    const render = () => {
-      // Sample stand-in. Step 5: the WASM render(), which sanitizes.
-      pv.innerHTML = md(ta.value);
-      const w = (ta.value.match(/\S+/g) || []).length;
-      this.querySelectorAll('[data-words]').forEach(el => {
-        el.textContent = (el.dataset.words || '{w} words · {m} min read')
-          .replace('{w}', w).replace('{m}', Math.max(1, Math.round(w / 220)));
-      });
-      if (gutter) gutter.textContent = ta.value.split('\n').map((_, i) => i + 1).join('\n');
-      this.querySelectorAll('[data-dirty]').forEach(el => { el.hidden = !this._dirty; });
-    };
-    ta.addEventListener('input', () => { this._dirty = true; render(); });
-    ta.addEventListener('scroll', () => {
-      const r = ta.scrollTop / Math.max(1, ta.scrollHeight - ta.clientHeight);
-      pv.scrollTop = r * (pv.scrollHeight - pv.clientHeight);
-      if (gutter) gutter.scrollTop = ta.scrollTop;
+    this.fields.forEach(f => f.addEventListener('input', () => this.dirty(true)));
+    this.ta.addEventListener('input', () => this.schedule());
+    this.ta.addEventListener('scroll', () => {
+      const r = this.ta.scrollTop / Math.max(1, this.ta.scrollHeight - this.ta.clientHeight);
+      this.pv.scrollTop = r * (this.pv.scrollHeight - this.pv.clientHeight);
     });
-    ta.addEventListener('keydown', e => {
-      if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); ta.setRangeText('    ', ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input')); }
+    this.ta.addEventListener('keydown', e => {
+      if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); this.ta.setRangeText('    ', this.ta.selectionStart, this.ta.selectionEnd, 'end'); this.ta.dispatchEvent(new Event('input')); }
     });
-
+    this.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.save(); }
+    });
     this.querySelectorAll('[data-md]').forEach(b => b.addEventListener('click', () => {
-      const mark = b.dataset.md, s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.slice(s, e);
+      const ta = this.ta, mark = b.dataset.md, s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.slice(s, e);
       if (mark.endsWith(' ')) {
         const ls = ta.value.lastIndexOf('\n', s - 1) + 1;
         ta.setRangeText(mark, ls, ls, 'end');
@@ -317,32 +405,139 @@ customElements.define('md-editor', class extends HTMLElement {
       ta.focus();
       ta.dispatchEvent(new Event('input'));
     }));
+    $('[data-save]').addEventListener('click', () => this.save());
+    $('[data-publish]').addEventListener('click', () => this.publish());
+    const del = $('[data-delete]');
+    del.addEventListener('click', () => this.remove(del));
+    window.addEventListener('beforeunload', e => { if (this._dirty) e.preventDefault(); });
 
-    const syncVis = () => this.querySelectorAll('[data-vis]').forEach(x => {
-      const on = x.dataset.vis === this.dataset.visibility;
-      x.setAttribute('aria-pressed', on);
-      if ('checked' in x) x.checked = on;
-    });
-    this.querySelectorAll('[data-vis]').forEach(b => b.addEventListener('click', () => {
-      this.dataset.visibility = b.dataset.vis;
-      syncVis();
-    }));
-    syncVis();
+    const app = this.closest('blog-app');
+    app.addEventListener('viewchange', e => { if (e.detail.view === 'write') this.open(e.detail.param); });
+    if (app.route?.view === 'write') this.open(app.route.param);
+  }
 
-    const toast = $('[data-toast]');
-    const say = key => {
-      if (!toast) return;
-      toast.textContent = toast.dataset[key] || key;
-      toast.hidden = false;
-      toast.classList.remove('pop'); void toast.offsetWidth; toast.classList.add('pop');
-      clearTimeout(this._t);
-      this._t = setTimeout(() => { toast.hidden = true; }, 2800);
+  say(msg, error) { this.status.textContent = msg; this.status.classList.toggle('error', !!error); }
+
+  dirty(on) {
+    this._dirty = on;
+    this.querySelectorAll('[data-dirty]').forEach(el => { el.hidden = !on; });
+    if (on) this.say('');
+  }
+
+  schedule() {
+    this.dirty(true);
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(() => { this._raf = 0; this.renderPreview(); });
+  }
+
+  async renderPreview() {
+    const md = this.ta.value;
+    try {
+      // The WASM output is sanitized by the same ammonia allow-list as the server.
+      this.pv.innerHTML = await Preview.render(md);
+      const w = (md.match(/\S+/g) || []).filter(t => /[\p{L}\p{N}]/u.test(t)).length;
+      this.words.textContent = `Document: Done · ${w} words · ${Math.max(1, Math.ceil(w / 220))} min read`;
+    } catch (e) {
+      this.words.textContent = `Preview unavailable: ${e.message}`;
+    }
+  }
+
+  async open(id) {
+    this.post = null;
+    this.hidden = !id;
+    this.removeAttribute('data-loaded');
+    if (!id || !this.closest('blog-app').hasAttribute('data-owner')) return;
+    try {
+      this.show(await Posts.get(id));
+    } catch (e) {
+      this.say(e.status === 404 ? 'This post does not exist.' : `Could not load the post. ${e.message}`, true);
+    }
+  }
+
+  show(p) {
+    this.post = p;
+    const set = (name, v) => { const f = this.querySelector(`[data-field="${name}"]`); if (f) f.value = v; };
+    set('title', p.title);
+    set('summary', p.summary);
+    set('topic', p.topic);
+    set('tags', (p.tags || []).join(', '));
+    set('body_md', p.body_md);
+    this.querySelector('[data-file]').textContent = `${p.slug}.md`;
+    const radio = this.querySelector(`input[name="ed-state"][value="${p.state}"]`);
+    if (radio) radio.checked = true;
+    this.setAttribute('data-loaded', '');
+    this.dirty(false);
+    this.renderPreview();
+  }
+
+  input() {
+    const v = name => this.querySelector(`[data-field="${name}"]`).value;
+    return {
+      title: v('title'),
+      summary: v('summary'),
+      topic: v('topic'),
+      tags: v('tags').split(',').map(t => t.trim().toLowerCase()).filter(Boolean),
+      body_md: v('body_md'),
     };
-    $('[data-publish]')?.addEventListener('click', () => {
-      this._dirty = false; render();
-      say(this.dataset.visibility === 'public' ? 'public' : 'private');
-    });
-    $('[data-save]')?.addEventListener('click', () => { this._dirty = false; render(); say('saved'); });
-    render();
+  }
+
+  failed(e, what) {
+    if (e.status === 409) {
+      alertBox(this, 'This post changed on another device. Reload to see the newer version.');
+      this.say('Conflict: reload to see the newer version.', true);
+    } else {
+      this.say(`Could not ${what}. ${e.message}`, true);
+    }
+  }
+
+  async save() {
+    if (!this.post) return false;
+    try {
+      this.show(await Posts.save(this.post.id, this.post.version, this.input()));
+      alertBox(this, 'Draft saved.');
+      this.dispatchEvent(new CustomEvent('postsaved', { bubbles: true }));
+      return true;
+    } catch (e) {
+      this.failed(e, 'save');
+      return false;
+    }
+  }
+
+  async publish() {
+    if (!this.post) return;
+    if (this._dirty && !(await this.save())) return;
+    const state = this.querySelector('input[name="ed-state"]:checked')?.value || 'draft';
+    try {
+      this.show(await Posts.setState(this.post.id, this.post.version, state));
+      alertBox(this, {
+        public: 'Post published. Anyone can read it now.',
+        private: 'Saved as private. Only you can see this post.',
+        draft: 'Saved as a draft.',
+      }[state]);
+      this.dispatchEvent(new CustomEvent('postsaved', { bubbles: true }));
+    } catch (e) {
+      this.failed(e, 'change the state');
+    }
+  }
+
+  /* Two clicks: the first arms the button, the second deletes. */
+  async remove(btn) {
+    if (!this.post) return;
+    if (!btn.dataset.armed) {
+      btn.dataset.armed = '1';
+      btn.textContent = 'Click again to delete';
+      setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'Delete'; }, 4000);
+      return;
+    }
+    delete btn.dataset.armed;
+    btn.textContent = 'Delete';
+    try {
+      await Posts.remove(this.post.id);
+      this.dirty(false);
+      this.dispatchEvent(new CustomEvent('postsaved', { bubbles: true }));
+      this.closest('blog-app').go('/write');
+    } catch (e) {
+      this.failed(e, 'delete');
+    }
   }
 });

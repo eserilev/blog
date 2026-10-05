@@ -7,7 +7,7 @@ use axum::{
     Router,
     http::{HeaderValue, header},
     middleware,
-    routing::{MethodRouter, delete, get, post},
+    routing::{MethodRouter, delete, get, post, put},
 };
 use tower_http::set_header::SetResponseHeaderLayer;
 
@@ -18,6 +18,7 @@ use crate::{AppState, auth, checks, guard, pages, posts};
 pub enum Verb {
     Get,
     Post,
+    Put,
     Delete,
 }
 
@@ -52,6 +53,12 @@ pub enum Kind {
     Logout,
     Passkeys,
     DeletePasskey,
+    OwnerPosts,
+    OwnerPost,
+    CreatePost,
+    SavePost,
+    SetPostState,
+    DeletePost,
 }
 
 /// One row of the route table.
@@ -139,6 +146,42 @@ pub const ROUTES: &[Route] = &[
         Access::Owner,
         Kind::DeletePasskey,
     ),
+    r(
+        Verb::Get,
+        "/api/owner/posts",
+        Access::Owner,
+        Kind::OwnerPosts,
+    ),
+    r(
+        Verb::Post,
+        "/api/owner/posts",
+        Access::Owner,
+        Kind::CreatePost,
+    ),
+    r(
+        Verb::Get,
+        "/api/owner/posts/{id}",
+        Access::Owner,
+        Kind::OwnerPost,
+    ),
+    r(
+        Verb::Put,
+        "/api/owner/posts/{id}",
+        Access::Owner,
+        Kind::SavePost,
+    ),
+    r(
+        Verb::Delete,
+        "/api/owner/posts/{id}",
+        Access::Owner,
+        Kind::DeletePost,
+    ),
+    r(
+        Verb::Post,
+        "/api/owner/posts/{id}/state",
+        Access::Owner,
+        Kind::SetPostState,
+    ),
 ];
 
 fn handler(kind: Kind) -> MethodRouter<AppState> {
@@ -158,6 +201,12 @@ fn handler(kind: Kind) -> MethodRouter<AppState> {
         Kind::Logout => post(auth::logout),
         Kind::Passkeys => get(auth::list_passkeys),
         Kind::DeletePasskey => delete(auth::delete_passkey),
+        Kind::OwnerPosts => get(posts::owner_list),
+        Kind::OwnerPost => get(posts::owner_get),
+        Kind::CreatePost => post(posts::owner_create),
+        Kind::SavePost => put(posts::owner_save),
+        Kind::SetPostState => post(posts::owner_set_state),
+        Kind::DeletePost => delete(posts::owner_delete),
     }
 }
 

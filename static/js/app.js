@@ -40,7 +40,8 @@
     app.toggleAttribute('data-owner', on);
     if (!on && app.dataset.current === 'write') app.go('/', { replace: true });
     if (!on) editNow(false);
-    if (on && app.dataset.current === 'write') loadPasskeys();
+    // The editor and the post list waited for this: show the route again.
+    if (on && app.dataset.current === 'write') app.render(false);
   };
   const refreshOwner = async () => setOwner(await Auth.me().catch(() => false));
 

@@ -39,3 +39,11 @@ export function watchErrors(page) {
   page.on('pageerror', e => errors.push(String(e)));
   return errors;
 }
+
+/** Registers a new passkey with a setup link and leaves the page signed in. */
+export async function signIn(page) {
+  await virtualAuthenticator(page);
+  await page.goto(setupLink());
+  await page.getByRole('button', { name: 'Create passkey' }).click();
+  await page.waitForURL('**/write');
+}

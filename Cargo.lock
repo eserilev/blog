@@ -1245,6 +1245,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "logbook-editor-wasm"
+version = "0.1.0"
+dependencies = [
+ "logbook-render",
+]
+
+[[package]]
 name = "logbook-render"
 version = "0.1.0"
 dependencies = [

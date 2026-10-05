@@ -1,0 +1,22 @@
+[package]
+name = "logbook-editor-wasm"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Not the workspace lints: the WASM memory shim in `abi` needs unsafe code.
+# Everything else in this crate denies it.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+[dependencies]
+logbook-render = { version = "0.1.0", path = "../crates/logbook-render" }

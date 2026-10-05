@@ -9,3 +9,6 @@ prod.env
 /fuzz/target
 /fuzz/artifacts
 /proofs/.lake
+
+# Built by editor-wasm/build.sh
+/static/wasm/

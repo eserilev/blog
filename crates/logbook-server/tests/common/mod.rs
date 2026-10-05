@@ -129,6 +129,7 @@ pub struct Req<'a> {
     pub body: Option<String>,
     pub origin: Option<&'a str>,
     pub content_type: Option<&'a str>,
+    pub if_match: Option<i64>,
 }
 
 impl<'a> Req<'a> {
@@ -140,6 +141,7 @@ impl<'a> Req<'a> {
             body: None,
             origin: None,
             content_type: None,
+            if_match: None,
         }
     }
     #[allow(clippy::needless_pass_by_value)] // call sites read better with json!(..) by value
@@ -151,6 +153,20 @@ impl<'a> Req<'a> {
             body: Some(body.to_string()),
             origin: Some(ORIGIN),
             content_type: Some("application/json"),
+            if_match: None,
+        }
+    }
+    #[allow(clippy::needless_pass_by_value)] // call sites read better with json!(..) by value
+    pub fn put(path: &'a str, body: serde_json::Value) -> Self {
+        Self {
+            method: Method::PUT,
+            ..Self::post(path, body)
+        }
+    }
+    pub fn if_match(self, version: i64) -> Self {
+        Self {
+            if_match: Some(version),
+            ..self
         }
     }
     pub fn delete(path: &'a str) -> Self {
@@ -161,6 +177,7 @@ impl<'a> Req<'a> {
             body: None,
             origin: Some(ORIGIN),
             content_type: None,
+            if_match: None,
         }
     }
     pub fn cookie(mut self, c: Option<&str>) -> Self {
@@ -180,6 +197,9 @@ impl Fixture {
         }
         if let Some(t) = r.content_type {
             b = b.header(header::CONTENT_TYPE, t);
+        }
+        if let Some(v) = r.if_match {
+            b = b.header(header::IF_MATCH, v.to_string());
         }
         let body = r.body.unwrap_or_default();
         if !body.is_empty() {
