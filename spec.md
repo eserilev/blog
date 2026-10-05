@@ -487,7 +487,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
 
-### 6.10 Export [decided]
+### 6.10 Export [decided; git export off in production]
 
 - Each public post → `posts/<slug>.md` with a front-matter header: `title`, `slug`, `summary`, `topic`, `tags`, `state`, `published`, `updated`. Values are JSON strings, so any title round-trips, and other YAML readers parse them too. The Now box → `now.md`. Images → `images/` (step 6b).
 - Target: a **separate public repo**, `logbook-posts`. Not the code repo. Reason: a deploy key can push any branch of its repo. On the code repo, a pushed workflow file could read the CI secrets, which include the root key of the shared VPS.
@@ -495,9 +495,10 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 - Runs 10 s after each owner change (save, state, delete, Now box), and once a day. It commits only when a file changed. It needs `git` and `openssh-client` in the image.
 - Only `public` posts. A post that leaves `public` disappears from the next export. Its old versions stay in git history.
 - One-way. Edits in `logbook-posts` do not come back.
+- Production does not use the git export (decided 2026-10-04). Public posts are in the same bucket backup as all other posts (6.12), so a second copy is not necessary. The code stays. It is off without `EXPORT_REPO`.
 - Owner zip (`/api/owner/export.zip`): all posts, all states. Downloaded by the browser.
 
-Non-public posts exist only in the DB, its backup in the private bucket, and owner zips.
+All posts exist only in the DB, its backup in the private bucket, and owner zips.
 
 ### 6.11 Hosting
 
@@ -569,19 +570,17 @@ The server disk holds only rebuildable things: image, local DB copy, image cache
 
 ```
 IMAGE=ghcr.io/eserilev/blog
-DOMAIN=example.com
+DOMAIN=unclebill.blog
 ```
 
 `PROD_ENV`:
 
 ```
-LOGBOOK_ORIGIN=https://example.com   # the passkey RP ID; never change it
+LOGBOOK_ORIGIN=https://unclebill.blog   # the passkey RP ID; never change it
 S3_ENDPOINT=https://<location>.your-objectstorage.com
 S3_BUCKET=logbook
 S3_ACCESS_KEY=...
 S3_SECRET_KEY=...
-EXPORT_REPO=git@github.com:eserilev/logbook-posts.git
-EXPORT_DEPLOY_KEY=...        # base64
 NWS_USER_AGENT=logbook (<contact email>)
 S3_FORCE_PATH_STYLE=false   # Hetzner: virtual-host style; the bucket goes into the endpoint host
 HEALTHCHECK_URL=...
@@ -916,5 +915,5 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 6. Webring: keep? Which ring?
 7. Counter: real or fixed?
 8. About page content.
-9. Domain.
+9. ~~Domain.~~ `unclebill.blog` (2026-10-04).
 10. Words per minute: 220?
