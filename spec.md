@@ -907,18 +907,18 @@ Example: deleting a check in `reveal` that makes drafts public. Missed → add t
 
 ### 7.9 CI
 
-PR and push to `master` (all must pass before Deploy):
+PR and push to `master`. A PR must pass before the merge. A merge deploys at once (6.13). All jobs run in parallel, each on its own machine:
 
 1. fmt, clippy, deny.
 2. Unit + property.
 3. Integration + access matrix.
 4. Playwright.
-5. Restore test.
-6. Fuzz, 60 s per target.
-7. Proofs.
-8. Mutants `--in-diff`.
+5. Restore test. The image builds with the GitHub Actions layer cache that Deploy also uses.
+6. Fuzz, 60 s per target, one job per target.
+7. Proofs. Only when `crates/logbook-core/`, `proofs/`, `rust-toolchain.toml`, or `ci.yml` changes. Otherwise the job is skipped, and GitHub counts it as passed.
+8. Mutants `--in-diff` (not built yet).
 
-Expected time: 20–40 min (Mathlib cache, Rust cache).
+Measured 2026-10-05: about 6.5 min with proofs (proofs 392 s, restore 241 s, fuzz about 150 s). Without proofs, the fuzz jobs set the time.
 
 Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh advisories. A crash or a failure opens an issue.
 
