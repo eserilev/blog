@@ -77,7 +77,7 @@ No "Netscape" text anywhere. The window title is the page name.
 | `--navy` | `#000060` | Sidebar. The only accent. |
 | LCD | `#38ff38` on `#0a1a0a` | Counter and surf report only |
 
-Single light theme, by choice.
+The Win98 look is the light mode. Dark mode is MS-DOS mode (11.1), not a dark Win98.
 
 ### 3.5 Type
 
@@ -288,6 +288,7 @@ Native custom elements, light DOM.
 | `<surf-report>` | Fetches `/api/surf`. |
 | `<md-editor>` | Textarea, WASM preview, toolbar, word count, state choice, Save and Publish, message box. |
 | `<sign-in>` | Passkey dialog. |
+| `<dos-shell>` | MS-DOS mode (11.1): the prompt, the commands, and the F-key bar. Follows the router. |
 
 Rules:
 
@@ -827,6 +828,7 @@ Playwright, Chromium:
 - No CSP violations in the console on any page.
 - Keyboard: every control reachable, focus visible.
 - Screenshot comparison: home, post, editor.
+- MS-DOS mode (`dos.spec.js`): toggle and reload, DIR then TYPE, a deep link, Back, WIN, F-keys, keyboard only, 390 px layout.
 
 ### 7.6 Formal verification (Aeneas)
 
@@ -983,13 +985,15 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 
 Work that was discussed and decided, but not built yet. Each item names its state. Designs: the "Logbook Designs" canvas (artboards: Home with the Dark mode button, MS-DOS mode, Write in DOS EDIT, Start menu). The design files use inline styles and Google Fonts. The build must not copy those (CSP, 6.9).
 
-### 11.1 Dark mode = MS-DOS mode (PR 1) [in progress, paused]
+### 11.1 Dark mode = MS-DOS mode (PR 1) [built]
 
-Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Partial work is on branch `dos-mode` (not pushed): `mode.js`, the font files, `<dos-shell>`, and a browser test file.
+Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `static/js/mode.js`, `<dos-shell>` in `index.html` and `components.js`, the MS-DOS part of `logbook.css`, `e2e/tests/dos.spec.js`.
 
 - **Toggle.** A toolbar button "Dark mode" with a black `C:\` icon, after Print. Accessible name: "Dark mode (MS-DOS)". It is a `<button>`.
-- **First visit** is always Win98, whatever the OS dark setting. The choice persists in `localStorage` (`logbook.mode` = `dos`), in try/catch. No cookie: public responses never change per visitor.
-- **No flash.** `static/js/mode.js` is a blocking `<script src>` in `<head>`. It sets `<html data-mode="dos">` before the page paints.
+- **One mode key.** `localStorage` key `logbook.mode` holds the view: `general` (Win98, light) or `night` (MS-DOS, dark). All storage access is in try/catch. If storage fails, a change lasts for the page only. No cookie: public responses never change per visitor.
+- **First visit** is always `general` on a desktop, whatever the OS dark setting. A saved value that the device cannot show is ignored.
+- **No flash.** `static/js/mode.js` is a blocking `<script src>` in `<head>`. It sets `<html data-mode="...">` before the page paints. Its `Mode` object reads and saves the key. A change fires `modechange` on `document`.
+- **Back to Windows.** `WIN`, `EXIT`, and F10 save `general`. The toolbar button saves `night`.
 - **Screen.** Black, full width, text from the top-left corner (real DOS was never centered). Gray top bar: `LOGBOOK.EXE`, the host, a real clock. Text white `#f0f0f0`, headings `#ffffff`, dim text at least `#8a8a8a` (4.5:1). Faint scanlines and glow, off under `prefers-contrast: more`.
 - **Font.** IBM Plex Mono 400/600, self-hosted, with `OFL-IBMPlexMono.txt`. No Google Fonts.
 - **Start state.** Empty: only the prompt `C:\LOGBOOK>` and one dim hint line, "Type HELP for a list of commands. Type WIN to go back to Windows." No banner, no auto-run.
@@ -999,7 +1003,8 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Partial 
   |---|---|---|
   | `HELP` | The command list. DIR is "list files". SURF is "get the swell report for Redondo Beach". | local |
   | `DIR` | Public posts as DOS files: an 8.3 name from the slug (`~1`, `~2` on a clash, in published order), `TXT`, word count as size, date, and the slug as a long-name link to `/posts/{slug}`. Then a dim hint: "To read a file, type TYPE and the file name. Example: TYPE <first file>". Grid rows, not padded spaces. | `/api/posts` |
-  | `TYPE <file>` | The title, then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. `TYPE ABOUT.TXT` prints the real About text. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
+  | `DIR <topic>` | The files of one topic. It goes to `/topics/{t}`. | `/api/topics/{t}` |
+| `TYPE <file>` | The title, then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. `TYPE ABOUT.TXT` prints the real About text. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
   | `NOW` | The Now box, or "Nothing here yet." | `/api/now` |
   | `SURF` | Swell, period, wind, water, next tides, stale marks, NOAA attribution. | `/api/surf` |
   | `VER` | `Logbook DOS Version 6.22` | local |

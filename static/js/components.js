@@ -660,3 +660,398 @@ customElements.define('surf-report', class extends HTMLElement {
     }
   }
 });
+
+/* MS-DOS mode (spec 11.1): dark mode. html[data-mode="night"] shows <dos-shell> and
+   hides the Win98 desktop. mode.js sets the mode before the first paint, and its
+   Mode object saves a change. */
+const isNight = () => Mode.current === 'night';
+
+/* 8.3 file names: the slug in capitals, with no hyphens, 8 characters. A clash
+   gets ~1, ~2 in published order, so the name of an older post never changes. */
+const dosNames = posts => {
+  const used = new Set(['ABOUT']);
+  const names = new Map();
+  const oldest = [...posts].sort((a, b) => String(a.published_at).localeCompare(String(b.published_at)));
+  for (const p of oldest) {
+    const base = p.slug.replace(/-/g, '').toUpperCase().slice(0, 8);
+    let name = base;
+    for (let n = 1; used.has(name); n++) name = base.slice(0, 8 - String(n).length - 1) + `~${n}`;
+    used.add(name);
+    names.set(p.slug, name);
+  }
+  return names;
+};
+
+/* DOS dates: MM-DD-YY. */
+const dosDate = iso => {
+  if (!iso) return '';
+  const d = new Date(iso), two = n => String(n).padStart(2, '0');
+  return `${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getFullYear() % 100)}`;
+};
+
+const DOS_HELP = [
+  ['HELP', 'list the commands'],
+  ['DIR', 'list files'],
+  ['DIR <topic>', 'list the files of one topic'],
+  ['TYPE <file>', 'read a file: the file name, the long name, or the number in DIR'],
+  ['NOW', 'show the Now box'],
+  ['SURF', 'get the swell report for Redondo Beach'],
+  ['VER', 'show the version'],
+  ['CLS', 'clear the screen'],
+  ['LOGIN', 'sign in with a passkey (owner only)'],
+  ['LOGOUT', 'sign out'],
+  ['WIN, EXIT', 'go back to Windows'],
+];
+
+/* <dos-shell>: the MS-DOS mode terminal (spec 11.1). Commands print lines with textContent.
+   Only server-sanitized body_html goes into innerHTML (TYPE and NOW).
+   The router drives it too: /posts/{slug} runs TYPE, /about runs TYPE ABOUT.TXT,
+   and /topics/{t} runs DIR <topic>. So Back and shared links work. */
+customElements.define('dos-shell', class extends HTMLElement {
+  connectedCallback() {
+    this.app = this.closest('blog-app');
+    this.out = this.querySelector('[data-out]');
+    this.input = this.querySelector('#dos-cmd');
+    this.status = this.querySelector('[data-status]');
+    this.history = [];
+    this.back = 0;
+    // Saved output of the list screens (/ and /topics/*), so Back shows it again.
+    this.screens = new Map();
+    this.querySelector('[data-host]').textContent = location.host;
+
+    this.input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const cmd = this.input.value;
+        this.input.value = '';
+        this.run(cmd);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.recall(e.key === 'ArrowUp' ? 1 : -1);
+      }
+    });
+    // F-keys work only while the focus is in the terminal.
+    this.addEventListener('keydown', e => {
+      if (e.altKey || e.ctrlKey || e.metaKey || !/^F\d+$/.test(e.key)) return;
+      const key = this.querySelector(`[data-key="${e.key}"]`);
+      if (key) { e.preventDefault(); this.run(key.dataset.cmd); }
+    });
+    this.addEventListener('click', e => {
+      const key = e.target.closest('[data-cmd]');
+      if (key) this.run(key.dataset.cmd);
+    });
+    // On a phone the whole prompt row is a tap target.
+    this.querySelector('[data-prompt]').addEventListener('click', e => { if (e.target !== this.input) this.input.focus(); });
+
+    // The toolbar button. It is a toggle, because the editor keeps the Win98 chrome.
+    const toggle = this.app.querySelector('[data-dos-on]');
+    toggle.setAttribute('aria-pressed', String(isNight()));
+    toggle.addEventListener('click', () => Mode.set(isNight() ? 'general' : 'night'));
+    document.addEventListener('modechange', () => {
+      toggle.setAttribute('aria-pressed', String(isNight()));
+      this.reset();
+      if (isNight()) {
+        window.scrollTo({ top: 0 });
+        this.route(this.app.route);
+        this.focusStart();
+      } else {
+        toggle.focus();
+      }
+    });
+    this.app.addEventListener('viewchange', e => { if (isNight()) this.route(e.detail); });
+    if (isNight() && this.app.route) { this.route(this.app.route); this.focusStart(); }
+  }
+
+  reset() {
+    this.out.replaceChildren();
+    this.screens.clear();
+    this.at = null;
+    this.rows = null;
+  }
+
+  /* The terminal starts empty. The input gets the focus only with a mouse, so a
+     phone keyboard does not cover the screen on load. */
+  focusStart() {
+    if (!['post', 'about'].includes(this.app.route?.view) && matchMedia('(pointer: fine)').matches) this.input.focus({ preventScroll: true });
+    else this.querySelector('.dos-screen').focus({ preventScroll: true });
+  }
+
+  route(r) {
+    const list = p => p === '/' || p.startsWith('/topics/');
+    const prev = this.at;
+    this.at = r.path;
+    if (prev === r.path && list(r.path)) return;
+    if (prev && prev !== r.path && list(prev)) {
+      this.screens.set(prev, [...this.out.childNodes]);
+      if (this.screens.size > 20) this.screens.delete(this.screens.keys().next().value);
+    }
+    this.cls();
+    if (this.screens.has(r.path)) {
+      this.out.append(...this.screens.get(r.path));
+      this.screens.delete(r.path);
+    } else if (r.view === 'post') this.typePost(r.param);
+    else if (r.view === 'about') this.typeAbout();
+    else if (r.view === 'home' && r.param) this.dirTopic(r.param);
+    else if (r.view === 'missing') {
+      const box = this.entry();
+      this.say(box, `File not found - ${r.path.toUpperCase()}`);
+    }
+  }
+
+  /* One block of output per command. Async results fill their own block, so the
+     order on screen stays the order of the commands. */
+  entry() {
+    const box = document.createElement('div');
+    box.className = 'dos-entry';
+    this.out.append(box);
+    // Keep about the last 500 lines.
+    while (this.out.children.length > 1 && this.out.querySelectorAll('.dos-line, .dos-prose > *').length > 500) this.out.firstElementChild.remove();
+    return box;
+  }
+
+  say(box, text, kind) {
+    const div = document.createElement('div');
+    div.className = kind ? `dos-line ${kind}` : 'dos-line';
+    div.textContent = text;
+    box.append(div);
+    return div;
+  }
+
+  echo(box, cmd) { this.say(box, `C:\\LOGBOOK>${cmd}`, 'cmd'); }
+
+  cls() { this.out.replaceChildren(); }
+
+  recall(step) {
+    const h = this.history;
+    this.back = Math.max(0, Math.min(h.length, this.back + step));
+    this.input.value = this.back ? h[h.length - this.back] : '';
+  }
+
+  /* Public posts with their 8.3 names, or null if the list does not load. */
+  posts() {
+    this._posts ||= Api.posts()
+      .then(list => ({ list: list || [], names: dosNames(list || []) }))
+      .catch(() => { this._posts = null; return null; });
+    return this._posts;
+  }
+
+  /* A short line for screen readers. The log does not read long files aloud. */
+  announce(msg) {
+    this.status.textContent = '';
+    requestAnimationFrame(() => { this.status.textContent = msg; });
+  }
+
+  async run(raw) {
+    const cmd = raw.trim().replace(/\s+/g, ' ').toUpperCase();
+    if (cmd && cmd !== this.history[this.history.length - 1]) this.history.push(cmd);
+    if (this.history.length > 100) this.history.shift();
+    this.back = 0;
+    const [word, ...rest] = cmd.split(' ');
+    const arg = rest.join(' ');
+    if (word === 'CLS') { this.cls(); this.announce('Screen cleared.'); return; }
+    const box = this.entry();
+    this.echo(box, cmd);
+    switch (word) {
+      case '': break;
+      case 'HELP': case '?': this.help(box); break;
+      case 'DIR':
+        if (arg) await this.cd(box, arg);
+        else await this.dir(box);
+        break;
+      case 'TYPE': await this.type(box, arg); break;
+      case 'NOW': await this.now(box); break;
+      case 'SURF': await this.surf(box); break;
+      case 'VER': this.say(box, 'Logbook DOS Version 6.22'); break;
+      case 'WIN': case 'EXIT': Mode.set('general'); return;
+      case 'LOGIN': await this.login(box); break;
+      case 'LOGOUT': await this.logout(box); break;
+      default: this.say(box, 'Bad command or file name');
+    }
+    if (box.isConnected && isNight() && document.activeElement === this.input) this.input.scrollIntoView({ block: 'nearest' });
+  }
+
+  help(box) {
+    const grid = document.createElement('div');
+    grid.className = 'dos-help dos-line';
+    for (const [name, desc] of DOS_HELP) {
+      const a = document.createElement('span'), b = document.createElement('span');
+      a.textContent = name;
+      b.textContent = desc;
+      grid.append(a, b);
+    }
+    box.append(grid);
+  }
+
+  /* One DIR row: a CSS grid row, not padded spaces. The long name is a real link. */
+  row(box, name, size, date, href, long) {
+    const row = document.createElement('div');
+    row.className = 'dos-row dos-line';
+    const cell = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; row.append(s); };
+    cell('c-name', name);
+    cell('c-ext', 'TXT');
+    cell('c-size', size.toLocaleString('en-US'));
+    cell('c-date', date);
+    const a = document.createElement('a');
+    a.className = 'c-long';
+    a.href = href;
+    a.textContent = long;
+    row.append(a);
+    box.append(row);
+  }
+
+  aboutText() { return document.querySelector('section[data-view="about"] .prose'); }
+
+  async dir(box) {
+    const d = await this.posts();
+    if (!d) { this.say(box, 'Could not load the posts. Try again later.'); return; }
+    this.say(box, ' Volume in drive C is LOGBOOK');
+    this.say(box, ' Directory of C:\\LOGBOOK');
+    this.say(box, '');
+    const words = (this.aboutText().textContent.match(/\S+/g) || []).length;
+    this.row(box, 'ABOUT', words, '', '/about', 'about');
+    for (const p of d.list) this.row(box, d.names.get(p.slug), p.word_count, dosDate(p.published_at), `/posts/${p.slug}`, p.slug);
+    this.rows = ['about', ...d.list.map(p => p.slug)];
+    this.say(box, `${d.list.length + 1} file(s)`, 'sum');
+    this.say(box, '');
+    const first = d.list.length ? `${d.names.get(d.list[0].slug)}.TXT` : 'ABOUT.TXT';
+    this.say(box, `To read a file, type TYPE and the file name. Example: TYPE ${first}`, 'dim');
+  }
+
+  /* DIR <topic>: goes to /topics/{t}, and the router prints the list. */
+  async cd(box, arg) {
+    const want = arg.toLowerCase();
+    const slug = Object.keys(TOPICS).find(s => s === want || TOPICS[s].toLowerCase() === want || s.replace(/-/g, '') === want.replace(/[\s-]/g, ''));
+    if (!slug) { this.say(box, `Invalid directory - ${arg}`); return; }
+    this.app.go(`/topics/${slug}`);
+  }
+
+  async dirTopic(topic) {
+    const box = this.entry();
+    this.echo(box, `DIR ${topic.toUpperCase()}`);
+    const [d, list] = await Promise.all([this.posts(), Api.topic(topic).catch(() => undefined)]);
+    if (list === null) { this.say(box, `Invalid directory - ${topic.toUpperCase()}`); return; }
+    if (!d || !list) { this.say(box, 'Could not load the posts. Try again later.'); return; }
+    this.say(box, ` Directory of C:\\LOGBOOK\\${(TOPICS[topic] || topic).toUpperCase()}`);
+    this.say(box, '');
+    for (const p of list) this.row(box, d.names.get(p.slug) || p.slug.toUpperCase().slice(0, 8), p.word_count, dosDate(p.published_at), `/posts/${p.slug}`, p.slug);
+    this.rows = list.map(p => p.slug);
+    this.say(box, `${list.length} file(s)`, 'sum');
+  }
+
+  /* TYPE accepts NAME, NAME.TXT, the slug, or the row number of the last DIR.
+     It changes the address, and the router prints the file. */
+  async type(box, arg) {
+    if (!arg) { this.say(box, 'Required parameter missing'); return; }
+    const name = arg.replace(/\.TXT$/, '');
+    if (name === 'ABOUT') { this.app.go('/about'); return; }
+    const d = await this.posts();
+    let slug = null;
+    if (d && /^\d+$/.test(name)) slug = (this.rows || ['about', ...d.list.map(p => p.slug)])[Number(name) - 1] || null;
+    else if (d) slug = d.list.map(p => p.slug).find(s => d.names.get(s) === name || s.toUpperCase() === name) || null;
+    if (slug === 'about') this.app.go('/about');
+    else if (slug) this.app.go(`/posts/${slug}`);
+    else this.say(box, `File not found - ${arg}`);
+  }
+
+  /* Prints a file: a bright title, a dim byline, and the body. The log stays quiet
+     while the body goes in; a status line names the file, and the focus moves to the title. */
+  show(box, file, title, byline, body) {
+    this.out.setAttribute('aria-live', 'off');
+    const h = document.createElement('h1');
+    h.className = 'dos-title';
+    h.tabIndex = -1;
+    h.textContent = title;
+    box.append(h);
+    if (byline) this.say(box, byline, 'dim');
+    body.classList.add('dos-prose');
+    box.append(body);
+    requestAnimationFrame(() => this.out.removeAttribute('aria-live'));
+    this.announce(`Showing ${file}`);
+    window.scrollTo({ top: 0 });
+    h.focus({ preventScroll: true });
+  }
+
+  async typePost(slug) {
+    const box = this.entry();
+    const d = await this.posts();
+    const file = d?.names.has(slug) ? `${d.names.get(slug)}.TXT` : slug.toUpperCase();
+    this.echo(box, `TYPE ${file}`);
+    let post;
+    try { post = await Api.post(slug); } catch { post = undefined; }
+    if (!box.isConnected) return;
+    if (!post) { this.say(box, post === null ? `File not found - ${file}` : 'Could not read the file. Try again later.'); return; }
+    const body = document.createElement('div');
+    // body_html is rendered and sanitized on the server (spec 6.7).
+    body.innerHTML = post.body_html;
+    this.show(box, file, post.title, `${fmtDate(post.published_at)} · ${post.reading_minutes} min read · ${post.topic_name}`, body);
+  }
+
+  /* ABOUT.TXT is the About section of the page, copied as it is. */
+  typeAbout() {
+    const box = this.entry();
+    this.echo(box, 'TYPE ABOUT.TXT');
+    const body = document.createElement('div');
+    body.append(...[...this.aboutText().childNodes].map(n => n.cloneNode(true)));
+    this.show(box, 'ABOUT.TXT', document.querySelector('section[data-view="about"] h1').textContent, '', body);
+  }
+
+  async now(box) {
+    let now;
+    try { now = await Api.get('/api/now'); } catch { now = null; }
+    if (!now) { this.say(box, 'Could not load the Now box. Try again later.'); return; }
+    if (!now.body_html) { this.say(box, 'Nothing here yet.'); return; }
+    const body = document.createElement('div');
+    body.className = 'dos-prose';
+    // body_html is rendered and sanitized on the server.
+    body.innerHTML = now.body_html;
+    box.append(body);
+    if (now.updated_at) this.say(box, `Updated ${fmtDate(now.updated_at)}`, 'dim');
+  }
+
+  /* The surf report as text (spec 4.5). A readout older than 3 h is marked stale. */
+  async surf(box) {
+    let data;
+    try { data = await Api.get('/api/surf'); } catch { data = null; }
+    if (!data || !data.available) { this.say(box, 'No NOAA data yet.'); return; }
+    const s = data.surf;
+    const stale = iso => !iso || Date.now() - new Date(iso).getTime() > 3 * 3600e3;
+    const item = (label, value, iso) => {
+      const old = value != null && stale(iso);
+      this.say(box, `${label.padEnd(8)}${value ?? '--'}${old ? ' (stale)' : ''}`, old ? 'dim' : undefined);
+    };
+    this.say(box, 'REDONDO BEACH, CA', 'hi');
+    item('SWELL', s.swell ? `${s.swell.height_ft.toFixed(1)} ft ${s.swell.direction}` : null, s.swell?.observed_at);
+    item('PERIOD', s.swell ? `${Math.round(s.swell.period_s)} s` : null, s.swell?.observed_at);
+    item('WIND', s.wind ? `${Math.round(s.wind.speed_kt)} kt ${s.wind.direction}${s.wind.offshore ? ' offshore' : ''}` : null, s.wind?.observed_at);
+    const c = s.waves?.water_c;
+    item('WATER', c != null ? `${Math.round(c * 9 / 5 + 32)} °F / ${Math.round(c)} °C` : null, s.waves?.observed_at);
+    // NOAA local times ("YYYY-MM-DD HH:MM"). Show the next two highs or lows.
+    const next = (s.tides || []).map(p => ({ ...p, at: new Date(p.time.replace(' ', 'T')) })).filter(p => p.at > Date.now()).slice(0, 2);
+    next.forEach((p, i) => {
+      const when = p.at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      this.say(box, `${(i ? '' : 'TIDE').padEnd(8)}${p.kind === 'H' ? 'High' : 'Low'} ${when} · ${p.height_ft.toFixed(1)} ft`);
+    });
+    this.say(box, 'Data: NOAA NDBC, NWS, CO-OPS', 'dim');
+  }
+
+  async login(box) {
+    this.say(box, 'Waiting for your passkey...');
+    try {
+      await Auth.login();
+      this.dispatchEvent(new CustomEvent('authchange', { bubbles: true }));
+      this.say(box, 'Signed in as eitan.');
+    } catch (e) {
+      this.say(box, `Sign-in failed. ${e && e.name === 'NotAllowedError' ? 'The passkey prompt was cancelled or timed out.' : (e && e.message) || e}`);
+    }
+  }
+
+  async logout(box) {
+    try {
+      await Auth.logout();
+      this.dispatchEvent(new CustomEvent('authchange', { bubbles: true }));
+      this.say(box, 'Signed out.');
+    } catch (e) {
+      this.say(box, `Could not sign out. ${e.message}`);
+    }
+  }
+});
