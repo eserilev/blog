@@ -110,7 +110,7 @@ test.describe('phone', () => {
     await page.goto(`/posts/${BAL}`);
     const read = shell(page).locator('[data-read]');
     await expect(read.locator('.ph-title')).toHaveText('Block-level access lists and parallel execution');
-    expect(await read.evaluate(el => el.scrollTop)).toBe(0);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
     await soft(page, 'left').tap();
     const menu = shell(page).getByRole('menu', { name: 'Options' });
@@ -119,7 +119,7 @@ test.describe('phone', () => {
     await expect(menu.getByRole('menuitem').first()).toHaveText('§ What clients gain');
     await menu.getByRole('menuitem', { name: '§ Why it matters' }).tap();
     await expect(menu).toBeHidden();
-    await expect.poll(() => read.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
     await expect(shell(page).locator('[data-pages]')).not.toHaveText(/^1\//);
 
     // Enter opens Options; arrows move; Enter picks.
@@ -140,6 +140,59 @@ test.describe('phone', () => {
     await soft(page, 'right').tap();
     await expect(page).toHaveURL('/');
     await expect(shell(page).locator('[data-list-title]')).toHaveText('Posts');
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
+  test('one scroll container: the page scrolls, also from a swipe at the edge', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`/posts/${BAL}`);
+    const read = shell(page).locator('[data-read]');
+    await expect(read.locator('.ph-title')).toBeVisible();
+    const pages = shell(page).locator('[data-pages]');
+    await expect(pages).toHaveText(/^1\/[2-9]\d*$/);
+    const total = (await pages.textContent()).split('/')[1];
+
+    // No element scrolls up and down. Only the page does.
+    const scrollers = await page.evaluate(() => [...document.querySelectorAll('phone-shell *')]
+      .filter(el => /auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 1)
+      .map(el => el.className || el.tagName));
+    expect(scrollers).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight)).toBe(true);
+
+    // A touch swipe on the right edge, over the thin scroll bar, scrolls the page.
+    const cdp = await page.context().newCDPSession(page);
+    const swipeUp = async (x, y) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let i = 1; i <= 10; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - i * 25 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await swipeUp(386, 500);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    // A swipe in the middle scrolls the page too.
+    const y = await page.evaluate(() => window.scrollY);
+    await swipeUp(200, 300);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(y);
+
+    // The wheel and window.scrollTo work; the end of the post is the last page.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.mouse.move(200, 400);
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(pages).toHaveText(`${total}/${total}`);
+
+    // The softkeys and the status row stay on screen.
+    const vh = await page.evaluate(() => window.innerHeight);
+    const keys = await soft(page, 'left').boundingBox();
+    expect(Math.abs(keys.y + keys.height - vh)).toBeLessThanOrEqual(1);
+    expect((await shell(page).locator('.ph-status').boundingBox()).y).toBe(0);
+    await expect(soft(page, 'left')).toHaveText('Options');
+
+    // The arrow keys page through the post.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await read.focus();
+    await page.keyboard.press('PageDown');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
     expect(errors, errors.join('\n')).toEqual([]);
   });
 

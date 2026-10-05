@@ -77,10 +77,13 @@
         this.turn(Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]);
         return true;
       });
-      this.el.read.addEventListener('scroll', () => this.measure(), { passive: true });
+      // One scroll container: the page. The reading area is not a scroll box.
+      window.addEventListener('scroll', () => this.measure(), { passive: true });
       // Images change the height of a post when they load.
       this.el.read.addEventListener('load', () => this.measure(), true);
       window.addEventListener('resize', () => this.measure());
+      // The pixel font changes the height of a post when it loads.
+      document.fonts?.ready.then(() => this.measure());
       // Page links inside the shell (lists, post bodies) become history entries here.
       this.addEventListener('click', e => this.onLink(e));
       document.addEventListener('keydown', e => this.onKey(e));
@@ -190,6 +193,8 @@
     /* Shows one section. Moves the focus there unless the page just loaded. */
     show(name, focus) {
       for (const [k, s] of Object.entries(this.sections)) s.hidden = k !== name;
+      // A new screen starts at the top of the page.
+      window.scrollTo({ top: 0 });
       this.el.thumb.hidden = true;
       this.setBattery(75);
       this.soft();
@@ -335,8 +340,9 @@
       this.el.listEmpty.textContent = empty || '';
       this.el.listEmpty.hidden = items.length > 0;
       this.sel = Math.min(this.sel, Math.max(0, items.length - 1));
-      this.select(this.sel, false);
       this.show('list', this.listLinks()[this.sel] || this.querySelector('.ph-main'));
+      // After show: Back to a list scrolls the selected row into view again.
+      this.select(this.sel, false);
     }
 
     async showPosts(topic) {
@@ -371,7 +377,6 @@
       read.toggleAttribute('data-clean', this.clean);
       read.replaceChildren(...nodes);
       read.setAttribute('aria-label', title);
-      read.scrollTop = 0;
       this.show('text', read);
       this.measure();
     }
@@ -438,15 +443,22 @@
       this.showText('Surf', nodes);
     }
 
-    /* Page number, scroll bar, and battery from the scroll position. */
+    /* The height of the post that shows between the sticky title and the softkeys. */
+    view() {
+      const h = el => el.getBoundingClientRect().height;
+      const bars = h(this.querySelector('.ph-status')) + h(this.sections.text.querySelector('.ph-head')) + h(this.querySelector('.ph-soft'));
+      return Math.max(1, window.innerHeight - bars);
+    }
+
+    /* Page number, scroll bar, and battery from the scroll position of the page. */
     measure() {
-      if (this.sections.text.hidden) return;
-      const el = this.el.read;
-      const h = Math.max(1, el.clientHeight);
-      const pages = Math.max(1, Math.ceil((el.scrollHeight - 2) / h));
-      const max = el.scrollHeight - el.clientHeight;
-      const frac = max > 0 ? Math.min(1, el.scrollTop / max) : 0;
-      const page = Math.min(pages, Math.floor(el.scrollTop / h + 0.15) + 1);
+      if (!this.on() || this.sections.text.hidden) return;
+      const h = this.view();
+      const pages = Math.max(1, Math.ceil((this.el.read.scrollHeight - 2) / h));
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const frac = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+      // The top of the page is page 1, the end is the last page.
+      const page = Math.min(pages, Math.round(frac * (pages - 1)) + 1);
       this.el.pages.textContent = `${page}/${pages}`;
       this.el.pages.setAttribute('aria-label', `Page ${page} of ${pages}`);
       this.el.thumb.hidden = pages < 2;
@@ -458,8 +470,7 @@
 
     /* Page Up/Down: 85 % of the visible height. */
     page(d) {
-      const el = this.el.read;
-      el.scrollBy({ top: d * el.clientHeight * 0.85, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      window.scrollBy({ top: d * this.view() * 0.85, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
 
     /* ---- Options ---- */
@@ -473,7 +484,7 @@
       const items = kind === 'sections'
         ? heads.map(h => [`§ ${h.textContent}`, () => { this.closeOptions(); h.scrollIntoView({ behavior: smooth, block: 'start' }); }])
         : [
-          ['Top', () => { this.closeOptions(); read.scrollTo({ top: 0, behavior: smooth }); }],
+          ['Top', () => { this.closeOptions(); window.scrollTo({ top: 0, behavior: smooth }); }],
           ...(heads.length ? [['Jump to section', () => this.openOptions('sections')]] : []),
           [`Text size: ${SIZE_NAMES[this.size]}`, () => {
             this.size = SIZES[(SIZES.indexOf(this.size) + 1) % SIZES.length];
