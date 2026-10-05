@@ -33,6 +33,625 @@ def core.option.Option.Insts.CoreFmtDebug {T : Type} (fmtDebugInst :
   fmt := core.option.Option.Insts.CoreFmtDebug.fmt fmtDebugInst
 }
 
+/-- [logbook_core::access::{impl core::fmt::Debug for logbook_core::access::Access}::fmt]:
+    Source: 'crates/logbook-core/src/access.rs', lines 4:9-4:14
+    Visibility: public -/
+def access.Access.Insts.CoreFmtDebug.fmt
+  (self : access.Access) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | access.Access.Public => core.fmt.Formatter.write_str f (toStr "Public")
+  | access.Access.Session => core.fmt.Formatter.write_str f (toStr "Session")
+  | access.Access.Auth => core.fmt.Formatter.write_str f (toStr "Auth")
+  | access.Access.Owner => core.fmt.Formatter.write_str f (toStr "Owner")
+
+/-- Trait implementation: [logbook_core::access::{impl core::fmt::Debug for logbook_core::access::Access}]
+    Source: 'crates/logbook-core/src/access.rs', lines 4:9-4:14 -/
+@[reducible]
+def access.Access.Insts.CoreFmtDebug : core.fmt.Debug access.Access := {
+  fmt := access.Access.Insts.CoreFmtDebug.fmt
+}
+
+/-- [logbook_core::access::{impl core::clone::Clone for logbook_core::access::Access}::clone]:
+    Source: 'crates/logbook-core/src/access.rs', lines 4:16-4:21
+    Visibility: public -/
+def access.Access.Insts.CoreCloneClone.clone
+  (self : access.Access) : Result access.Access := do
+  ok self
+
+/-- Trait implementation: [logbook_core::access::{impl core::clone::Clone for logbook_core::access::Access}]
+    Source: 'crates/logbook-core/src/access.rs', lines 4:16-4:21 -/
+@[reducible]
+def access.Access.Insts.CoreCloneClone : core.clone.Clone access.Access := {
+  clone := access.Access.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::marker::Copy for logbook_core::access::Access}]
+    Source: 'crates/logbook-core/src/access.rs', lines 4:23-4:27 -/
+@[reducible]
+def access.Access.Insts.CoreMarkerCopy : core.marker.Copy access.Access := {
+  cloneInst := access.Access.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::marker::StructuralPartialEq for logbook_core::access::Access}]
+    Source: 'crates/logbook-core/src/access.rs', lines 4:29-4:38 -/
+@[reducible]
+def access.Access.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq access.Access := {
+}
+
+/-- [logbook_core::access::{impl core::cmp::PartialEq<logbook_core::access::Access> for logbook_core::access::Access}::eq]:
+    Source: 'crates/logbook-core/src/access.rs', lines 4:29-4:38
+    Visibility: public -/
+def access.Access.Insts.CoreCmpPartialEqAccess.eq
+  (self : access.Access) (other : access.Access) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [logbook_core::access::{impl core::cmp::PartialEq<logbook_core::access::Access> for logbook_core::access::Access}]
+    Source: 'crates/logbook-core/src/access.rs', lines 4:29-4:38 -/
+@[reducible]
+def access.Access.Insts.CoreCmpPartialEqAccess : core.cmp.PartialEq
+  access.Access access.Access := {
+  eq := access.Access.Insts.CoreCmpPartialEqAccess.eq
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::cmp::Eq for logbook_core::access::Access}]
+    Source: 'crates/logbook-core/src/access.rs', lines 4:40-4:42 -/
+@[reducible]
+impl_def access.Access.Insts.CoreCmpEq : core.cmp.Eq access.Access := {
+  partialEqInst := access.Access.Insts.CoreCmpPartialEqAccess
+  assert_fields_are_eq := core.cmp.Eq.assert_fields_are_eq.default
+    access.Access.Insts.CoreCmpEq
+}
+
+/-- [logbook_core::access::{impl core::fmt::Debug for logbook_core::access::SessionState}::fmt]:
+    Source: 'crates/logbook-core/src/access.rs', lines 17:9-17:14
+    Visibility: public -/
+def access.SessionState.Insts.CoreFmtDebug.fmt
+  (self : access.SessionState) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | access.SessionState.NoCookie =>
+    core.fmt.Formatter.write_str f (toStr "NoCookie")
+  | access.SessionState.Unknown =>
+    core.fmt.Formatter.write_str f (toStr "Unknown")
+  | access.SessionState.Expired =>
+    core.fmt.Formatter.write_str f (toStr "Expired")
+  | access.SessionState.Valid => core.fmt.Formatter.write_str f (toStr "Valid")
+
+/-- Trait implementation: [logbook_core::access::{impl core::fmt::Debug for logbook_core::access::SessionState}]
+    Source: 'crates/logbook-core/src/access.rs', lines 17:9-17:14 -/
+@[reducible]
+def access.SessionState.Insts.CoreFmtDebug : core.fmt.Debug access.SessionState
+  := {
+  fmt := access.SessionState.Insts.CoreFmtDebug.fmt
+}
+
+/-- [logbook_core::access::{impl core::clone::Clone for logbook_core::access::SessionState}::clone]:
+    Source: 'crates/logbook-core/src/access.rs', lines 17:16-17:21
+    Visibility: public -/
+def access.SessionState.Insts.CoreCloneClone.clone
+  (self : access.SessionState) : Result access.SessionState := do
+  ok self
+
+/-- Trait implementation: [logbook_core::access::{impl core::clone::Clone for logbook_core::access::SessionState}]
+    Source: 'crates/logbook-core/src/access.rs', lines 17:16-17:21 -/
+@[reducible]
+def access.SessionState.Insts.CoreCloneClone : core.clone.Clone
+  access.SessionState := {
+  clone := access.SessionState.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::marker::Copy for logbook_core::access::SessionState}]
+    Source: 'crates/logbook-core/src/access.rs', lines 17:23-17:27 -/
+@[reducible]
+def access.SessionState.Insts.CoreMarkerCopy : core.marker.Copy
+  access.SessionState := {
+  cloneInst := access.SessionState.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::marker::StructuralPartialEq for logbook_core::access::SessionState}]
+    Source: 'crates/logbook-core/src/access.rs', lines 17:29-17:38 -/
+@[reducible]
+def access.SessionState.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq access.SessionState := {
+}
+
+/-- [logbook_core::access::{impl core::cmp::PartialEq<logbook_core::access::SessionState> for logbook_core::access::SessionState}::eq]:
+    Source: 'crates/logbook-core/src/access.rs', lines 17:29-17:38
+    Visibility: public -/
+def access.SessionState.Insts.CoreCmpPartialEqSessionState.eq
+  (self : access.SessionState) (other : access.SessionState) :
+  Result Bool
+  := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [logbook_core::access::{impl core::cmp::PartialEq<logbook_core::access::SessionState> for logbook_core::access::SessionState}]
+    Source: 'crates/logbook-core/src/access.rs', lines 17:29-17:38 -/
+@[reducible]
+def access.SessionState.Insts.CoreCmpPartialEqSessionState : core.cmp.PartialEq
+  access.SessionState access.SessionState := {
+  eq := access.SessionState.Insts.CoreCmpPartialEqSessionState.eq
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::cmp::Eq for logbook_core::access::SessionState}]
+    Source: 'crates/logbook-core/src/access.rs', lines 17:40-17:42 -/
+@[reducible]
+impl_def access.SessionState.Insts.CoreCmpEq : core.cmp.Eq access.SessionState
+  := {
+  partialEqInst := access.SessionState.Insts.CoreCmpPartialEqSessionState
+  assert_fields_are_eq := core.cmp.Eq.assert_fields_are_eq.default
+    access.SessionState.Insts.CoreCmpEq
+}
+
+/-- [logbook_core::access::{impl core::fmt::Debug for logbook_core::access::Decision}::fmt]:
+    Source: 'crates/logbook-core/src/access.rs', lines 31:9-31:14
+    Visibility: public -/
+def access.Decision.Insts.CoreFmtDebug.fmt
+  (self : access.Decision) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | access.Decision.Allow => core.fmt.Formatter.write_str f (toStr "Allow")
+  | access.Decision.Unauthorized =>
+    core.fmt.Formatter.write_str f (toStr "Unauthorized")
+
+/-- Trait implementation: [logbook_core::access::{impl core::fmt::Debug for logbook_core::access::Decision}]
+    Source: 'crates/logbook-core/src/access.rs', lines 31:9-31:14 -/
+@[reducible]
+def access.Decision.Insts.CoreFmtDebug : core.fmt.Debug access.Decision := {
+  fmt := access.Decision.Insts.CoreFmtDebug.fmt
+}
+
+/-- [logbook_core::access::{impl core::clone::Clone for logbook_core::access::Decision}::clone]:
+    Source: 'crates/logbook-core/src/access.rs', lines 31:16-31:21
+    Visibility: public -/
+def access.Decision.Insts.CoreCloneClone.clone
+  (self : access.Decision) : Result access.Decision := do
+  ok self
+
+/-- Trait implementation: [logbook_core::access::{impl core::clone::Clone for logbook_core::access::Decision}]
+    Source: 'crates/logbook-core/src/access.rs', lines 31:16-31:21 -/
+@[reducible]
+def access.Decision.Insts.CoreCloneClone : core.clone.Clone access.Decision
+  := {
+  clone := access.Decision.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::marker::Copy for logbook_core::access::Decision}]
+    Source: 'crates/logbook-core/src/access.rs', lines 31:23-31:27 -/
+@[reducible]
+def access.Decision.Insts.CoreMarkerCopy : core.marker.Copy access.Decision
+  := {
+  cloneInst := access.Decision.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::marker::StructuralPartialEq for logbook_core::access::Decision}]
+    Source: 'crates/logbook-core/src/access.rs', lines 31:29-31:38 -/
+@[reducible]
+def access.Decision.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq access.Decision := {
+}
+
+/-- [logbook_core::access::{impl core::cmp::PartialEq<logbook_core::access::Decision> for logbook_core::access::Decision}::eq]:
+    Source: 'crates/logbook-core/src/access.rs', lines 31:29-31:38
+    Visibility: public -/
+def access.Decision.Insts.CoreCmpPartialEqDecision.eq
+  (self : access.Decision) (other : access.Decision) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  ok (self1 = other1)
+
+/-- Trait implementation: [logbook_core::access::{impl core::cmp::PartialEq<logbook_core::access::Decision> for logbook_core::access::Decision}]
+    Source: 'crates/logbook-core/src/access.rs', lines 31:29-31:38 -/
+@[reducible]
+def access.Decision.Insts.CoreCmpPartialEqDecision : core.cmp.PartialEq
+  access.Decision access.Decision := {
+  eq := access.Decision.Insts.CoreCmpPartialEqDecision.eq
+}
+
+/-- Trait implementation: [logbook_core::access::{impl core::cmp::Eq for logbook_core::access::Decision}]
+    Source: 'crates/logbook-core/src/access.rs', lines 31:40-31:42 -/
+@[reducible]
+impl_def access.Decision.Insts.CoreCmpEq : core.cmp.Eq access.Decision := {
+  partialEqInst := access.Decision.Insts.CoreCmpPartialEqDecision
+  assert_fields_are_eq := core.cmp.Eq.assert_fields_are_eq.default
+    access.Decision.Insts.CoreCmpEq
+}
+
+/-- [logbook_core::access::authorize]:
+    Source: 'crates/logbook-core/src/access.rs', lines 42:0-54:1
+    Visibility: public -/
+def access.authorize
+  (level : access.Access) (state : access.SessionState) :
+  Result access.Decision
+  := do
+  match level with
+  | access.Access.Public => ok access.Decision.Allow
+  | access.Access.Session => ok access.Decision.Allow
+  | access.Access.Auth => ok access.Decision.Allow
+  | access.Access.Owner =>
+    match state with
+    | access.SessionState.NoCookie => ok access.Decision.Unauthorized
+    | access.SessionState.Unknown => ok access.Decision.Unauthorized
+    | access.SessionState.Expired => ok access.Decision.Unauthorized
+    | access.SessionState.Valid => ok access.Decision.Allow
+
+/-- [logbook_core::csrf::lower]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 7:0-9:1 -/
+def csrf.lower (c : Std.U8) : Result Std.U8 := do
+  if c >= 65#u8
+  then if c <= 90#u8
+       then c + 32#u8
+       else ok c
+  else ok c
+
+/-- [logbook_core::csrf::is_space]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 12:0-14:1 -/
+def csrf.is_space (c : Std.U8) : Result Bool := do
+  if c = 32#u8
+  then ok true
+  else ok (c = 9#u8)
+
+/-- [logbook_core::csrf::skip_spaces]: loop body 0:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 19:4-26:1 -/
+@[rust_loop_body]
+def csrf.skip_spaces_loop.body
+  (s : Slice Std.U8) (j : Std.Usize) :
+  Result (ControlFlow Std.Usize Std.Usize)
+  := do
+  let i := Slice.len s
+  if j < i
+  then
+    let i1 ← Slice.index_usize s j
+    let b ← csrf.is_space i1
+    if b
+    then let j1 ← j + 1#usize
+         ok (cont j1)
+    else ok (done j)
+  else ok (done j)
+
+/-- [logbook_core::csrf::skip_spaces]: loop 0:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 19:4-26:1 -/
+@[rust_loop]
+def csrf.skip_spaces_loop
+  (s : Slice Std.U8) (j : Std.Usize) : Result Std.Usize := do
+  loop
+    (fun j1 => csrf.skip_spaces_loop.body s j1)
+    j
+
+/-- [logbook_core::csrf::skip_spaces]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 17:0-26:1 -/
+@[reducible]
+def csrf.skip_spaces
+  (s : Slice Std.U8) (i : Std.Usize) : Result Std.Usize := do
+  csrf.skip_spaces_loop s i
+
+/-- [logbook_core::csrf::starts_with_lower]: loop body 0:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 35:4-42:1 -/
+@[rust_loop_body]
+def csrf.starts_with_lower_loop.body
+  (s : Slice Std.U8) («at» : Std.Usize) (want : Slice Std.U8) (j : Std.Usize)
+  :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i := Slice.len want
+  if j < i
+  then
+    let i1 ← «at» + j
+    let i2 ← Slice.index_usize s i1
+    let i3 ← csrf.lower i2
+    let i4 ← Slice.index_usize want j
+    if i3 != i4
+    then ok (done false)
+    else let j1 ← j + 1#usize
+         ok (cont j1)
+  else ok (done true)
+
+/-- [logbook_core::csrf::starts_with_lower]: loop 0:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 35:4-42:1 -/
+@[rust_loop]
+def csrf.starts_with_lower_loop
+  (s : Slice Std.U8) («at» : Std.Usize) (want : Slice Std.U8) (j : Std.Usize)
+  :
+  Result Bool
+  := do
+  loop
+    (fun j1 => csrf.starts_with_lower_loop.body s «at» want j1)
+    j
+
+/-- [logbook_core::csrf::starts_with_lower]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 30:0-42:1 -/
+def csrf.starts_with_lower
+  (s : Slice Std.U8) («at» : Std.Usize) (want : Slice Std.U8) :
+  Result Bool
+  := do
+  let i := Slice.len s
+  if «at» > i
+  then ok false
+  else
+    let i1 := Slice.len s
+    let i2 ← i1 - «at»
+    let i3 := Slice.len want
+    if i2 < i3
+    then ok false
+    else csrf.starts_with_lower_loop s «at» want 0#usize
+
+/-- [logbook_core::csrf::is_json]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 50:0-57:1
+    Visibility: public -/
+def csrf.is_json (content_type : Slice Std.U8) : Result Bool := do
+  let start ← csrf.skip_spaces content_type 0#usize
+  let s ←
+    lift (Array.to_slice
+      (Array.make 16#usize [
+        97#u8, 112#u8, 112#u8, 108#u8, 105#u8, 99#u8, 97#u8, 116#u8, 105#u8,
+        111#u8, 110#u8, 47#u8, 106#u8, 115#u8, 111#u8, 110#u8
+        ]))
+  let b ← csrf.starts_with_lower content_type start s
+  if b
+  then
+    let i ← start + 16#usize
+    let «end» ← csrf.skip_spaces content_type i
+    let i1 := Slice.len content_type
+    if «end» = i1
+    then ok true
+    else let i2 ← Slice.index_usize content_type «end»
+         ok (i2 = 59#u8)
+  else ok false
+
+/-- [logbook_core::csrf::is_multipart_form]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 61:0-63:1
+    Visibility: public -/
+def csrf.is_multipart_form (content_type : Slice Std.U8) : Result Bool := do
+  let s ←
+    lift (Array.to_slice
+      (Array.make 19#usize [
+        109#u8, 117#u8, 108#u8, 116#u8, 105#u8, 112#u8, 97#u8, 114#u8, 116#u8,
+        47#u8, 102#u8, 111#u8, 114#u8, 109#u8, 45#u8, 100#u8, 97#u8, 116#u8,
+        97#u8
+        ]))
+  csrf.starts_with_lower content_type 0#usize s
+
+/-- [logbook_core::csrf::write_allowed]:
+    Source: 'crates/logbook-core/src/csrf.rs', lines 77:0-94:1
+    Visibility: public -/
+def csrf.write_allowed
+  (is_read : Bool) (origin_matches : Bool) (has_body : Bool)
+  (content_type : Slice Std.U8) (is_upload_path : Bool) :
+  Result Bool
+  := do
+  if is_read
+  then ok true
+  else
+    if origin_matches
+    then
+      if has_body
+      then
+        let b ← csrf.is_json content_type
+        if b
+        then ok true
+        else
+          if is_upload_path
+          then csrf.is_multipart_form content_type
+          else ok false
+      else ok true
+    else ok false
+
+/-- [logbook_core::html::escape_html]: loop body 0:
+    Source: 'crates/logbook-core/src/html.rs', lines 14:4-49:5
+    Visibility: public -/
+@[rust_loop_body]
+def html.escape_html_loop.body
+  (s : Slice Std.U8) (out : alloc.vec.Vec Std.U8) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Std.U8) × Std.Usize) (alloc.vec.Vec
+    Std.U8))
+  := do
+  let i1 := Slice.len s
+  if i < i1
+  then
+    let c ← Slice.index_usize s i
+    let out1 ←
+      if c = 38#u8
+      then
+        do
+        let out2 ← alloc.vec.Vec.push out 38#u8
+        let out3 ← alloc.vec.Vec.push out2 97#u8
+        let out4 ← alloc.vec.Vec.push out3 109#u8
+        let out5 ← alloc.vec.Vec.push out4 112#u8
+        alloc.vec.Vec.push out5 59#u8
+      else
+        if c = 60#u8
+        then
+          do
+          let out2 ← alloc.vec.Vec.push out 38#u8
+          let out3 ← alloc.vec.Vec.push out2 108#u8
+          let out4 ← alloc.vec.Vec.push out3 116#u8
+          alloc.vec.Vec.push out4 59#u8
+        else
+          if c = 62#u8
+          then
+            do
+            let out2 ← alloc.vec.Vec.push out 38#u8
+            let out3 ← alloc.vec.Vec.push out2 103#u8
+            let out4 ← alloc.vec.Vec.push out3 116#u8
+            alloc.vec.Vec.push out4 59#u8
+          else
+            if c = 34#u8
+            then
+              do
+              let out2 ← alloc.vec.Vec.push out 38#u8
+              let out3 ← alloc.vec.Vec.push out2 113#u8
+              let out4 ← alloc.vec.Vec.push out3 117#u8
+              let out5 ← alloc.vec.Vec.push out4 111#u8
+              let out6 ← alloc.vec.Vec.push out5 116#u8
+              alloc.vec.Vec.push out6 59#u8
+            else
+              if c = 39#u8
+              then
+                do
+                let out2 ← alloc.vec.Vec.push out 38#u8
+                let out3 ← alloc.vec.Vec.push out2 35#u8
+                let out4 ← alloc.vec.Vec.push out3 51#u8
+                let out5 ← alloc.vec.Vec.push out4 57#u8
+                alloc.vec.Vec.push out5 59#u8
+              else alloc.vec.Vec.push out c
+    let i2 ← i + 1#usize
+    ok (cont (out1, i2))
+  else ok (done out)
+
+/-- [logbook_core::html::escape_html]: loop 0:
+    Source: 'crates/logbook-core/src/html.rs', lines 14:4-49:5
+    Visibility: public -/
+@[rust_loop]
+def html.escape_html_loop
+  (s : Slice Std.U8) (out : alloc.vec.Vec Std.U8) (i : Std.Usize) :
+  Result (alloc.vec.Vec Std.U8)
+  := do
+  loop
+    (fun (out1, i1) => html.escape_html_loop.body s out1 i1)
+    (out, i)
+
+/-- [logbook_core::html::escape_html]:
+    Source: 'crates/logbook-core/src/html.rs', lines 11:0-51:1
+    Visibility: public -/
+@[reducible]
+def html.escape_html (s : Slice Std.U8) : Result (alloc.vec.Vec Std.U8) := do
+  html.escape_html_loop s (alloc.vec.Vec.new Std.U8) 0#usize
+
+/-- [logbook_core::ip::{impl core::fmt::Debug for logbook_core::ip::ClientAddr}::fmt]:
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:9-7:14
+    Visibility: public -/
+def ip.ClientAddr.Insts.CoreFmtDebug.fmt
+  (self : ip.ClientAddr) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  match self with
+  | ip.ClientAddr.Peer => core.fmt.Formatter.write_str f (toStr "Peer")
+  | ip.ClientAddr.Hop __self_0 =>
+    let __self_01 :=
+      Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUsize) __self_0
+    core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Hop") __self_01
+
+/-- Trait implementation: [logbook_core::ip::{impl core::fmt::Debug for logbook_core::ip::ClientAddr}]
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:9-7:14 -/
+@[reducible]
+def ip.ClientAddr.Insts.CoreFmtDebug : core.fmt.Debug ip.ClientAddr := {
+  fmt := ip.ClientAddr.Insts.CoreFmtDebug.fmt
+}
+
+/-- [logbook_core::ip::{impl core::clone::Clone for logbook_core::ip::ClientAddr}::clone]:
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:16-7:21
+    Visibility: public -/
+def ip.ClientAddr.Insts.CoreCloneClone.clone
+  (self : ip.ClientAddr) : Result ip.ClientAddr := do
+  ok self
+
+/-- Trait implementation: [logbook_core::ip::{impl core::clone::Clone for logbook_core::ip::ClientAddr}]
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:16-7:21 -/
+@[reducible]
+def ip.ClientAddr.Insts.CoreCloneClone : core.clone.Clone ip.ClientAddr := {
+  clone := ip.ClientAddr.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [logbook_core::ip::{impl core::marker::Copy for logbook_core::ip::ClientAddr}]
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:23-7:27 -/
+@[reducible]
+def ip.ClientAddr.Insts.CoreMarkerCopy : core.marker.Copy ip.ClientAddr := {
+  cloneInst := ip.ClientAddr.Insts.CoreCloneClone
+}
+
+/-- Trait implementation: [logbook_core::ip::{impl core::marker::StructuralPartialEq for logbook_core::ip::ClientAddr}]
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:29-7:38 -/
+@[reducible]
+def ip.ClientAddr.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq ip.ClientAddr := {
+}
+
+/-- [logbook_core::ip::{impl core::cmp::PartialEq<logbook_core::ip::ClientAddr> for logbook_core::ip::ClientAddr}::eq]:
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:29-7:38
+    Visibility: public -/
+def ip.ClientAddr.Insts.CoreCmpPartialEqClientAddr.eq
+  (self : ip.ClientAddr) (other : ip.ClientAddr) : Result Bool := do
+  let self1 := read_discriminant self
+  let other1 := read_discriminant other
+  if self1 = other1
+  then
+    match self with
+    | ip.ClientAddr.Peer => ok true
+    | ip.ClientAddr.Hop __self_0 =>
+      match other with
+      | ip.ClientAddr.Peer => ok true
+      | ip.ClientAddr.Hop __arg1_0 =>
+        lift (core.cmp.impls.PartialEqUsize.eq __self_0 __arg1_0)
+  else ok false
+
+/-- Trait implementation: [logbook_core::ip::{impl core::cmp::PartialEq<logbook_core::ip::ClientAddr> for logbook_core::ip::ClientAddr}]
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:29-7:38 -/
+@[reducible]
+def ip.ClientAddr.Insts.CoreCmpPartialEqClientAddr : core.cmp.PartialEq
+  ip.ClientAddr ip.ClientAddr := {
+  eq := ip.ClientAddr.Insts.CoreCmpPartialEqClientAddr.eq
+}
+
+/-- [logbook_core::ip::{impl core::cmp::Eq for logbook_core::ip::ClientAddr}::assert_fields_are_eq]:
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:40-7:42
+    Visibility: public -/
+def ip.ClientAddr.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : ip.ClientAddr) : Result Unit := do
+  ok ()
+
+/-- Trait implementation: [logbook_core::ip::{impl core::cmp::Eq for logbook_core::ip::ClientAddr}]
+    Source: 'crates/logbook-core/src/ip.rs', lines 7:40-7:42 -/
+@[reducible]
+def ip.ClientAddr.Insts.CoreCmpEq : core.cmp.Eq ip.ClientAddr := {
+  partialEqInst := ip.ClientAddr.Insts.CoreCmpPartialEqClientAddr
+  assert_fields_are_eq := ip.ClientAddr.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- [logbook_core::ip::client_addr]: loop body 0:
+    Source: 'crates/logbook-core/src/ip.rs', lines 29:4-36:1
+    Visibility: public -/
+@[rust_loop_body]
+def ip.client_addr_loop.body
+  (hop_trusted : Slice Bool) (i : Std.Usize) :
+  Result (ControlFlow Std.Usize ip.ClientAddr)
+  := do
+  if i > 0#usize
+  then
+    let i1 ← i - 1#usize
+    let b ← Slice.index_usize hop_trusted i1
+    if b
+    then ok (cont i1)
+    else ok (done (ip.ClientAddr.Hop i1))
+  else ok (done ip.ClientAddr.Peer)
+
+/-- [logbook_core::ip::client_addr]: loop 0:
+    Source: 'crates/logbook-core/src/ip.rs', lines 29:4-36:1
+    Visibility: public -/
+@[rust_loop]
+def ip.client_addr_loop
+  (hop_trusted : Slice Bool) (i : Std.Usize) : Result ip.ClientAddr := do
+  loop
+    (fun i1 => ip.client_addr_loop.body hop_trusted i1)
+    i
+
+/-- [logbook_core::ip::client_addr]:
+    Source: 'crates/logbook-core/src/ip.rs', lines 24:0-36:1
+    Visibility: public -/
+def ip.client_addr
+  (peer_trusted : Bool) (hop_trusted : Slice Bool) : Result ip.ClientAddr := do
+  if peer_trusted
+  then let i := Slice.len hop_trusted
+       ip.client_addr_loop hop_trusted i
+  else ok ip.ClientAddr.Peer
+
 /-- [logbook_core::media::is_lower_hex]:
     Source: 'crates/logbook-core/src/media.rs', lines 7:0-9:1 -/
 def media.is_lower_hex (c : Std.U8) : Result Bool := do
@@ -560,6 +1179,37 @@ def post.reading_minutes (words : Std.U32) : Result Std.U32 := do
   if minutes = 0#u32
   then ok 1#u32
   else ok minutes
+
+/-- [logbook_core::session::SETUP_TOKEN_SECONDS]
+    Source: 'crates/logbook-core/src/session.rs', lines 8:0-8:41
+    Visibility: public -/
+@[global_simps, irreducible]
+def session.SETUP_TOKEN_SECONDS : Std.I64 := 900#i64
+
+/-- [logbook_core::session::session_valid]:
+    Source: 'crates/logbook-core/src/session.rs', lines 12:0-14:1
+    Visibility: public -/
+def session.session_valid
+  (now : Std.I64) (expires_at : Std.I64) : Result Bool := do
+  ok (now < expires_at)
+
+/-- [logbook_core::session::setup_token_usable]:
+    Source: 'crates/logbook-core/src/session.rs', lines 19:0-21:1
+    Visibility: public -/
+def session.setup_token_usable
+  (now : Std.I64) (expires_at : Std.I64) (used : Bool) : Result Bool := do
+  if used
+  then ok false
+  else ok (now < expires_at)
+
+/-- [logbook_core::session::setup_token_expiry]:
+    Source: 'crates/logbook-core/src/session.rs', lines 26:0-32:1
+    Visibility: public -/
+def session.setup_token_expiry (now : Std.I64) : Result Std.I64 := do
+  let i ← core.num.I64.MAX - session.SETUP_TOKEN_SECONDS
+  if now > i
+  then ok core.num.I64.MAX
+  else now + session.SETUP_TOKEN_SECONDS
 
 /-- [logbook_core::slug::SLUG_MAX]
     Source: 'crates/logbook-core/src/slug.rs', lines 7:0-7:31
