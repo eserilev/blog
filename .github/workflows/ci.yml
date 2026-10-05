@@ -1,5 +1,6 @@
 # CI (spec 7.9): fmt, clippy, cargo-deny, tests, fuzz smoke, restore test, browser tests, proofs.
-# A later step adds mutants.
+# A later step adds mutants. All jobs run in parallel. The proofs run only when a file
+# that they check changes; GitHub counts a skipped job as passed.
 #
 # Actions are pinned to commits. The toolchain comes from rust-toolchain.toml.
 # This repo is public: never use pull_request_target here.
@@ -22,6 +23,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Which parts changed. A push with no base commit (a new branch) runs everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      proofs: ${{ steps.diff.outputs.proofs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ] \
+             || ! git fetch -q --depth=1 origin "$BASE"; then
+            echo "proofs=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "$BASE" HEAD)
+          echo "$files"
+          if echo "$files" | grep -qE '^(crates/logbook-core/|proofs/|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'; then
+            echo "proofs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proofs=false" >> "$GITHUB_OUTPUT"
+          fi
+
   fmt:
     runs-on: ubuntu-latest
     steps:
@@ -110,6 +134,8 @@ jobs:
           path: e2e/test-results
 
   proofs:
+    needs: changes
+    if: needs.changes.outputs.proofs == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -108,8 +108,7 @@ Main column:
 2. Intro: markdown that the owner edits (4.9).
 3. Writing: table of public posts. Columns: Date (M/D/YY), Title + one-line summary, Topic, Length. Small navy "NEW" label on new posts. No blink.
 4. Now box (4.4) and Surf Report window (4.5), side by side.
-5. Webring line.
-6. Footer: last updated, "Best viewed at 800 × 600", Sign in / Sign out.
+5. Footer: last updated, "Best viewed at 800 × 600", Sign in / Sign out.
 
 Below 860 px: the sidebar goes below the content, so the posts come first. Editor panes stack.
 
@@ -202,7 +201,7 @@ Reading time: `max(1, ceil(words / 220))` minutes.
 
 One spot: **Redondo Beach, CA**. All data from NOAA. Public domain. No API key.
 
-Win98 window "Surf Report - Redondo Beach". LCD readouts, tide chart, one-line rating.
+Win98 window "Surf Report - Redondo Beach". LCD readouts and a tide chart. No rating text.
 
 | Readout | Source | Endpoint | Unit shown |
 |---|---|---|---|
@@ -684,7 +683,7 @@ Workflow **CI** (push to `master`, PRs): all gates of 7.9.
 
 Workflow **Deploy** (`.github/workflows/deploy.yml`):
 
-- After CI passes for a push to `master` in this repo (`workflow_run`): automatic. Never for a PR or a fork. Only when the repo variable `DEPLOY_ENABLED` is `true`.
+- On each push to `master` (a merged PR): automatic, at once. It does not wait for CI on `master`, because the PR passed CI before the merge. Never for a PR or a fork. Only when the repo variable `DEPLOY_ENABLED` is `true`.
 - By hand (`workflow_dispatch`, inputs: SHA, `allow_empty_start`): first deploy, recovery, and rollback.
 - Steps: build `ghcr.io/eserilev/blog:sha-<commit>` → tag it `prod` → copy `compose.yaml` and `logbook.caddy` to `/srv/logbook` → write `.env`, `prod.env` (mode 600) → make sure that `edge` exists with its subnet and that sandcastle's Caddy is on it → `docker compose pull && docker compose up -d` → Caddy step and health check (6.11).
 - One deploy at a time. A deploy in progress is never cancelled.
@@ -908,18 +907,18 @@ Example: deleting a check in `reveal` that makes drafts public. Missed → add t
 
 ### 7.9 CI
 
-PR and push to `master` (all must pass before Deploy):
+PR and push to `master`. A PR must pass before the merge. A merge deploys at once (6.13). All jobs run in parallel, each on its own machine:
 
 1. fmt, clippy, deny.
 2. Unit + property.
 3. Integration + access matrix.
 4. Playwright.
-5. Restore test.
-6. Fuzz, 60 s per target.
-7. Proofs.
-8. Mutants `--in-diff`.
+5. Restore test. It builds the release image, about 150 s of the 240 s. Caching the dependency build (cargo-chef) is open work.
+6. Fuzz, 60 s per target, one job per target.
+7. Proofs. Only when `crates/logbook-core/`, `proofs/`, `rust-toolchain.toml`, or `ci.yml` changes. Otherwise the job is skipped, and GitHub counts it as passed.
+8. Mutants `--in-diff` (not built yet).
 
-Expected time: 20–40 min (Mathlib cache, Rust cache).
+Measured 2026-10-05: about 6.5 min with proofs (proofs 392 s, restore 241 s, fuzz about 150 s). Without proofs, the restore test sets the time (about 4 min).
 
 Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh advisories. A crash or a failure opens an issue.
 
@@ -948,7 +947,7 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 3. Final name.
 4. Logo: keep the "E" with waves?
 5. RSS: keep?
-6. Webring: keep? Which ring? The links are placeholders.
+6. ~~Webring.~~ Removed (2026-10-05).
 7. Counter: real or fixed?
 8. About page content.
 9. ~~Domain.~~ `unclebill.blog` (2026-10-04).

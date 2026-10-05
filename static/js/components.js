@@ -598,8 +598,9 @@ customElements.define('surf-report', class extends HTMLElement {
   async load() {
     let data;
     try { data = await (await fetch('/api/surf')).json(); } catch { data = { available: false }; }
-    const rating = this.querySelector('[data-rating]');
-    if (!data.available) { rating.textContent = 'No NOAA data yet.'; return; }
+    const status = this.querySelector('[data-status]');
+    status.hidden = !!data.available;
+    if (!data.available) { status.textContent = 'No NOAA data yet.'; return; }
     const s = data.surf;
     const stale = iso => !iso || Date.now() - new Date(iso).getTime() > 3 * 3600e3;
     const set = (name, value, iso, unit) => {
@@ -612,7 +613,6 @@ customElements.define('surf-report', class extends HTMLElement {
     set('period', s.swell ? Math.round(s.swell.period_s) : null, s.swell?.observed_at);
     set('wind', s.wind ? Math.round(s.wind.speed_kt) : null, s.wind?.observed_at, s.wind ? `kt ${s.wind.direction}${s.wind.offshore ? ' off' : ''}` : 'kt');
     set('water', s.waves?.water_c != null ? Math.round(s.waves.water_c * 9 / 5 + 32) : null, s.waves?.observed_at);
-    rating.textContent = s.rating || '';
     this.drawTides(s.tides || []);
   }
   drawTides(tides) {

@@ -46,7 +46,7 @@ Later deploys never use `allow_empty_start`. Without it, an empty or wrong bucke
 
 ## Normal deploys
 
-A push to `master` runs CI. When CI passes, **deploy** runs by itself. It builds the image, tags it `sha-<commit>` and `prod`, and swaps the app. Then it waits for `https://<DOMAIN>/healthz`.
+A merge to `master` starts **deploy** at once. It builds the image, tags it `sha-<commit>` and `prod`, and swaps the app. Then it waits for `https://unclebill.blog/healthz`. The PR passed CI before the merge, so the deploy does not wait for CI on `master`.
 
 ## Rollback
 
