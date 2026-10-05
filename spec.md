@@ -301,6 +301,31 @@ Preview: the same Rust `render()` as the server (comrak, syntect, ammonia), comp
 
 The WASM interface is three exported functions (`buf_alloc`, `buf_free`, `render`), no bindings generator. This small shim in `editor-wasm` is the only `unsafe` code in the project (7.1).
 
+### 5.1 Layout rules
+
+The site uses CSS Grid and Flexbox only. These rules apply to all three modes:
+
+- **No sideways page scroll.** The page is never wider than the screen. Wide content scrolls inside its own box.
+- **Long content in a grid or flex child.** Use `minmax(0, 1fr)` for the column and `min-width: 0` on the child. A long address or code line then cannot widen the column.
+- **Wide content.** Code blocks and tables in a post get `overflow-x: auto`. Never put it on the page. Long words and addresses in post text wrap (`overflow-wrap`).
+- **Bars.** Toolbar, status bar, taskbar, F-key bar, and softkeys: `align-items: center` and one fixed row height, so every item sits on one center line.
+- **Table rows.** Cells align on the text baseline. Below 600 px, each post row is a block: the title on the first line, date, topic, and length on the second.
+- **Rows of buttons and fields.** `flex-wrap: wrap`. A field gets `flex: 1 1 <basis>` and `min-width: 0`.
+- **Reading columns.** `max-width` and `margin-inline: auto`.
+- **Spacing.** `gap` between siblings, not margins.
+- **Breakpoints.** 520 px (phones), 600 px (post table, phone mode), 860 px (one column). Do not add others without a reason.
+- **Touch.** Phone mode and the MS-DOS F-key bar have tap targets of 44 px or more.
+- **Look.** The fixes keep the Win98 bevels, the MS-DOS screen, and the phone LCD.
+
+Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e2e/tests/layout.spec.js` opens every view at each width that applies: Win98 (guest and owner views, a post with a long code line, a long address, and a wide table), MS-DOS mode (prompt, HELP, DIR, TYPE), and phone mode at 390 px (standby, menu, lists, a post, Options, Profiles, Snake). For each view it checks:
+
+- `scrollWidth` is not more than the screen width.
+- No visible element passes the left or right edge, except inside a box that scrolls or clips sideways.
+- The items of each bar have the same center line (1 px tolerance).
+- In phone mode, every button is 44 × 44 px or more.
+
+It saves a full-page screenshot of each view in `e2e/test-results`. CI uploads that folder when a test fails.
+
 ## 6. Back end
 
 Status: proposed. Not built.

@@ -257,7 +257,7 @@ test('a desktop never shows phone mode or a switch to it', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Dark mode (MS-DOS)' }).click();
   const keys = page.getByRole('navigation', { name: 'Function keys' });
-  await expect(keys.getByRole('button')).toHaveCount(7);
+  await expect(keys.getByRole('button')).toHaveCount(6);
   await expect(keys.getByRole('button', { name: 'F8 Mobile' })).toBeHidden();
   const input = page.getByLabel('C:\\LOGBOOK>');
   await input.fill('help');

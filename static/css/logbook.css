@@ -78,7 +78,8 @@ blog-app[data-current="write"] .desktop { max-width: none; }
 .location .field { flex: 1; min-width: 0; background: #fff; padding: 3px 6px; font: 13px var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .viewport { background: var(--page); margin-top: 3px; min-width: 0; }
 .status { display: flex; gap: 3px; padding-top: 3px; font: 12px var(--f-ui); }
-.status > span { padding: 2px 6px; }
+/* One fixed height and line height: every cell centers its text, emoji included. */
+.status > span { padding: 0 6px; height: 22px; line-height: 22px; overflow: hidden; }
 .status .grow { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* The page inside the browser */
@@ -114,7 +115,8 @@ blog-app[data-current="write"] .desktop { max-width: none; }
 
 table.posts { width: 100%; border-collapse: collapse; font-size: 14.5px; border: 1px solid var(--rule); }
 table.posts th { background: var(--tint); color: var(--muted); text-align: left; padding: 7px 10px; font: 700 11px var(--f-ui); text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--rule); }
-table.posts td { padding: 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+/* Baseline: the date, title, topic, and length share one text line, whatever their fonts. */
+table.posts td { padding: 10px; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
 table.posts tr:last-child td { border-bottom: 0; }
 table.posts td.date { white-space: nowrap; font: 13px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 table.posts .ttl { font-weight: 700; }
@@ -126,7 +128,7 @@ table.posts .topic { white-space: nowrap; font-size: 13px; color: var(--muted); 
    and length share one small line under them. */
 @media (max-width: 600px) {
   table.posts thead { display: none; }
-  table.posts tr { display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: "title title title" "date topic len"; column-gap: 12px; padding: 10px; border-bottom: 1px solid var(--rule); }
+  table.posts tr { display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: "title title title" "date topic len"; align-items: baseline; column-gap: 12px; padding: 10px; border-bottom: 1px solid var(--rule); }
   table.posts tr:last-child { border-bottom: 0; }
   table.posts td { padding: 0; border-bottom: 0; }
   table.posts td:nth-child(1) { grid-area: date; }
@@ -174,7 +176,7 @@ blog-app[data-owner] .guest-only { display: none !important; }
 .article h1.t { font: 700 clamp(30px, 4.5vw, 40px)/1.12 var(--f-head); color: var(--text); margin: 0 0 10px; text-wrap: balance; }
 .byline { font: 15px var(--f-head); color: var(--muted); }
 hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
-.prose { font-family: var(--f-body); font-size: 15.5px; line-height: 1.75; }
+.prose { font-family: var(--f-body); font-size: 15.5px; line-height: 1.75; overflow-wrap: break-word; }
 .prose > * + * { margin-top: 1em; }
 .prose p, .prose ul, .prose ol, .prose pre, .prose blockquote { margin-bottom: 0; }
 .prose h1, .prose h2, .prose h3 { font-family: var(--f-head); color: var(--text); line-height: 1.2; margin-top: 1.6em; }
@@ -185,6 +187,8 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
 .prose code { font-family: var(--f-mono); font-size: .9em; background: var(--tint); padding: 0 3px; }
 .prose pre { background: #000; color: #d0d0d0; padding: 12px 14px; overflow-x: auto; border: 2px inset #888; font-size: 13.5px; line-height: 1.55; }
 .prose pre code { background: none; padding: 0; color: inherit; }
+/* A wide table scrolls inside its own box, like code. */
+.prose table { display: block; max-width: 100%; overflow-x: auto; }
 /* Line numbers (```rust=): a gray gutter, like an IDE of 1998. Copying the code skips them. */
 .prose pre .hl-ln { display: inline-block; margin-right: 12px; padding-right: 8px; border-right: 1px solid #555; color: #808080; text-align: right; user-select: none; -webkit-user-select: none; }
 .prose pre[data-lang]::before { content: "C:\\> type example." attr(data-lang); display: block; color: #fff; margin-bottom: 6px; }
@@ -199,8 +203,10 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
 .notepad textarea:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
 .preview-win [data-preview] { height: 520px; overflow: auto; padding: 16px 20px; }
 .dialog { max-width: 640px; justify-self: center; width: 100%; }
-.dialog-body { padding: 14px 16px 16px; display: grid; gap: 14px; }
+/* minmax(0, 1fr): a long row wraps or shrinks; it never makes the dialog wider. */
+.dialog-body { padding: 14px 16px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .dialog-body .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.dialog-body .row > input { flex: 1 1 10em; min-width: 0; }
 .dialog-body legend { font: 700 13px var(--f-ui); }
 .radio { display: flex; gap: 6px; align-items: center; cursor: pointer; font: 13px var(--f-ui); }
 .radio input { width: 13px; height: 13px; accent-color: #000080; margin: 0; }
@@ -252,7 +258,8 @@ hr.rule { border: 0; border-top: 1px solid var(--text); margin: 18px 0 24px; }
   .notepad textarea, .preview-win [data-preview] { height: 380px; }
   .logo, .menubar { display: none; }
 }
-@media (max-width: 520px) { .task { display: none; } .tb { min-width: 48px; } }
+/* Phones: the disabled Back and Print buttons go, so the toolbar fits on one line. */
+@media (max-width: 520px) { .task, .tb.disabled { display: none; } .tb { min-width: 48px; } }
 
 /* Base rules that the artifact host gave the mockup. */
 [hidden] { display: none !important; }
@@ -271,15 +278,17 @@ post-view[aria-busy="true"] { opacity: .6; }
 .settings textarea { font: 13px/1.5 var(--f-mono); padding: 4px 6px; border: 0; background: #fff; resize: vertical; min-width: 0; }
 .help { margin: 4px 0; font: 12px var(--f-ui); color: var(--muted); }
 .topic-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; font: 13px var(--f-ui); }
-.topic-list li { display: flex; gap: 6px; align-items: center; padding: 3px 6px; background: #fff; }
-.topic-list input { flex: 1; min-width: 0; font: 13px var(--f-ui); padding: 2px 4px; border: 0; }
-.topic-list code { color: var(--muted); font-size: 12px; }
+/* On a phone the name takes the first line. The address and the buttons share the second line. */
+.topic-list li { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 3px 6px; background: #fff; }
+.topic-list input { flex: 1 1 8em; min-width: 0; font: 13px var(--f-ui); padding: 2px 4px; border: 0; }
+@media (max-width: 520px) { .topic-list input { flex-basis: 100%; } }
+.topic-list code { margin-right: auto; color: var(--muted); font-size: 12px; }
 .topic-list .btn98 { min-width: 0; padding: 2px 8px; }
 .passkey-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font: 13px var(--f-ui); }
 .passkey-list li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 4px 6px; background: #fff; }
 .passkey-list small { color: var(--muted); }
 .setup .row label { font: 13px var(--f-ui); }
-.setup input { font: 13px var(--f-ui); padding: 3px 5px; border: 0; background: #fff; min-width: 0; flex: 1; }
+.setup input { font: 13px var(--f-ui); padding: 3px 5px; border: 0; background: #fff; }
 .files { margin-bottom: 16px; }
 .files-well { background: #fff; max-height: 220px; overflow: auto; }
 .files-table { width: 100%; border-collapse: collapse; font: 13px var(--f-ui); }
@@ -292,7 +301,7 @@ post-view[aria-busy="true"] { opacity: .6; }
 .props input, .props select { font: 13px var(--f-ui); padding: 2px 4px; border: 0; background: #fff; min-width: 0; }
 .props select { box-shadow: inset -1px -1px var(--chrome-hi), inset 1px 1px var(--chrome-lo); }
 md-editor:not([data-loaded]) .split { opacity: .5; }
-.btn-link { display: inline-grid; place-items: center; text-decoration: none; color: #000; }
+.btn-link, .page a.btn-link { display: inline-grid; place-items: center; text-decoration: none; color: #000; }
 .readouts div.stale .lcd-v { color: #2a6a2a; text-shadow: none; }
 .readouts div.stale dt::after { content: " (stale)"; font-weight: 400; }
 
@@ -335,7 +344,7 @@ dos-shell a:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 2
 .dos-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* TYPE output: the post body as terminal text. */
-.dos-prose { max-width: 80ch; margin: 0 0 8px; }
+.dos-prose { max-width: 80ch; margin: 0 0 8px; overflow-wrap: break-word; }
 .dos-prose > * { margin: 0 0 1.45em; }
 .dos-prose h1, .dos-prose h2, .dos-prose h3, .dos-prose h4 { font: 600 1em/1.45 var(--f-dos); color: var(--dos-hi); text-transform: uppercase; letter-spacing: .08em; margin-top: 1.45em; }
 .dos-prose ul, .dos-prose ol { padding-left: 4ch; }
@@ -347,7 +356,7 @@ dos-shell a:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 2
 .dos-prose pre code { color: var(--dos-fg); }
 .dos-prose .hl-comment { color: var(--dos-dim); }
 .dos-prose pre .hl-ln { display: inline-block; margin-right: 1ch; padding-right: 1ch; border-right: 1px solid var(--dos-dim); color: var(--dos-dim); text-align: right; user-select: none; -webkit-user-select: none; }
-.dos-prose table { border-collapse: collapse; }
+.dos-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 .dos-prose th, .dos-prose td { border: 1px solid var(--dos-dim); padding: 2px 1ch; text-align: left; }
 .dos-prose hr { border: 0; border-top: 1px dashed var(--dos-dim); }
 .dos-prose img { display: block; }

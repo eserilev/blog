@@ -66,7 +66,7 @@ test('DIR lists the posts as files; TYPE prints one; Back works', async ({ page 
   await expect(row.locator('.c-date')).toHaveText('09-28-26');
   await expect(row.locator('a.c-long')).toHaveAttribute('href', `/posts/${BAL}`);
   await expect(out).toContainText('6 file(s)');
-  await expect(out.locator('.dos-row', { hasText: 'ABOUT' })).toHaveCount(0);
+  await expect(out.locator('.dos-row .c-name', { hasText: /^ABOUT$/ })).toHaveCount(0);
   await expect(out).toContainText('Example: TYPE BLOCKLEV.TXT');
 
   await command(page, 'type blocklev.txt');
@@ -156,7 +156,7 @@ test('keyboard only: F-keys, history, and Tab to the links', async ({ page }) =>
   await expect(input).toBeFocused();
   const out = page.locator('dos-shell [data-out]');
   await page.keyboard.press('F2');
-  await expect(out.locator('.dos-row')).toHaveCount(7);
+  await expect(out.locator('.dos-row')).toHaveCount(6);
   await page.keyboard.type('ver');
   await page.keyboard.press('Enter');
   await page.keyboard.press('ArrowUp');

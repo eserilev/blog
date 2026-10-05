@@ -86,5 +86,5 @@ test('the About page is gone: /about goes to the home page', async ({ page }) =>
   await page.goto('/about');
   await expect(page).toHaveURL('/');
   await expect(page.locator('section[data-view="home"]')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'About' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'About', exact: true })).toHaveCount(0);
 });
