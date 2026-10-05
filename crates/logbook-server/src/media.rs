@@ -106,7 +106,7 @@ pub fn reencode(bytes: &[u8]) -> Result<(Vec<u8>, String), &'static str> {
     Ok((out, key))
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
     bytes
         .iter()

@@ -1,5 +1,6 @@
 //! The Logbook server: a JSON API plus one `index.html` (spec 6).
 
+pub mod assets;
 pub mod auth;
 pub mod checks;
 pub mod config;
@@ -22,7 +23,7 @@ pub mod topic;
 
 use std::{sync::Arc, time::Duration};
 
-use axum::Router;
+use axum::{Router, middleware};
 use ipnet::IpNet;
 use sqlx::SqlitePool;
 use tokio::sync::Notify;
@@ -33,8 +34,10 @@ pub use config::Config;
 /// Shared state for all handlers.
 #[derive(Clone)]
 pub struct AppState {
-    /// `static/index.html`, read once at startup.
+    /// `static/index.html`, read once at startup, with versioned `/static/` URLs.
     pub index_html: Arc<str>,
+    /// Version hashes of the static files.
+    pub assets: Arc<assets::Assets>,
     pub pool: SqlitePool,
     /// Public origin, for absolute URLs and the CSRF check.
     pub origin: Arc<str>,
@@ -66,12 +69,12 @@ impl AppState {
 }
 
 impl AppState {
-    /// Reads `index.html` and checks its head markers.
+    /// Reads `index.html`, checks its head markers, and versions its `/static/` URLs.
     ///
     /// # Errors
     ///
-    /// Fails if `index.html` cannot be read or has no `<!--head-->...<!--/head-->` block,
-    /// or if WebAuthn cannot use the origin.
+    /// Fails if a static file cannot be read, if `index.html` has no
+    /// `<!--head-->...<!--/head-->` block, or if WebAuthn cannot use the origin.
     pub fn new(config: &Config, pool: SqlitePool) -> Result<Self, String> {
         let path = config.static_dir.join("index.html");
         let index_html = std::fs::read_to_string(&path)
@@ -90,8 +93,10 @@ impl AppState {
         if let Some(m) = site::MARKERS.iter().find(|m| !index_html.contains(**m)) {
             return Err(format!("{} has no {m} marker", path.display()));
         }
+        let assets = assets::Assets::load(&config.static_dir)?;
         Ok(Self {
-            index_html: index_html.into(),
+            index_html: assets.version_html(&index_html).into(),
+            assets: Arc::new(assets),
             pool,
             origin: config.origin.clone().into(),
             auth: auth::Auth::new(&config.origin)?,
@@ -155,8 +160,14 @@ pub fn media_store(config: &Config) -> Result<media::Media, String> {
 /// Builds the full app: the route table, static files, the 404 fallback, and the
 /// security headers on every response.
 pub fn app(config: &Config, state: AppState) -> Router {
+    let statics = Router::new()
+        .fallback_service(ServeDir::new(&config.static_dir))
+        .layer(middleware::from_fn_with_state(
+            state.assets.clone(),
+            assets::serve,
+        ));
     let router = routes::router(&state)
-        .nest_service("/static", ServeDir::new(&config.static_dir))
+        .nest_service("/static", statics)
         .fallback(pages::not_found)
         .with_state(state);
     headers::apply(router).layer(TraceLayer::new_for_http())
