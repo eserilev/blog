@@ -744,7 +744,7 @@ Each step ends working, with its tests.
 1. **Scaffold.** Workspace, three crates, axum serving the split mockup (no inline scripts, self-hosted fonts, CSP). CI: fmt, clippy, deny, tests.
 2. **Posts.** SQLite, `posts`, `render()`, `logbook-core` (`reveal`, slugs), public API, `<head>` tags, path router. Litestream start sequence with a local S3 (SeaweedFS). First fuzz targets. Restore test.
 3. **Sign-in.** Passkeys, sessions, CSRF checks, CLI setup link, revoke. Route table + access matrix. Playwright passkey test.
-4. **Proofs.** One-day Aeneas spike on `make_slug` and `filter_public` first. If the spike fails, cut the scope (7.6). Then the theorems and the CI job. (Done: T1–T5, T10–T12. T6–T9 follow in a later PR.)
+4. **Proofs.** One-day Aeneas spike on `make_slug` and `filter_public` first. If the spike fails, cut the scope (7.6). Then the theorems and the CI job. (Done: T1–T12.)
 5. **Editor.** Owner API, versions and 409, `<md-editor>`, WASM preview.
 6. **Extras.** In two PRs. 6a: Now box, RSS, counter, export, route-kind test. 6b: uploads, surf report.
 7. **Deploy.** Dockerfile, compose, Caddy step, workflows, sandcastle edits, Hetzner project and bucket, domain.
@@ -872,9 +872,9 @@ Guest code paths use `PublicPost` only. Owner paths use `Post`. A guest route th
 | T4 | `slug_charset` | `make_slug t i = ok s → ∀ c ∈ s, c ∈ [a-z0-9-]` | No `.`, `/`, `\` ever. |
 | T5 | `slug_shape` | `make_slug t i = ok s → 1 ≤ s.len ≤ 80 ∧ s[0] ≠ '-' ∧ s[s.len-1] ≠ '-' ∧ "--" ∉ s` | Never empty, short, clean. |
 | T6 | `slug_plain` | `t ∈ [a-z0-9]⁺ ∧ t.len ≤ 80 → make_slug t i = ok t` | A plain title is its own slug. Rules out a function that ignores its input. |
-| T7 | `slug_fallback` | `(∀ c ∈ t, c ∉ [A-Za-z0-9]) → make_slug t i = ok ("post-" ++ dec i)` | A title with no ASCII letters or digits gets `post-<id>`. |
-| T8 | `slug_lower` | `make_slug t i = ok s → make_slug (upper t) i = ok s` | Case does not matter. |
-| T9 | `slug_idempotent` | `make_slug t i = ok s → make_slug s i = ok s` | Stretch goal. Cut if it costs more than a week. |
+| T7 | `slug_fallback` | `(∀ c ∈ t, c ∉ [A-Za-z0-9]) → make_slug t i = ok ("post-" ++ decimal i)` | A title with no ASCII letters or digits gets `post-<id>`. `decimal i` is `Nat.toDigits 10 i` as ASCII bytes. |
+| T8 | `slug_lower` | `make_slug (upper t) i = make_slug t i` | Case does not matter. `upper` changes `a-z` to `A-Z` and keeps all other bytes. |
+| T9 | `slug_idempotent` | `make_slug t i = ok s → make_slug s i = ok s` | The slug of a slug is the same slug. |
 | T10 | `media_key_spec` | `media_key_ok k = ok b → (b ↔ k ∈ [0-9a-f]{64} "." ("png" ∣ "jpg" ∣ "webp" ∣ "gif"))` | Accepts exactly the keys that the server makes. Nothing that can leave the folder. |
 | T11 | `reading_spec` | `reading_minutes w = ok m → m = max 1 ⌈w / 220⌉` | Exact formula. |
 | T12 | `total_*` | For each function `f` and every input `x`: `∃ v, f x = ok v` | No panic, overflow, or out-of-bounds access, for any input. |
@@ -891,7 +891,7 @@ T12 turns every "if `ok`" above into "always".
 | T10 | Proved | `media_key_spec` (`keyShape`) |
 | T11 | Proved | `reading_spec` |
 | T12 | Proved for all five functions | the `⦃ ⦄` form of each theorem |
-| T6, T7, T8, T9 | Not yet proved. Property tests cover them (`slug.rs`). | — |
+| T6, T7, T8, T9 | Proved | `slug_plain`, `slug_fallback` (`decimal`), `slug_lower` (`upper`), `slug_idempotent` |
 
 `Logbook/Axioms.lean` makes the build fail if any proved theorem depends on an axiom other than `propext`, `Classical.choice`, and `Quot.sound`.
 
@@ -1050,11 +1050,9 @@ Each decision moves into `logbook-core` as a pure byte or integer function. The 
 | T16 | `authorize(access, session)` (from the route table and the `Owner` extractor) | Owner routes allow only a valid session. Public, Session and Auth routes never return 401. |
 | T17 | `session_valid`, `setup_token_usable` | A session is valid only before its expiry. A setup token works only if it is unused and not expired. Single use also relies on the atomic SQL update, which the proof does not cover. |
 
-Also: fix the `Slug.lean` header, which names T7 though no theorem states it.
+### 11.5 Remaining slug theorems [done]
 
-### 11.5 Remaining slug theorems [not started]
-
-T6 (a plain title is its own slug), T7 (no letters or digits gives `post-<id>`), T8 (case does not matter), T9 (idempotent). Property tests cover them today.
+T6, T7, T8 and T9 are proved in `proofs/Logbook/SlugExact.lean` (7.6). The property tests in `slug.rs` stay.
 
 ### 11.6 Content and small fixes [not started]
 
