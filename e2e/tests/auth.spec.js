@@ -54,7 +54,7 @@ test('setup link → passkey → sign out → sign in with the passkey', async (
 
 test('every page renders with no CSP violations or script errors', async ({ page }) => {
   const errors = watchErrors(page);
-  for (const path of ['/', '/topics/rust', '/posts/block-level-access-lists-and-parallel-execution', '/about', '/setup']) {
+  for (const path of ['/', '/topics/rust', '/posts/block-level-access-lists-and-parallel-execution', '/setup']) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
   }
@@ -80,4 +80,11 @@ test('the path router changes views without a full page load', async ({ page }) 
   await page.goBack();
   await expect(page).toHaveURL('/topics/rust');
   expect(await page.evaluate(() => window.__marker)).toBe('same-page');
+});
+
+test('the About page is gone: /about goes to the home page', async ({ page }) => {
+  await page.goto('/about');
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('section[data-view="home"]')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'About' })).toHaveCount(0);
 });

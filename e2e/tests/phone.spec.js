@@ -56,13 +56,14 @@ test.describe('phone', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
-  test('menu: keys 1 to 7, arrows, Esc, and the topic list', async ({ page }) => {
+  test('menu: keys 1 to 6, arrows, Esc, and the topic list', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
     await soft(page, 'right').tap();
     const label = shell(page).locator('[data-menu-label]');
     await expect(label).toHaveText('Posts');
     await expect(shell(page).locator('[data-menu-index]')).toHaveText('1');
+    await expect(shell(page).getByRole('button', { name: 'Open Posts, item 1 of 6' })).toBeVisible();
     await page.keyboard.press('ArrowRight');
     await expect(label).toHaveText('Topics');
     await page.keyboard.press('ArrowLeft');
@@ -76,9 +77,8 @@ test.describe('phone', () => {
       ['2', () => expect(shell(page).locator('[data-list-title]')).toHaveText('Topics')],
       ['3', () => expect(shell(page).locator('[data-text-title]')).toHaveText('Now')],
       ['4', () => expect(shell(page).locator('[data-read]')).toContainText('No NOAA data yet.')],
-      ['5', () => expect(page).toHaveURL('/about')],
-      ['6', () => expect(shell(page).getByRole('button', { name: /^Phone/ })).toHaveAttribute('aria-pressed', 'true')],
-      ['7', () => expect(shell(page).locator('[data-score]')).toBeVisible()],
+      ['5', () => expect(shell(page).getByRole('button', { name: /^Phone/ })).toHaveAttribute('aria-pressed', 'true')],
+      ['6', () => expect(shell(page).locator('[data-score]')).toBeVisible()],
     ];
     for (const [key, check] of opens) {
       await page.keyboard.press(key);
@@ -97,6 +97,11 @@ test.describe('phone', () => {
     await expect(shell(page).locator('[data-list] a')).toHaveCount(rust.length);
     await page.keyboard.press('Backspace');
     await expect(shell(page).locator('[data-list-title]')).toHaveText('Topics');
+
+    // The About page is gone. The old address goes to standby.
+    await page.goto('/about');
+    await expect(page).toHaveURL('/');
+    await expect(shell(page).locator('[data-screen="standby"]')).toBeVisible();
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
@@ -142,7 +147,7 @@ test.describe('phone', () => {
     const errors = watchErrors(page);
     await page.goto('/');
     await soft(page, 'right').tap();
-    await page.keyboard.press('7');
+    await page.keyboard.press('6');
     const status = shell(page).locator('[data-snake-status]');
     await expect(status).toHaveText('Score 0');
     // The snake starts right, towards the food in the same row.
@@ -174,7 +179,7 @@ test.describe('phone', () => {
     const errors = watchErrors(page);
     await page.goto('/');
     await soft(page, 'right').tap();
-    await page.keyboard.press('6');
+    await page.keyboard.press('5');
     await shell(page).getByRole('button', { name: /^General/ }).tap();
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'general');
     await expect(page.locator('.desktop')).toBeVisible();
@@ -191,7 +196,7 @@ test.describe('phone', () => {
     await expect(shell(page)).toBeVisible();
 
     await soft(page, 'right').tap();
-    await page.keyboard.press('6');
+    await page.keyboard.press('5');
     await shell(page).getByRole('button', { name: /^Night/ }).tap();
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'night');
     await expect(page.locator('dos-shell')).toBeVisible();
@@ -227,7 +232,7 @@ test.describe('phone', () => {
     }
     expect(await wide()).toBeLessThanOrEqual(0);
     await soft(page, 'right').tap();
-    for (const key of ['1', '2', '3', '5', '6', '7']) {
+    for (const key of ['1', '2', '3', '5', '6']) {
       await page.keyboard.press(key);
       expect(await wide(), `menu item ${key}`).toBeLessThanOrEqual(0);
       await page.keyboard.press('Escape');

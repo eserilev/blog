@@ -146,7 +146,6 @@ const ROUTES = [
   [/^\/$/, 'home'],
   [/^\/topics\/([a-z0-9-]+)$/, 'home'],
   [/^\/posts\/([a-z0-9-]+)$/, 'post'],
-  [/^\/about$/, 'about'],
   [/^\/setup$/, 'setup'],
   [/^\/write(?:\/(\d+))?$/, 'write'],
 ];
@@ -190,6 +189,8 @@ customElements.define('blog-app', class extends HTMLElement {
     this.render(true);
   }
   render(scroll) {
+    // The About page is gone. Old links go to the home page.
+    if (location.pathname === '/about') history.replaceState(null, '', '/');
     const route = matchRoute(location.pathname);
     this.querySelectorAll('[data-view]').forEach(s => { s.hidden = s.dataset.view !== route.view; });
     this.querySelectorAll('[data-nav]').forEach(b => b.toggleAttribute('aria-current', b.dataset.nav === route.view));
@@ -669,7 +670,7 @@ const isNight = () => Mode.current === 'night';
 /* 8.3 file names: the slug in capitals, with no hyphens, 8 characters. A clash
    gets ~1, ~2 in published order, so the name of an older post never changes. */
 const dosNames = posts => {
-  const used = new Set(['ABOUT']);
+  const used = new Set();
   const names = new Map();
   const oldest = [...posts].sort((a, b) => String(a.published_at).localeCompare(String(b.published_at)));
   for (const p of oldest) {
@@ -707,8 +708,8 @@ const DOS_HELP_PHONE = [['MOBILE', 'switch to the phone view']];
 
 /* <dos-shell>: the MS-DOS mode terminal (spec 11.1). Commands print lines with textContent.
    Only server-sanitized body_html goes into innerHTML (TYPE and NOW).
-   The router drives it too: /posts/{slug} runs TYPE, /about runs TYPE ABOUT.TXT,
-   and /topics/{t} runs DIR <topic>. So Back and shared links work. */
+   The router drives it too: /posts/{slug} runs TYPE, and /topics/{t} runs DIR <topic>.
+   So Back and shared links work. */
 customElements.define('dos-shell', class extends HTMLElement {
   connectedCallback() {
     this.app = this.closest('blog-app');
@@ -775,7 +776,7 @@ customElements.define('dos-shell', class extends HTMLElement {
   /* The terminal starts empty. The input gets the focus only with a mouse, so a
      phone keyboard does not cover the screen on load. */
   focusStart() {
-    if (!['post', 'about'].includes(this.app.route?.view) && matchMedia('(pointer: fine)').matches) this.input.focus({ preventScroll: true });
+    if (this.app.route?.view !== 'post' && matchMedia('(pointer: fine)').matches) this.input.focus({ preventScroll: true });
     else this.querySelector('.dos-screen').focus({ preventScroll: true });
   }
 
@@ -793,7 +794,6 @@ customElements.define('dos-shell', class extends HTMLElement {
       this.out.append(...this.screens.get(r.path));
       this.screens.delete(r.path);
     } else if (r.view === 'post') this.typePost(r.param);
-    else if (r.view === 'about') this.typeAbout();
     else if (r.view === 'home' && r.param) this.dirTopic(r.param);
     else if (r.view === 'missing') {
       const box = this.entry();
@@ -906,22 +906,17 @@ customElements.define('dos-shell', class extends HTMLElement {
     box.append(row);
   }
 
-  aboutText() { return document.querySelector('section[data-view="about"] .prose'); }
-
   async dir(box) {
     const d = await this.posts();
     if (!d) { this.say(box, 'Could not load the posts. Try again later.'); return; }
     this.say(box, ' Volume in drive C is LOGBOOK');
     this.say(box, ' Directory of C:\\LOGBOOK');
     this.say(box, '');
-    const words = (this.aboutText().textContent.match(/\S+/g) || []).length;
-    this.row(box, 'ABOUT', words, '', '/about', 'about');
     for (const p of d.list) this.row(box, d.names.get(p.slug), p.word_count, dosDate(p.published_at), `/posts/${p.slug}`, p.slug);
-    this.rows = ['about', ...d.list.map(p => p.slug)];
-    this.say(box, `${d.list.length + 1} file(s)`, 'sum');
+    this.rows = d.list.map(p => p.slug);
+    this.say(box, `${d.list.length} file(s)`, 'sum');
     this.say(box, '');
-    const first = d.list.length ? `${d.names.get(d.list[0].slug)}.TXT` : 'ABOUT.TXT';
-    this.say(box, `To read a file, type TYPE and the file name. Example: TYPE ${first}`, 'dim');
+    if (d.list.length) this.say(box, `To read a file, type TYPE and the file name. Example: TYPE ${d.names.get(d.list[0].slug)}.TXT`, 'dim');
   }
 
   /* DIR <topic>: goes to /topics/{t}, and the router prints the list. */
@@ -950,13 +945,11 @@ customElements.define('dos-shell', class extends HTMLElement {
   async type(box, arg) {
     if (!arg) { this.say(box, 'Required parameter missing'); return; }
     const name = arg.replace(/\.TXT$/, '');
-    if (name === 'ABOUT') { this.app.go('/about'); return; }
     const d = await this.posts();
     let slug = null;
-    if (d && /^\d+$/.test(name)) slug = (this.rows || ['about', ...d.list.map(p => p.slug)])[Number(name) - 1] || null;
+    if (d && /^\d+$/.test(name)) slug = (this.rows || d.list.map(p => p.slug))[Number(name) - 1] || null;
     else if (d) slug = d.list.map(p => p.slug).find(s => d.names.get(s) === name || s.toUpperCase() === name) || null;
-    if (slug === 'about') this.app.go('/about');
-    else if (slug) this.app.go(`/posts/${slug}`);
+    if (slug) this.app.go(`/posts/${slug}`);
     else this.say(box, `File not found - ${arg}`);
   }
 
@@ -991,15 +984,6 @@ customElements.define('dos-shell', class extends HTMLElement {
     // body_html is rendered and sanitized on the server (spec 6.7).
     body.innerHTML = post.body_html;
     this.show(box, file, post.title, `${fmtDate(post.published_at)} · ${post.reading_minutes} min read · ${post.topic_name}`, body);
-  }
-
-  /* ABOUT.TXT is the About section of the page, copied as it is. */
-  typeAbout() {
-    const box = this.entry();
-    this.echo(box, 'TYPE ABOUT.TXT');
-    const body = document.createElement('div');
-    body.append(...[...this.aboutText().childNodes].map(n => n.cloneNode(true)));
-    this.show(box, 'ABOUT.TXT', document.querySelector('section[data-view="about"] h1').textContent, '', body);
   }
 
   async now(box) {
