@@ -21,20 +21,18 @@ Do these steps in this order.
 3. In that project, make the bucket `logbook`. Turn on versioning and object lock (governance, 35 days) at creation. Object lock cannot be added later.
 4. Add a lifecycle rule: expire noncurrent versions after 40 days.
 5. Make an S3 key pair in the blog project.
-6. GitHub: make the public repo `eserilev/logbook-posts` with a `master` branch.
-7. Make an SSH key pair for the export. Add the public key to `logbook-posts` as a deploy key with write access.
-8. Point the domain (A record) at the VPS IP.
-9. Fill `.env.example` and `prod.env.example` with real values. Put `EXPORT_DEPLOY_KEY` as the base64 of the private key (`base64 -w0`).
-10. Store both texts in a password manager. `PROD_ENV` plus the bucket is the whole blog.
-11. GitHub, blog repo: make the Environment `production`. Allow only the `master` branch.
-12. In that Environment, add the secrets `STACK_ENV`, `PROD_ENV`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and `VPS_FINGERPRINT`. The `VPS_*` values are the same as in sandcastle.
-13. Optional: make a check at healthchecks.io with a 1-day period. Put its URL in `HEALTHCHECK_URL`.
-14. After the first deploy: add the repo variable `DEPLOY_ENABLED=true`. Without it, a push to `master` does not deploy.
+6. Point `unclebill.blog` (A record) at the VPS IP.
+7. Fill `.env.example` and `prod.env.example` with real values.
+8. Store both texts in a password manager. `PROD_ENV` plus the bucket is the whole blog.
+9. GitHub, blog repo: make the Environment `production`. Allow only the `master` branch. (Done.)
+10. In that Environment, add the secrets `STACK_ENV`, `PROD_ENV`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, and `VPS_FINGERPRINT`. The `VPS_*` values are the same as in sandcastle.
+11. Optional: make a check at healthchecks.io with a 1-day period. Put its URL in `HEALTHCHECK_URL`.
+12. After the first deploy: add the repo variable `DEPLOY_ENABLED=true`. Without it, a push to `master` does not deploy.
 
 ## First deploy
 
 1. Actions → **deploy** → Run workflow. Leave the SHA empty. Turn on `allow_empty_start`.
-2. When the job is green, open `https://<DOMAIN>`.
+2. When the job is green, open `https://unclebill.blog`.
 3. On the VPS, make a setup link:
 
    ```sh
