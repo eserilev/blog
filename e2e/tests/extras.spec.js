@@ -19,14 +19,16 @@ test('the owner edits the Now box; guests see it', async ({ page, browser }) => 
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
-test('the visitor counter shows seven digits that count page loads', async ({ page }) => {
+test('the visitor counter shows seven digits and counts a visitor once per day', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#lcd b')).toHaveCount(7);
   const read = async () => Number((await page.locator('#lcd').innerText()).replace(/\D/g, ''));
   await expect.poll(read).toBeGreaterThan(0);
   const before = await read();
+  // A refresh is the same visitor: the count stays.
   await page.reload();
-  await expect.poll(read).toBeGreaterThan(before);
+  await expect(page.locator('#lcd b')).toHaveCount(7);
+  await expect.poll(read).toBe(before);
 });
 
 test('the RSS link opens the feed, not a page view', async ({ page }) => {
