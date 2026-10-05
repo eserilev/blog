@@ -941,6 +941,9 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 - Export to the code repo, on a branch (6.10).
 - Private posts in a public export, encrypted (key leak risk, metadata leak).
 - Open-Meteo for the surf report. NOAA covers the one spot, with real buoy data.
+- A dark Win98 theme (2026-10-05). Dark gray bevels look wrong: nobody saw Windows 98 that way. Dark mode is MS-DOS mode instead (11.1).
+- A banner and auto-run commands in MS-DOS mode. The owner wants an empty prompt (11.1).
+- Fira Code in MS-DOS mode. Its ligatures are not DOS.
 
 ## 10. Open questions
 
@@ -950,7 +953,92 @@ Nightly: fuzz matrix (30 min per target), full mutants, `cargo deny` with fresh 
 4. Logo: keep the "E" with waves?
 5. RSS: keep?
 6. ~~Webring.~~ Removed (2026-10-05).
-7. Counter: real or fixed?
+7. ~~Counter: real or fixed?~~ Real: unique visitors per day (4.8, PR #17).
 8. About page content.
 9. ~~Domain.~~ `unclebill.blog` (2026-10-04).
 10. Words per minute: 220?
+11. The exact MS-DOS font (IBM VGA 8×16, "Px437", CC BY-SA) instead of IBM Plex Mono for MS-DOS mode? It must be self-hosted.
+12. A `www.unclebill.blog` redirect? Today only `unclebill.blog` has a certificate.
+
+## 11. Planned work
+
+Work that was discussed and decided, but not built yet. Each item names its state. Designs: the "Logbook Designs" canvas (artboards: Home with the Dark mode button, MS-DOS mode, Write in DOS EDIT, Start menu). The design files use inline styles and Google Fonts. The build must not copy those (CSP, 6.9).
+
+### 11.1 Dark mode = MS-DOS mode (PR 1) [in progress, paused]
+
+Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Partial work is on branch `dos-mode` (not pushed): `mode.js`, the font files, `<dos-shell>`, and a browser test file.
+
+- **Toggle.** A toolbar button "Dark mode" with a black `C:\` icon, after Print. Accessible name: "Dark mode (MS-DOS)". It is a `<button>`.
+- **First visit** is always Win98, whatever the OS dark setting. The choice persists in `localStorage` (`logbook.mode` = `dos`), in try/catch. No cookie: public responses never change per visitor.
+- **No flash.** `static/js/mode.js` is a blocking `<script src>` in `<head>`. It sets `<html data-mode="dos">` before the page paints.
+- **Screen.** Black, full width, text from the top-left corner (real DOS was never centered). Gray top bar: `LOGBOOK.EXE`, the host, a real clock. Text white `#f0f0f0`, headings `#ffffff`, dim text at least `#8a8a8a` (4.5:1). Faint scanlines and glow, off under `prefers-contrast: more`.
+- **Font.** IBM Plex Mono 400/600, self-hosted, with `OFL-IBMPlexMono.txt`. No Google Fonts.
+- **Start state.** Empty: only the prompt `C:\LOGBOOK>` and one dim hint line, "Type HELP for a list of commands. Type WIN to go back to Windows." No banner, no auto-run.
+- **Commands** (case-insensitive):
+
+  | Command | Result | Source |
+  |---|---|---|
+  | `HELP` | The command list. DIR is "list files". SURF is "get the swell report for Redondo Beach". | local |
+  | `DIR` | Public posts as DOS files: an 8.3 name from the slug (`~1`, `~2` on a clash, in published order), `TXT`, word count as size, date, and the slug as a long-name link to `/posts/{slug}`. Then a dim hint: "To read a file, type TYPE and the file name. Example: TYPE <first file>". Grid rows, not padded spaces. | `/api/posts` |
+  | `TYPE <file>` | The title, then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. `TYPE ABOUT.TXT` prints the real About text. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
+  | `NOW` | The Now box, or "Nothing here yet." | `/api/now` |
+  | `SURF` | Swell, period, wind, water, next tides, stale marks, NOAA attribution. | `/api/surf` |
+  | `VER` | `Logbook DOS Version 6.22` | local |
+  | `CLS` | Clear the screen. | local |
+  | `WIN`, `EXIT` | Back to Win98 (light mode). | local |
+  | `LOGIN`, `LOGOUT` | Passkey sign-in and sign-out. Owners have no footer link in DOS mode. | `Auth.*` |
+  | other | `Bad command or file name` | local |
+
+- **Safety.** Only `body_html` (sanitized by the server) goes into `innerHTML`. All other text uses `textContent`. Scrollback is capped at about 500 lines.
+- **F-key bar.** Norton Commander style (white number, black label on cyan `#00aaaa`): F1 Help, F2 Dir, F3 About, F4 Now, F5 Surf, F9 Cls, F10 Win. Sticky at the bottom of a `100dvh` layout, with `env(safe-area-inset-bottom)`. Keyboard F-keys work only while focus is in the terminal. Below 520 px: 4 columns, 2 rows, 44 px keys.
+- **Phones.** The prompt row is a 44 px tap target. Input attributes: `autocomplete="off" autocapitalize="characters" spellcheck="false" autocorrect="off" enterkeyhint="go"`. Autofocus only with `(pointer: fine)`. DIR hides the size and date columns on narrow screens.
+- **History.** Up and Down recall earlier commands.
+- **Router.** In DOS mode, `/posts/{slug}` runs CLS then TYPE, `/about` runs `TYPE ABOUT.TXT`, and `/topics/{t}` lists that topic. TYPE calls `app.go('/posts/…')`, so Back and shared links work. Tab titles stay as today.
+- **Screen readers.** Output is `role="log"`. A long TYPE announces a short line ("Showing BLOCKACC.TXT") and moves focus to the title.
+- **Tests.** Toggle and reload, DIR then TYPE, a deep link, Back, WIN, a 390 px layout, keyboard-only use, no CSP errors.
+
+### 11.2 DOS EDIT for the owner (PR 2, after 11.1) [not started]
+
+In DOS mode, `/write` looks like MS-DOS EDIT. It is a CSS skin on the existing editor, not a second editor. It reuses `<md-editor>`, `<post-files>`, the WASM preview, `Posts.*`, and the settings, topics and passkeys code.
+
+- Blue `#0000aa` screen, gray `#aaaaaa` menu bar, white text, double borders, gray dialogs with a hard black shadow, IBM Plex Mono. No `#aa0000` text on gray (contrast).
+- Every current control stays: title, summary, topic, tags, body, state radios, Save, Publish, two-click Delete, the image button and paste, the `*` unsaved marker, Ctrl+S, export, passkeys, site settings, topics.
+- F-key bar: F1 Help, F2 Save, F3 Publish (applies the selected state), F5 Open, F6 Site, F7 Topics, F8 Now (the Now box editor, because the DOS home page has no Now box), F10 Exit to `/`.
+- Panels (files, settings, topics, passkeys, now) open one at a time as a native `<dialog>` with `showModal()`: focus trap, Escape, focus return.
+- The preview `.prose` uses DOS colors.
+- Tests in DOS mode: open, save, a 409 from a second tab, an upload, a state change, dialogs with Escape.
+
+### 11.3 Start menu toggle [later]
+
+A Win98 Start menu: Home, Latest post, Topics, About, then Shut Down…. The Shut Down dialog offers "Stay in Windows (light mode)" and "Restart in MS-DOS mode (dark mode)". Build it after 11.1. The toolbar button stays the main toggle.
+
+### 11.4 Security proofs T13–T17 [not started]
+
+Each decision moves into `logbook-core` as a pure byte or integer function. The server calls it for the real decision, so the proof covers production code.
+
+| # | Function | Statement |
+|---|---|---|
+| T13 | CSRF decision (from `guard::csrf`) | A write (`POST`, `PUT`, `DELETE`) without the site `Origin` is always refused. A write with a body is allowed only as `application/json`, or as `multipart/form-data` on `/api/owner/uploads`. Reads are always allowed. |
+| T14 | `escape_html` (from `head::escape`) | The output has no `<`, `>`, `"` or `'`. Every `&` starts one of the five entities. Un-escaping gives back the input. |
+| T15 | Client IP selection (from `guard::client_ip`) | An untrusted peer is the result, and the header is ignored. A trusted peer gives the rightmost untrusted hop, or the peer. A visitor cannot pick the IP. |
+| T16 | `authorize(access, session)` (from the route table and the `Owner` extractor) | Owner routes allow only a valid session. Public, Session and Auth routes never return 401. |
+| T17 | `session_valid`, `setup_token_usable` | A session is valid only before its expiry. A setup token works only if it is unused and not expired. Single use also relies on the atomic SQL update, which the proof does not cover. |
+
+Also: fix the `Slug.lean` header, which names T7 though no theorem states it.
+
+### 11.5 Remaining slug theorems [not started]
+
+T6 (a plain title is its own slug), T7 (no letters or digits gives `post-<id>`), T8 (case does not matter), T9 (idempotent). Property tests cover them today.
+
+### 11.6 Content and small fixes [not started]
+
+- The GitHub, X and Discord links in the sidebar point to `#home`. Replace them with the real profile URLs (open question 1).
+- The footer says "Last updated October 1, 2026", a fixed string. Show the date of the newest public post, or remove it.
+- GitHub-style callouts (`> [!NOTE]`) render as plain blockquotes with the literal text. Add support (comrak alerts plus the sanitizer allow-list), or keep `> **Note:**`.
+
+### 11.7 Operations [not started]
+
+- **Recovery drill** (build step 8, 6.12): restore to a test VPS with `RESTORE_ONLY=1`, then check posts, images and passkey sign-in.
+- **Mutation testing** (7.8): `cargo-mutants --in-diff` in CI, and a full run nightly.
+- **Nightly workflow** (7.9): long fuzz runs, full mutants, fresh `cargo deny` advisories. A failure opens an issue.
+- **Restore test speed**: cache the dependency build in the Docker image (cargo-chef), so the restore job takes less than 4 minutes.
