@@ -10,11 +10,13 @@ pub mod feed;
 pub mod guard;
 pub mod head;
 pub mod headers;
+pub mod media;
 pub mod now;
 pub mod pages;
 pub mod posts;
 pub mod routes;
 pub mod seed;
+pub mod surf;
 pub mod topic;
 
 use std::{sync::Arc, time::Duration};
@@ -45,6 +47,10 @@ pub struct AppState {
     pub counter: Arc<counter::Counter>,
     /// Wakes the git export after a change to a public post. `None` without `EXPORT_REPO`.
     pub export_changed: Option<Arc<Notify>>,
+    /// Image storage.
+    pub media: media::Media,
+    /// The latest surf data, if any.
+    pub surf: Arc<tokio::sync::RwLock<Option<surf::Surf>>>,
 }
 
 impl AppState {
@@ -90,8 +96,53 @@ impl AppState {
             trusted_proxies: config.trusted_proxies.clone().into(),
             counter: Arc::new(counter::Counter::default()),
             export_changed: config.git_export.as_ref().map(|_| Arc::new(Notify::new())),
+            media: media_store(config)?,
+            surf: Arc::default(),
         })
     }
+}
+
+/// The image store: the bucket if configured, else a local folder.
+///
+/// # Errors
+///
+/// Fails if the bucket settings are invalid or the folder cannot be made.
+pub fn media_store(config: &Config) -> Result<media::Media, String> {
+    use object_store::{aws::AmazonS3Builder, local::LocalFileSystem};
+    let Some(s3) = &config.s3 else {
+        std::fs::create_dir_all(&config.media_dir)
+            .map_err(|e| format!("cannot make {}: {e}", config.media_dir.display()))?;
+        let store =
+            LocalFileSystem::new_with_prefix(&config.media_dir).map_err(|e| e.to_string())?;
+        return Ok(media::Media {
+            store: Arc::new(store),
+            cache: None,
+        });
+    };
+    // Virtual-host style puts the bucket in the host name (Hetzner needs this).
+    let endpoint = if s3.path_style {
+        s3.endpoint.clone()
+    } else {
+        let (scheme, host) = s3
+            .endpoint
+            .split_once("://")
+            .ok_or("S3_ENDPOINT needs a scheme")?;
+        format!("{scheme}://{}.{host}", s3.bucket)
+    };
+    let store = AmazonS3Builder::new()
+        .with_endpoint(endpoint)
+        .with_bucket_name(&s3.bucket)
+        .with_access_key_id(&s3.access_key)
+        .with_secret_access_key(&s3.secret_key)
+        .with_region(&s3.region)
+        .with_virtual_hosted_style_request(!s3.path_style)
+        .with_allow_http(s3.endpoint.starts_with("http://"))
+        .build()
+        .map_err(|e| format!("bad S3 settings: {e}"))?;
+    Ok(media::Media {
+        store: Arc::new(store),
+        cache: Some(config.media_cache.clone()),
+    })
 }
 
 /// Builds the full app: the route table, static files, the 404 fallback, and the

@@ -217,7 +217,11 @@ Rules:
 - Each readout shows its own observation time. A readout older than 3 h is grayed out with "stale".
 - If one source fails, the others still show.
 - Attribution line: "Data: NOAA NDBC, NWS, CO-OPS".
-- Rating: a fixed rule on swell height, period, and wind direction (offshore is good). Thresholds in `surf.rs`, with unit tests.
+- Rating, in `surf.rs` with unit tests: swell under 1 ft → "Flat."; onshore wind of 12 kt or more → "Blown out."; under 2 ft → "Small."; period of 12 s or more with offshore or light (< 6 kt) wind → "Good."; else "Fair."
+- Offshore for Redondo = wind from 30° to 150° (the land side).
+- Tides: `begin_date` = yesterday (UTC), `range=72`. (`range` alone counts back from now, not ahead.)
+- A failed source keeps its last good value. `LOGBOOK_SURF=off` turns the fetch off (tests).
+- Parser tests use real responses saved in `tests/fixtures/noaa/`, including a station report with `null` wind.
 
 ### 4.6 Owner access
 
@@ -462,10 +466,12 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
 - Max 10 MB.
 - Allowed: PNG, JPEG, WebP, GIF. Checked by magic bytes, not by name or header.
 - **No SVG.** Same-origin SVG is stored XSS.
-- The server decodes and re-encodes each image. This removes EXIF (GPS) and other metadata.
+- The server decodes and re-encodes each image. This removes EXIF (GPS) and other metadata. Limits: 8000 × 8000 pixels, 256 MB for decoding. An animated GIF keeps only its first frame.
 - Key = `<sha256 hex>.<ext>`, made by the server. Stored in the bucket under `uploads/`.
 - `/media/{key}`: key checked by `media_key_ok` (7.6). Fixed `Content-Type` from the extension. `X-Content-Type-Options: nosniff`. Long cache.
-- Local disk cache: max 1 GB, least recently used goes first.
+- Local disk cache (bucket only): max 1 GB; above that, the oldest files go until it is under 90 %.
+- Without `S3_BUCKET`, images go to a local folder (`LOGBOOK_MEDIA_DIR`), for development and tests.
+- The editor inserts `![](/media/<key>)` from the IMG button or a pasted image. The exports carry the images: the zip has all of them, the git export only the ones that public posts use.
 
 ### 6.9 HTTP headers
 
@@ -573,6 +579,7 @@ S3_SECRET_KEY=...
 EXPORT_REPO=git@github.com:eserilev/logbook-posts.git
 EXPORT_DEPLOY_KEY=...        # base64
 NWS_USER_AGENT=logbook (<contact email>)
+S3_FORCE_PATH_STYLE=false   # Hetzner: virtual-host style; the bucket goes into the endpoint host
 HEALTHCHECK_URL=...
 # ALLOW_EMPTY_START=1        # first deploy only (6.12)
 # RESTORE_ONLY=1             # drills only (6.12)

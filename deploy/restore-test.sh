@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Restore test (spec 7.7). Proves the recovery path on every PR:
-#   1. Start empty (ALLOW_EMPTY_START=1) and write posts in all states and a passkey.
+#   1. Start empty (ALLOW_EMPTY_START=1) and write posts in all states, a passkey, and an image.
 #   2. Delete the container and its volume. The bucket is all that is left.
 #   3. Start a new container without the flag. Everything must come back.
 #   4. An empty bucket without the flag must make the container refuse to start.
@@ -41,6 +41,16 @@ docker compose exec -T app logbook seed-sample >/dev/null
 # A passkey row, so the test proves that sign-in data survives a restore too.
 db_query "INSERT INTO passkeys (id, passkey, label, created_at) VALUES (x'0102', '{\"test\":true}', 'Restore test', '2026-01-01T00:00:00Z')"
 before_keys=$(db_query "SELECT hex(id), passkey, label FROM passkeys ORDER BY id")
+
+# An owner session (token hash in the DB) and an image upload to the bucket.
+token=restore-test-token-$RANDOM$RANDOM
+token_hash=$(printf '%s' "$token" | sha256sum | cut -c1-64)
+db_query "INSERT INTO sessions (token_hash, created_at, expires_at) VALUES (x'$token_hash', '2026-01-01T00:00:00Z', '2999-01-01T00:00:00Z')"
+echo 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==' | base64 -d > /tmp/restore-test.png
+upload=$(curl -fs -X POST "$URL/api/owner/uploads" -H "Origin: http://localhost:18090" -H "Cookie: logbook_session=$token" -F "file=@/tmp/restore-test.png;type=image/png") || fail "image upload failed"
+media_key=$(echo "$upload" | sed -n 's/.*"key":"\([0-9a-f]*\.png\)".*/\1/p')
+[ -n "$media_key" ] || fail "no media key in: $upload"
+media_before=$(curl -fs "$URL/media/$media_key" | sha256sum)
 before_api=$(curl -fs "$URL/api/posts")
 before_rows=$(db_query "SELECT id, slug, state, version, body_md FROM posts ORDER BY id")
 [ "$(db_query "SELECT COUNT(*) FROM posts WHERE state != 'public'")" -ge 2 ] || fail "seed has no hidden posts"
@@ -61,6 +71,7 @@ after_rows=$(db_query "SELECT id, slug, state, version, body_md FROM posts ORDER
 [ "$before_rows" = "$after_rows" ] || fail "the posts table differs after restore (drafts and private posts included)"
 [ "$before_keys" = "$(db_query "SELECT hex(id), passkey, label FROM passkeys ORDER BY id")" ] || fail "passkeys differ after restore"
 [ "$(db_query "PRAGMA integrity_check")" = "ok" ] || fail "integrity check"
+[ "$(curl -fs "$URL/media/$media_key" | sha256sum)" = "$media_before" ] || fail "the image did not come back from the bucket"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/posts/epbs-from-a-clients-perspective")
 [ "$code" = "404" ] || fail "a draft is visible after restore (HTTP $code)"
 docker compose logs --no-color app | grep -q "starting with a new database" && fail "second start created a new database"

@@ -406,6 +406,14 @@ customElements.define('md-editor', class extends HTMLElement {
       ta.focus();
       ta.dispatchEvent(new Event('input'));
     }));
+    // Images: the IMG button, or paste an image into the text.
+    const file = $('[data-image-file]');
+    $('[data-image]').addEventListener('click', () => file.click());
+    file.addEventListener('change', () => { if (file.files[0]) this.upload(file.files[0]); file.value = ''; });
+    this.ta.addEventListener('paste', e => {
+      const img = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+      if (img) { e.preventDefault(); this.upload(img); }
+    });
     $('[data-save]').addEventListener('click', () => this.save());
     $('[data-publish]').addEventListener('click', () => this.publish());
     const del = $('[data-delete]');
@@ -491,6 +499,23 @@ customElements.define('md-editor', class extends HTMLElement {
     }
   }
 
+  /* Uploads an image and inserts its markdown at the cursor (spec 6.8). */
+  async upload(f) {
+    this.say('Uploading image...');
+    const form = new FormData();
+    form.append('file', f);
+    try {
+      const res = await fetch('/api/owner/uploads', { method: 'POST', body: form, credentials: 'same-origin' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      this.ta.setRangeText(`\n${data.markdown}\n`, this.ta.selectionStart, this.ta.selectionEnd, 'end');
+      this.ta.dispatchEvent(new Event('input'));
+      this.say('Image added.');
+    } catch (e) {
+      this.say(`Could not upload the image. ${e.message}`, true);
+    }
+  }
+
   async save() {
     if (!this.post) return false;
     try {
@@ -539,6 +564,77 @@ customElements.define('md-editor', class extends HTMLElement {
       this.closest('blog-app').go('/write');
     } catch (e) {
       this.failed(e, 'delete');
+    }
+  }
+});
+
+/* <surf-report>: NOAA data from /api/surf (spec 4.5). Readouts older than 3 h are
+   marked stale. The tide curve is a cosine between the predicted highs and lows. */
+customElements.define('surf-report', class extends HTMLElement {
+  connectedCallback() {
+    this.load();
+    setInterval(() => this.load(), 10 * 60 * 1000);
+  }
+  async load() {
+    let data;
+    try { data = await (await fetch('/api/surf')).json(); } catch { data = { available: false }; }
+    const rating = this.querySelector('[data-rating]');
+    if (!data.available) { rating.textContent = 'No NOAA data yet.'; return; }
+    const s = data.surf;
+    const stale = iso => !iso || Date.now() - new Date(iso).getTime() > 3 * 3600e3;
+    const set = (name, value, iso, unit) => {
+      const row = this.querySelector(`[data-r="${name}"]`);
+      row.querySelector('[data-v]').textContent = value ?? '--';
+      if (unit !== undefined) row.querySelector('[data-u]').textContent = unit;
+      row.classList.toggle('stale', value != null && stale(iso));
+    };
+    set('swell', s.swell ? s.swell.height_ft.toFixed(1) : null, s.swell?.observed_at);
+    set('period', s.swell ? Math.round(s.swell.period_s) : null, s.swell?.observed_at);
+    set('wind', s.wind ? Math.round(s.wind.speed_kt) : null, s.wind?.observed_at, s.wind ? `kt ${s.wind.direction}${s.wind.offshore ? ' off' : ''}` : 'kt');
+    set('water', s.waves?.water_c != null ? Math.round(s.waves.water_c * 9 / 5 + 32) : null, s.waves?.observed_at);
+    rating.textContent = s.rating || '';
+    this.drawTides(s.tides || []);
+  }
+  drawTides(tides) {
+    const svg = this.querySelector('[data-tide]');
+    const legend = this.querySelector('[data-tide-legend]');
+    const NS = 'http://www.w3.org/2000/svg';
+    svg.replaceChildren();
+    if (tides.length < 2) return;
+    // NOAA local times ("YYYY-MM-DD HH:MM") as minutes; plot the next 24 h.
+    const t = tides.map(p => ({ ...p, m: new Date(p.time.replace(' ', 'T')).getTime() / 6e4 }));
+    const now = Date.now() / 6e4, end = now + 24 * 60;
+    const hs = t.map(p => p.height_ft), lo = Math.min(...hs) - 0.5, hi = Math.max(...hs) + 0.5;
+    const x = m => ((m - now) / (end - now)) * 240, y = h => 52 - ((h - lo) / (hi - lo)) * 48;
+    const pts = [];
+    for (let m = now; m <= end; m += 10) {
+      const i = t.findIndex(p => p.m > m);
+      if (i <= 0) continue;
+      const a = t[i - 1], b = t[i], f = (m - a.m) / (b.m - a.m);
+      const h = a.height_ft + (b.height_ft - a.height_ft) * (1 - Math.cos(Math.PI * f)) / 2;
+      pts.push(`${x(m).toFixed(1)},${y(h).toFixed(1)}`);
+    }
+    const path = document.createElementNS(NS, 'polyline');
+    path.setAttribute('points', pts.join(' '));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#000060');
+    path.setAttribute('stroke-width', '2');
+    svg.append(path);
+    const next = t.filter(p => p.m > now);
+    const label = p => p ? `${p.kind === 'H' ? 'High' : 'Low'} ${new Date(p.m * 6e4).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${p.height_ft.toFixed(1)} ft` : '';
+    legend.children[0].textContent = label(next[0]);
+    legend.children[1].textContent = label(next[1]);
+    svg.setAttribute('aria-label', `Tide chart, approximate: ${label(next[0])}, then ${label(next[1])}`);
+    for (const p of next.slice(0, 4)) {
+      if (p.m > end) break;
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', x(p.m).toFixed(1));
+      c.setAttribute('cy', y(p.height_ft).toFixed(1));
+      c.setAttribute('r', '3');
+      c.setAttribute('fill', '#ffffff');
+      c.setAttribute('stroke', '#000060');
+      c.setAttribute('stroke-width', '2');
+      svg.append(c);
     }
   }
 });

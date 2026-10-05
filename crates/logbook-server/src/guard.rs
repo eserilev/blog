@@ -59,7 +59,13 @@ pub async fn csrf(State(s): State<AppState>, req: Request, next: Next) -> Respon
                 .next()
                 .is_some_and(|t| t.trim().eq_ignore_ascii_case("application/json"))
         });
-    if has_body && !json {
+    let multipart_upload = req.uri().path() == "/api/owner/uploads"
+        && req
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.to_ascii_lowercase().starts_with("multipart/form-data"));
+    if has_body && !json && !multipart_upload {
         return forbidden("writes must be application/json");
     }
     next.run(req).await
