@@ -3,10 +3,14 @@
 pub mod auth;
 pub mod checks;
 pub mod config;
+pub mod counter;
 pub mod db;
+pub mod export;
+pub mod feed;
 pub mod guard;
 pub mod head;
 pub mod headers;
+pub mod now;
 pub mod pages;
 pub mod posts;
 pub mod routes;
@@ -18,6 +22,7 @@ use std::{sync::Arc, time::Duration};
 use axum::Router;
 use ipnet::IpNet;
 use sqlx::SqlitePool;
+use tokio::sync::Notify;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
 pub use config::Config;
@@ -36,6 +41,19 @@ pub struct AppState {
     pub auth_limiter: Arc<guard::RateLimiter>,
     /// Proxies whose `X-Forwarded-For` header counts.
     pub trusted_proxies: Arc<[IpNet]>,
+    /// Page loads not yet flushed.
+    pub counter: Arc<counter::Counter>,
+    /// Wakes the git export after a change to a public post. `None` without `EXPORT_REPO`.
+    pub export_changed: Option<Arc<Notify>>,
+}
+
+impl AppState {
+    /// Tells the git export that public content may have changed.
+    pub fn content_changed(&self) {
+        if let Some(n) = &self.export_changed {
+            n.notify_one();
+        }
+    }
 }
 
 impl AppState {
@@ -70,6 +88,8 @@ impl AppState {
                 Duration::from_mins(1),
             )),
             trusted_proxies: config.trusted_proxies.clone().into(),
+            counter: Arc::new(counter::Counter::default()),
+            export_changed: config.git_export.as_ref().map(|_| Arc::new(Notify::new())),
         })
     }
 }

@@ -11,7 +11,7 @@ use axum::{
 };
 use tower_http::set_header::SetResponseHeaderLayer;
 
-use crate::{AppState, auth, checks, guard, pages, posts};
+use crate::{AppState, auth, checks, counter, export, feed, guard, now, pages, posts};
 
 /// HTTP method of a route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +59,76 @@ pub enum Kind {
     SavePost,
     SetPostState,
     DeletePost,
+    ApiNow,
+    OwnerNow,
+    SaveNow,
+    Visitors,
+    Feed,
+    ExportZip,
+}
+
+/// Every route kind. The test `every_kind_is_routed` checks that each one is in
+/// [`ROUTES`]; `_all_kinds_listed` fails to compile when a new kind is missing here.
+pub const ALL_KINDS: &[Kind] = &[
+    Kind::Page,
+    Kind::PostPage,
+    Kind::TopicPage,
+    Kind::ApiPosts,
+    Kind::ApiPost,
+    Kind::ApiTopic,
+    Kind::Healthz,
+    Kind::Me,
+    Kind::RegisterStart,
+    Kind::RegisterFinish,
+    Kind::LoginStart,
+    Kind::LoginFinish,
+    Kind::Logout,
+    Kind::Passkeys,
+    Kind::DeletePasskey,
+    Kind::OwnerPosts,
+    Kind::OwnerPost,
+    Kind::CreatePost,
+    Kind::SavePost,
+    Kind::SetPostState,
+    Kind::DeletePost,
+    Kind::ApiNow,
+    Kind::OwnerNow,
+    Kind::SaveNow,
+    Kind::Visitors,
+    Kind::Feed,
+    Kind::ExportZip,
+];
+
+const fn _all_kinds_listed(k: Kind) {
+    match k {
+        Kind::Page
+        | Kind::PostPage
+        | Kind::TopicPage
+        | Kind::ApiPosts
+        | Kind::ApiPost
+        | Kind::ApiTopic
+        | Kind::Healthz
+        | Kind::Me
+        | Kind::RegisterStart
+        | Kind::RegisterFinish
+        | Kind::LoginStart
+        | Kind::LoginFinish
+        | Kind::Logout
+        | Kind::Passkeys
+        | Kind::DeletePasskey
+        | Kind::OwnerPosts
+        | Kind::OwnerPost
+        | Kind::CreatePost
+        | Kind::SavePost
+        | Kind::SetPostState
+        | Kind::DeletePost
+        | Kind::ApiNow
+        | Kind::OwnerNow
+        | Kind::SaveNow
+        | Kind::Visitors
+        | Kind::Feed
+        | Kind::ExportZip => {}
+    }
 }
 
 /// One row of the route table.
@@ -182,6 +252,17 @@ pub const ROUTES: &[Route] = &[
         Access::Owner,
         Kind::SetPostState,
     ),
+    r(Verb::Get, "/api/now", Access::Public, Kind::ApiNow),
+    r(Verb::Get, "/api/owner/now", Access::Owner, Kind::OwnerNow),
+    r(Verb::Put, "/api/owner/now", Access::Owner, Kind::SaveNow),
+    r(Verb::Get, "/api/visitors", Access::Public, Kind::Visitors),
+    r(Verb::Get, "/feed.xml", Access::Public, Kind::Feed),
+    r(
+        Verb::Get,
+        "/api/owner/export.zip",
+        Access::Owner,
+        Kind::ExportZip,
+    ),
 ];
 
 fn handler(kind: Kind) -> MethodRouter<AppState> {
@@ -207,6 +288,12 @@ fn handler(kind: Kind) -> MethodRouter<AppState> {
         Kind::SavePost => put(posts::owner_save),
         Kind::SetPostState => post(posts::owner_set_state),
         Kind::DeletePost => delete(posts::owner_delete),
+        Kind::ApiNow => get(now::api_now),
+        Kind::OwnerNow => get(now::owner_now),
+        Kind::SaveNow => put(now::save_now),
+        Kind::Visitors => get(counter::api_visitors),
+        Kind::Feed => get(feed::feed),
+        Kind::ExportZip => get(export::owner_zip),
     }
 }
 

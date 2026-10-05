@@ -23,7 +23,7 @@ RUN echo "${LITESTREAM_SHA256}  /litestream.tar.gz" | sha256sum -c - \
     && tar -xzf /litestream.tar.gz -C / litestream
 
 FROM debian:12-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 git openssh-client \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 app \
     && mkdir -p /data && chown app:app /data

@@ -186,7 +186,7 @@ Reading time: `max(1, ceil(words / 220))` minutes.
 
 ### 4.4 Now box
 
-- Short markdown list. Owner edits in place (Edit, Save, Cancel).
+- Short markdown list, at most 5,000 characters. Owner edits in place (Edit, Save, Cancel). One owner, so the last save wins (no version check).
 - Shows "Updated <date>".
 - Content: placeholder until Eitan supplies it.
 
@@ -236,14 +236,15 @@ On the server (the real protection): section 6.6.
 - `guid` = `logbook-post-<id>`, `isPermaLink="false"`.
 - Item date = `published_at`.
 - Absolute URLs for links and `/media/` images.
-- Rebuilt on every change of a public post, and when a post leaves `public` or is deleted.
+- Built on each request from the current public posts, so it is never stale. `Cache-Control: public, max-age=300`.
+- Each item has the summary as `description` and the full HTML as `content:encoded`.
 - `<link rel="alternate" type="application/rss+xml">` in `index.html`.
 - Status: proposed. Eitan has not decided.
 
 ### 4.8 Visitor counter
 
 - Counted in memory. No cookies. No IPs stored.
-- A visit = a page load that is not from a known bot user agent.
+- A visit = a page load (`/`, `/posts/*`, `/topics/*`, and the other page routes) with a user agent that is not empty and does not look like a bot or tool (`bot`, `crawl`, `spider`, `curl`, `wget`, `python`, `feed`, `headless`, and similar). API calls do not count.
 - Flushed to SQLite once per minute.
 - Open question: real count or fixed number.
 
@@ -319,7 +320,7 @@ No JavaScript → a short message in the window. [decided]
 
 ### 6.4 Routes
 
-All routes live in one table in code (`routes.rs`): path, method, access level, handler. The router and the access matrix test (7.4) are both built from this table. axum has no route listing, so this table is the source of truth.
+All routes live in one table in code (`routes.rs`): path, method, access level, handler. The router and the access matrix test (7.4) are both built from this table. axum has no route listing, so this table is the source of truth. The test `every_kind_is_routed` fails if a handler kind has no row in the table.
 
 Pages (return `index.html`):
 
@@ -482,10 +483,10 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ### 6.10 Export [decided]
 
-- Each public post → `<slug>.md` with a front-matter header (title, date, topic, tags). Images → `images/`.
+- Each public post → `posts/<slug>.md` with a front-matter header: `title`, `slug`, `summary`, `topic`, `tags`, `state`, `published`, `updated`. Values are JSON strings, so any title round-trips, and other YAML readers parse them too. The Now box → `now.md`. Images → `images/` (step 6b).
 - Target: a **separate public repo**, `logbook-posts`. Not the code repo. Reason: a deploy key can push any branch of its repo. On the code repo, a pushed workflow file could read the CI secrets, which include the root key of the shared VPS.
 - The server pushes with a deploy key for `logbook-posts` only.
-- Runs after each change to a public post, and nightly.
+- Runs 10 s after each owner change (save, state, delete, Now box), and once a day. It commits only when a file changed. It needs `git` and `openssh-client` in the image.
 - Only `public` posts. A post that leaves `public` disappears from the next export. Its old versions stay in git history.
 - One-way. Edits in `logbook-posts` do not come back.
 - Owner zip (`/api/owner/export.zip`): all posts, all states. Downloaded by the browser.
@@ -675,7 +676,7 @@ Each step ends working, with its tests.
 3. **Sign-in.** Passkeys, sessions, CSRF checks, CLI setup link, revoke. Route table + access matrix. Playwright passkey test.
 4. **Proofs.** One-day Aeneas spike on `make_slug` and `filter_public` first. If the spike fails, cut the scope (7.6). Then the theorems and the CI job. (Done: T1–T5, T10–T12. T6–T9 follow in a later PR.)
 5. **Editor.** Owner API, versions and 409, `<md-editor>`, WASM preview.
-6. **Extras.** Now box, RSS, counter, uploads, surf report, export.
+6. **Extras.** In two PRs. 6a: Now box, RSS, counter, export, route-kind test. 6b: uploads, surf report.
 7. **Deploy.** Dockerfile, compose, Caddy step, workflows, sandcastle edits, Hetzner project and bucket, domain.
 8. **Drill.** Full drill (6.12).
 

@@ -39,7 +39,7 @@
   const setOwner = on => {
     app.toggleAttribute('data-owner', on);
     if (!on && app.dataset.current === 'write') app.go('/', { replace: true });
-    if (!on) editNow(false);
+    if (!on && !nowEdit.hidden) editNow(false);
     // The editor and the post list waited for this: show the route again.
     if (on && app.dataset.current === 'write') app.render(false);
   };
@@ -140,22 +140,42 @@
 
   refreshOwner();
 
-  // The Now section: markdown that only the owner can edit.
-  let nowMd = '- Working on Glamsterdam.\n- Write your own lines here: sign in, then click Edit.';
+  // The Now box (spec 4.4). Guests see the server's HTML; the owner edits markdown.
   const nowView = document.getElementById('now-view'), nowEdit = document.getElementById('now-edit');
   const nowText = document.getElementById('now-text'), nowOpen = document.getElementById('now-open');
-  // Sample stand-in. Step 6: body_html from the API.
-  const renderNow = () => { nowView.innerHTML = md(nowMd); };
-  const editNow = on => { nowEdit.hidden = !on; nowView.hidden = on; nowOpen.hidden = on; if (on) { nowText.value = nowMd; nowText.focus(); } };
+  const nowDate = document.getElementById('now-date');
+  const showNow = n => {
+    // body_html is rendered and sanitized on the server.
+    nowView.innerHTML = n.body_html || '<p>Nothing here yet.</p>';
+    nowDate.textContent = n.updated_at ? `Updated ${fmtDate(n.updated_at)}` : '';
+  };
+  const loadNow = () => fetch('/api/now').then(r => r.json()).then(showNow).catch(() => {});
+  const editNow = async on => {
+    nowEdit.hidden = !on; nowView.hidden = on; nowOpen.hidden = on;
+    if (on) {
+      try { nowText.value = (await Posts.call('GET', '/api/owner/now')).body_md; } catch { nowText.value = ''; }
+      nowText.focus();
+    }
+  };
   nowOpen.addEventListener('click', () => editNow(true));
   document.getElementById('now-cancel').addEventListener('click', () => editNow(false));
-  document.getElementById('now-save').addEventListener('click', () => {
-    nowMd = nowText.value;
-    document.getElementById('now-date').textContent = 'Updated ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    renderNow();
-    editNow(false);
+  document.getElementById('now-save').addEventListener('click', async () => {
+    try {
+      showNow(await Posts.call('PUT', '/api/owner/now', { body: { body_md: nowText.value } }));
+      editNow(false);
+    } catch (e) {
+      nowDate.textContent = `Could not save. ${e.message}`;
+    }
   });
-  renderNow();
+  loadNow();
+
+  // The visitor counter (spec 4.8): seven LCD digits.
+  fetch('/api/visitors').then(r => r.json()).then(({ total }) => {
+    const lcd = document.getElementById('lcd');
+    const digits = String(Math.min(total, 9999999)).padStart(7, '0');
+    lcd.replaceChildren(...[...digits].map(d => { const b = document.createElement('b'); b.textContent = d; return b; }));
+    lcd.setAttribute('aria-label', `Visitor counter ${digits}`);
+  }).catch(() => {});
 
   const clock = () => { document.getElementById('ns-clock').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
   clock(); setInterval(clock, 30000);

@@ -34,6 +34,7 @@ pub fn static_dir() -> PathBuf {
 pub struct Fixture {
     pub app: Router,
     pub pool: SqlitePool,
+    pub state: AppState,
     _dir: tempfile::TempDir,
 }
 
@@ -51,6 +52,11 @@ impl Reply {
 
 /// A fixture. `with_posts` adds posts in every state, with markers in the hidden ones.
 pub async fn fixture_with(with_posts: bool, auth_rate_limit: u32) -> Fixture {
+    fixture_full(with_posts, auth_rate_limit).await.0
+}
+
+/// A fixture plus its config, for tests that need the paths.
+pub async fn fixture_full(with_posts: bool, auth_rate_limit: u32) -> (Fixture, Config) {
     let dir = tempfile::tempdir().unwrap();
     let config = Config {
         addr: "127.0.0.1:0".parse().unwrap(),
@@ -59,6 +65,7 @@ pub async fn fixture_with(with_posts: bool, auth_rate_limit: u32) -> Fixture {
         origin: ORIGIN.into(),
         trusted_proxies: Vec::new(),
         auth_rate_limit,
+        git_export: None,
     };
     let pool = db::connect(&config.db_path).await.unwrap();
     if with_posts {
@@ -109,11 +116,13 @@ pub async fn fixture_with(with_posts: bool, auth_rate_limit: u32) -> Fixture {
             .unwrap();
     }
     let state = AppState::new(&config, pool.clone()).unwrap();
-    Fixture {
-        app: app(&config, state),
+    let fixture = Fixture {
+        app: app(&config, state.clone()),
         pool,
+        state,
         _dir: dir,
-    }
+    };
+    (fixture, config)
 }
 
 pub async fn fixture() -> Fixture {
@@ -130,9 +139,14 @@ pub struct Req<'a> {
     pub origin: Option<&'a str>,
     pub content_type: Option<&'a str>,
     pub if_match: Option<i64>,
+    pub user_agent: Option<&'a str>,
 }
 
 impl<'a> Req<'a> {
+    pub fn ua(mut self, ua: &'a str) -> Self {
+        self.user_agent = Some(ua);
+        self
+    }
     pub fn get(path: &'a str) -> Self {
         Self {
             method: Method::GET,
@@ -142,6 +156,7 @@ impl<'a> Req<'a> {
             origin: None,
             content_type: None,
             if_match: None,
+            user_agent: None,
         }
     }
     #[allow(clippy::needless_pass_by_value)] // call sites read better with json!(..) by value
@@ -154,6 +169,7 @@ impl<'a> Req<'a> {
             origin: Some(ORIGIN),
             content_type: Some("application/json"),
             if_match: None,
+            user_agent: None,
         }
     }
     #[allow(clippy::needless_pass_by_value)] // call sites read better with json!(..) by value
@@ -178,6 +194,7 @@ impl<'a> Req<'a> {
             origin: Some(ORIGIN),
             content_type: None,
             if_match: None,
+            user_agent: None,
         }
     }
     pub fn cookie(mut self, c: Option<&str>) -> Self {
@@ -197,6 +214,9 @@ impl Fixture {
         }
         if let Some(t) = r.content_type {
             b = b.header(header::CONTENT_TYPE, t);
+        }
+        if let Some(ua) = r.user_agent {
+            b = b.header(header::USER_AGENT, ua);
         }
         if let Some(v) = r.if_match {
             b = b.header(header::IF_MATCH, v.to_string());

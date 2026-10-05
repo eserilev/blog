@@ -53,3 +53,10 @@ path = "fuzz_targets/post_input.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "frontmatter"
+path = "fuzz_targets/frontmatter.rs"
+test = false
+doc = false
+bench = false

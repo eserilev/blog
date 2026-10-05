@@ -1,7 +1,7 @@
 /* Native web components for the Logbook (spec 5).
    Rule: only sanitized HTML goes into innerHTML: body_html from the server, or
    the WASM render() output in the editor (same code, same allow-list). Everything
-   else uses textContent. (The Now box uses the sample md() until step 6.) */
+   else uses textContent. */
 
 /* API calls. Lists are cached for the page's lifetime. */
 const Api = {
@@ -153,7 +153,8 @@ customElements.define('blog-app', class extends HTMLElement {
       const a = e.target.closest('a[href]');
       if (!a || a.target || a.hasAttribute('download')) return;
       const url = new URL(a.href, location.href);
-      if (url.origin !== location.origin || url.pathname.startsWith('/static/') || url.pathname.startsWith('/api/')) return;
+      // Only page paths. Files, the feed, and the API load normally.
+      if (url.origin !== location.origin || url.pathname.startsWith('/static/') || url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/') || url.pathname.endsWith('.xml')) return;
       e.preventDefault();
       this.go(url.pathname);
     });

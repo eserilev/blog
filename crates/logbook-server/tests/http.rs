@@ -9,7 +9,7 @@ use logbook_server::{
     db,
     headers::{CSP, SECURITY_HEADERS},
     posts::{self, NewPost},
-    routes::{Access, Kind, ROUTES, Verb},
+    routes::{ALL_KINDS, Access, Kind, ROUTES, Verb},
 };
 
 /// Every concrete path to try for a route pattern.
@@ -113,6 +113,15 @@ async fn access_matrix() {
         }
     }
     assert!(checked > 80, "only {checked} requests");
+}
+
+/// A route kind that has a handler but no row in the table is not reachable, and the
+/// access matrix does not see it. This test fails for such a kind.
+#[test]
+fn every_kind_is_routed() {
+    for k in ALL_KINDS {
+        assert!(ROUTES.iter().any(|r| r.kind == *k), "{k:?} has no route");
+    }
 }
 
 #[tokio::test]
