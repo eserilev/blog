@@ -42,7 +42,8 @@ blog-app[data-current="write"] .desktop { max-width: none; }
 /* Win98 bevels */
 .raised { background: var(--chrome); box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid); }
 .sunken { box-shadow: inset -1px -1px var(--chrome-hi), inset 1px 1px var(--chrome-lo), inset -2px -2px var(--chrome-mid), inset 2px 2px var(--chrome-dk); }
-.window { padding: 3px; display: grid; grid-template-rows: auto auto 1fr; min-width: 0; }
+/* minmax(0, 1fr): the long Location text and wide code never make the window wider than the screen. */
+.window { padding: 3px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; min-width: 0; }
 .titlebar { display: flex; align-items: center; gap: 6px; padding: 3px 3px 3px 6px; color: #fff; background: linear-gradient(90deg, var(--title-a), var(--title-b)); font: 700 13px var(--f-ui); }
 .titlebar.inactive { background: linear-gradient(90deg, #808080, #b5b5b5); }
 .titlebar .ttl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
