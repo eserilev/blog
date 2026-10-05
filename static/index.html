@@ -8,8 +8,8 @@
 <meta name="description" content="An Ethereum core developer keeps notes on protocol work, Rust, and the time between.">
 <!--/head-->
 <link rel="stylesheet" href="/static/css/code.css">
+<link rel="alternate" type="application/rss+xml" title="Eitan's Logbook" href="/feed.xml">
 <link rel="stylesheet" href="/static/css/logbook.css">
-<script src="/static/js/sample.js" defer></script>
 <script src="/static/js/components.js" defer></script>
 <script src="/static/js/app.js" defer></script>
 </head>
@@ -55,7 +55,7 @@
                 <li><button class="lnk" data-goto="latest">Latest post</button></li>
                 <li class="owner-only"><a href="/write">Compose</a></li>
                 <li><a href="/about">About</a></li>
-                <li><a href="#home">RSS feed</a></li>
+                <li><a href="/feed.xml">RSS feed</a></li>
               </ul>
             </div>
             <div>
@@ -79,7 +79,7 @@
             </div>
             <div class="counter">
               <h3>Visitors</h3>
-              <div class="lcd" aria-label="Visitor counter 0013371"><b>0</b><b>0</b><b>1</b><b>3</b><b>3</b><b>7</b><b>1</b></div>
+              <div class="lcd" id="lcd" aria-label="Visitor counter"><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b></div>
               <small>since January 1998</small>
             </div>
           </nav>
@@ -121,7 +121,7 @@
                   <textarea id="now-text" aria-label="Edit the Now section (markdown)"></textarea>
                   <div class="row"><button class="btn98" id="now-cancel">Cancel</button><button class="btn98 default" id="now-save">Save</button></div>
                 </div>
-                <div class="now-foot"><span id="now-date">Updated October 1, 2026</span><button class="btn98 owner-only" id="now-open">Edit</button></div>
+                <div class="now-foot"><span id="now-date"></span><button class="btn98 owner-only" id="now-open">Edit</button></div>
               </fieldset>
               <div class="window raised surf">
                 <div class="titlebar"><span class="ttl">Surf Report - Redondo Beach</span><span class="ctl raised" aria-hidden="true">×</span></div>
@@ -197,7 +197,7 @@
                   <tbody data-rows></tbody>
                 </table>
               </div>
-              <div class="row row-end"><button class="btn98" type="button" data-new>New post</button></div>
+              <div class="row row-end"><a class="btn98 btn-link" href="/api/owner/export.zip">Download export</a><button class="btn98" type="button" data-new>New post</button></div>
             </div>
           </post-files>
           <md-editor class="editor-desk" hidden>

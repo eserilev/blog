@@ -2,7 +2,10 @@
 
 use std::{env, net::SocketAddr, path::PathBuf};
 
+use base64::Engine;
 use ipnet::IpNet;
+
+use crate::export::GitExport;
 
 /// Server settings.
 #[derive(Debug, Clone)]
@@ -21,6 +24,10 @@ pub struct Config {
     pub trusted_proxies: Vec<IpNet>,
     /// Requests per minute per IP on `/auth/*`. `LOGBOOK_AUTH_RATE_LIMIT`, default 20.
     pub auth_rate_limit: u32,
+    /// The git export of public posts (spec 6.10). Off without `EXPORT_REPO`.
+    /// `EXPORT_BRANCH` (default `main`), `EXPORT_DEPLOY_KEY` (base64 private key),
+    /// `LOGBOOK_EXPORT_DIR` (default: `export` next to the database).
+    pub git_export: Option<GitExport>,
 }
 
 impl Config {
@@ -62,6 +69,34 @@ impl Config {
                 .map_err(|e| format!("LOGBOOK_AUTH_RATE_LIMIT={v:?}: {e}"))?,
             Err(_) => 20,
         };
+        let git_export = match env::var("EXPORT_REPO") {
+            Ok(repo) if !repo.trim().is_empty() => {
+                let deploy_key = match env::var("EXPORT_DEPLOY_KEY") {
+                    Ok(k) if !k.trim().is_empty() => Some(
+                        base64::engine::general_purpose::STANDARD
+                            .decode(k.trim())
+                            .map_err(|e| format!("EXPORT_DEPLOY_KEY is not base64: {e}"))?,
+                    ),
+                    _ => None,
+                };
+                let dir = env::var_os("LOGBOOK_EXPORT_DIR").map_or_else(
+                    || {
+                        db_path
+                            .parent()
+                            .unwrap_or_else(|| std::path::Path::new("."))
+                            .join("export")
+                    },
+                    PathBuf::from,
+                );
+                Some(GitExport {
+                    repo,
+                    branch: env::var("EXPORT_BRANCH").unwrap_or_else(|_| "main".into()),
+                    dir,
+                    deploy_key,
+                })
+            }
+            _ => None,
+        };
         Ok(Self {
             addr,
             static_dir,
@@ -69,6 +104,7 @@ impl Config {
             origin,
             trusted_proxies,
             auth_rate_limit,
+            git_export,
         })
     }
 }

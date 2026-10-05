@@ -6,7 +6,7 @@
 
 use std::net::SocketAddr;
 
-use logbook_server::{AppState, Config, app, auth, checks, db, seed};
+use logbook_server::{AppState, Config, app, auth, checks, counter, db, export, seed};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -41,7 +41,13 @@ async fn serve() -> Result<(), String> {
         .await
         .map_err(|e| format!("cannot write the heartbeat: {e}"))?;
     checks::spawn_heartbeat(pool.clone());
-    let app = app(&config, AppState::new(&config, pool)?);
+    let state = AppState::new(&config, pool.clone())?;
+    counter::spawn_flush(state.clone());
+    if let (Some(cfg), Some(changed)) = (config.git_export.clone(), state.export_changed.clone()) {
+        tracing::info!("git export to {} is on", cfg.repo);
+        export::spawn_git_export(pool, cfg, changed);
+    }
+    let app = app(&config, state);
     let listener = tokio::net::TcpListener::bind(config.addr)
         .await
         .map_err(|e| format!("cannot listen on {}: {e}", config.addr))?;

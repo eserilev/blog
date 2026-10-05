@@ -3,7 +3,7 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
 };
 
@@ -37,7 +37,8 @@ fn not_found_page(s: &AppState, path: &str) -> Response {
 }
 
 /// `/`, `/about`, `/write`, `/write/{id}`: the default head.
-pub async fn index(State(s): State<AppState>) -> Response {
+pub async fn index(State(s): State<AppState>, headers: HeaderMap) -> Response {
+    s.counter.hit(&headers);
     let url = format!("{}/", s.origin);
     page(
         &s,
@@ -54,7 +55,12 @@ pub async fn index(State(s): State<AppState>) -> Response {
 
 /// `/posts/{slug}`. A public post gets its title and summary in the head. Any other
 /// slug gets 404, `noindex`, and no post data (spec 6.3).
-pub async fn post(State(s): State<AppState>, Path(slug): Path<String>) -> Response {
+pub async fn post(
+    State(s): State<AppState>,
+    Path(slug): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    s.counter.hit(&headers);
     match posts::public_by_slug(&s.pool, &slug).await {
         Ok(Some(pp)) => {
             let p = pp.post();
@@ -82,7 +88,12 @@ pub async fn post(State(s): State<AppState>, Path(slug): Path<String>) -> Respon
 }
 
 /// `/topics/{topic}`. An unknown topic gets 404 and `noindex`.
-pub async fn topic(State(s): State<AppState>, Path(t): Path<String>) -> Response {
+pub async fn topic(
+    State(s): State<AppState>,
+    Path(t): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    s.counter.hit(&headers);
     match topic::parse(&t) {
         Some(t) => {
             let url = format!("{}/topics/{}", s.origin, topic::slug(t));

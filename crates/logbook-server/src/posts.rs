@@ -620,6 +620,7 @@ pub async fn owner_save(
         return Err(missing_or_conflict(&s.pool, id).await);
     }
     tx.commit().await?;
+    s.content_changed();
     Ok(Json(owner_post(&s.pool, id).await?))
 }
 
@@ -660,6 +661,7 @@ pub async fn owner_set_state(
     if done.rows_affected() != 1 {
         return Err(missing_or_conflict(&s.pool, id).await);
     }
+    s.content_changed();
     Ok(Json(owner_post(&s.pool, id).await?))
 }
 
@@ -680,5 +682,6 @@ pub async fn owner_delete(
     if done.rows_affected() == 0 {
         return Err(OwnerError::NotFound);
     }
+    s.content_changed();
     Ok(Json(serde_json::json!({ "ok": true })).into_response())
 }

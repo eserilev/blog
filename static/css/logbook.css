@@ -259,3 +259,4 @@ post-view[aria-busy="true"] { opacity: .6; }
 .props input, .props select { font: 13px var(--f-ui); padding: 2px 4px; border: 0; background: #fff; min-width: 0; }
 .props select { box-shadow: inset -1px -1px var(--chrome-hi), inset 1px 1px var(--chrome-lo); }
 md-editor:not([data-loaded]) .split { opacity: .5; }
+.btn-link { display: inline-grid; place-items: center; text-decoration: none; color: #000; }
