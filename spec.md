@@ -97,7 +97,7 @@ Body 15–15.5 px, line height 1.65–1.75, max about 68 characters per line.
 
 Sidebar (navy):
 
-1. Site: Home, Latest post, Compose (owner only), Edit site (owner only), RSS feed. There is no About page (removed 2026-10-05).
+1. Site: Home, Latest post, Compose (owner only), RSS feed. Site Settings, Topics, and Passkeys are on the Compose page. There is no About page (removed 2026-10-05).
 2. Topics: the owner's list (4.2). The server writes the links into the page.
 3. Find me: GitHub (`github.com/eserilev`) and X (`x.com/0xUncleBill`), with small white icons. No Discord for now.
 4. Visitors: green LCD counter.
