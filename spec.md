@@ -108,14 +108,14 @@ Main column:
 2. Intro: markdown that the owner edits (4.9).
 3. Writing: table of public posts. Columns: Date (M/D/YY), Title + one-line summary, Topic, Length. Small navy "NEW" label on new posts. No blink.
 4. Now box (4.4) and Surf Report window (4.5), side by side.
-5. Footer: last updated, "Best viewed at 800 × 600", Sign in / Sign out.
+5. Footer: "© <year> Eitan Seri-Levi" (6.16), last updated, "Best viewed at 800 × 600", Sign in / Sign out.
 
 Below 860 px: the sidebar goes below the content, so the posts come first. Editor panes stack.
 
 ### 3.7 Post page
 
 - Breadcrumbs: Home › Topic.
-- Title (Tinos), date, reading time.
+- Title (Tinos), then the byline: date, reading time, "by Eitan Seri-Levi" (6.16).
 - Thin black rules above and below the body.
 - Code blocks: black, light gray text, first line `C:\> type example.rust`.
 - Quotes: gray left border, gray italic.
@@ -249,6 +249,7 @@ On the server (the real protection): section 6.6.
 - Absolute URLs for links and `/media/` images.
 - Built on each request from the current public posts, so it is never stale. `Cache-Control: public, max-age=300`.
 - Each item has the summary as `description` and the full HTML as `content:encoded`.
+- Each item has `dc:creator` = the author name (6.16). RSS `<author>` needs an email address, so the feed does not use it.
 - `<link rel="alternate" type="application/rss+xml">` in `index.html`.
 - Status: proposed. Eitan has not decided.
 
@@ -364,8 +365,8 @@ Output: one binary, one SQLite file, one static folder. No template library.
 
 1. Request `/posts/{slug}`.
 2. The server looks up the slug **through `reveal`** (7.6).
-   - Public: serve `index.html` with the title and summary in `<title>`, `og:*`, and `twitter:*` tags. Values are HTML-escaped.
-   - Draft, private, or unknown: serve `index.html` with status **404**, a generic title, and `<meta name="robots" content="noindex">`. No post data.
+   - Public: serve `index.html` with the title and summary in `<title>`, `og:*`, and `twitter:*` tags, plus the author, canonical, `article:*`, and JSON-LD tags (6.16). Values are HTML-escaped.
+   - Draft, private, or unknown: serve `index.html` with status **404**, a generic title, and `<meta name="robots" content="noindex">`. No canonical link. No post data.
 3. The browser loads the CSS and `components.js`. Their URLs carry a version hash (6.9).
 4. `<post-view>` calls `GET /api/posts/{slug}` and shows `body_html`.
 
@@ -401,6 +402,8 @@ Public API:
 | `GET /api/visitors` | Total |
 | `GET /api/me` | `{ "owner": bool }`. Never 401. |
 | `GET /feed.xml` | RSS |
+| `GET /sitemap.xml` | Sitemap of the public pages (6.16) |
+| `GET /robots.txt` | Crawler rules and the sitemap address (6.16) |
 | `GET /media/{key}` | Image (6.8) |
 | `GET /healthz` | 200 if the DB and replication are fine |
 | `GET /static/*` | CSS, JS, fonts, logo, WASM |
@@ -559,7 +562,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 - Pages, the public API, and unversioned static files: `no-cache`. The browser revalidates with `ETag` or `Last-Modified`.
 - `/static/*` with the current version hash in `v`: `public, max-age=31536000, immutable`.
 - `/media/*`: `public, max-age=31536000, immutable`. The key is a content hash (6.8).
-- `/feed.xml` and `/api/surf`: `public, max-age=300`.
+- `/feed.xml`, `/sitemap.xml`, `/robots.txt`, and `/api/surf`: `public, max-age=300`.
 - Owner API, `/api/me`, and `/auth/*`: `no-store` (6.4, 6.6).
 
 Static file versions [decided]:
@@ -751,7 +754,7 @@ blog/
 │       ├── migrations/
 │       └── src/ main.rs routes.rs config.rs db.rs auth.rs pages.rs posts.rs
 │                now.rs surf.rs media.rs uploads.rs headers.rs checks.rs
-│                feed.rs export.rs counter.rs cli.rs assets.rs
+│                feed.rs export.rs counter.rs cli.rs assets.rs seo.rs
 ├── editor-wasm/               logbook-render for the browser; build.sh → static/wasm/
 ├── static/                    index.html, CSS, JS components, fonts, logo
 ├── fuzz/                      cargo-fuzz targets, seed inputs in fuzz/seeds/
@@ -775,6 +778,56 @@ Each step ends working, with its tests.
 6. **Extras.** In two PRs. 6a: Now box, RSS, counter, export, route-kind test. 6b: uploads, surf report.
 7. **Deploy.** Dockerfile, compose, Caddy step, workflows, sandcastle edits, Hetzner project and bucket, domain.
 8. **Drill.** Full drill (6.12).
+
+### 6.16 Search engines [built]
+
+Goal: a search for "Eitan Seri-Levi" finds the site, and each post ranks for its topic. Only real data goes in (section 8): the name, the handle, the two profiles, the site values (4.9), and the public posts and topics. No `<meta name="keywords">`. No keyword lists. No hidden text other than the post links below.
+
+**The name.** `AUTHOR_NAME` in `head.rs` is "Eitan Seri-Levi". The server fills it into the `<!--site:author-->` marker, and `<!--site:year-->` gets the current UTC year. The scripts read the name from the footer (`#site-author`). The name shows:
+
+- In the Win98 footer: "© <year> Eitan Seri-Levi".
+- In the Win98 post byline, the MS-DOS `TYPE` byline, and the phone post meta line: "by Eitan Seri-Levi".
+
+**Head tags** (`head_tags`, every page, all values escaped):
+
+- `<meta name="author">`, `twitter:card` = `summary`, `twitter:site` and `twitter:creator` = `@0xUncleBill`, and the `og:*` tags (6.3).
+- `<link rel="canonical">` with the absolute URL. Not on a 404 page, which has `noindex`. `/about`, `/write`, and `/setup` use the home URL.
+- Posts: `article:published_time` (`published_at`), `article:modified_time` (`updated_at`), `article:author`.
+- Titles do not change: the home page has the site title, a post has "Post title · Site title".
+
+**JSON-LD.** One `<script type="application/ld+json">` in the head block, built with `serde_json`. It is data, so the CSP does not block it, and it is the only inline script. `<`, `>`, and `&` in the JSON become `\u003c`, `\u003e`, and `\u0026`, so no value can close the element. One `@graph`:
+
+| Node | Pages | Values |
+|---|---|---|
+| `Person`, `@id` `<origin>/#person` | All | `name`, `alternateName` ["Uncle Bill", "@0xUncleBill"], `url` (the home page), `sameAs` (GitHub, X) |
+| `WebSite`, `@id` `<origin>/#website` | All | `name` (site title), `url`, `inLanguage` "en", `author` → Person |
+| `BlogPosting` | Public post | `headline`, `description` (summary), `datePublished`, `dateModified`, `url`, `mainEntityOfPage`, `author` → Person, `isPartOf` → WebSite, `keywords` (topic name, then tags), `inLanguage` "en" |
+| `CollectionPage` | Topic | `name` (topic name), `url`, `isPartOf` → WebSite |
+
+**Sitemap.** `GET /sitemap.xml`, `application/xml`. The home page, each public post (`lastmod` = the date of `updated_at`), and each topic with a public post, in sidebar order. Built through `filter_public`, so a draft or private post never appears.
+
+**Robots.** `GET /robots.txt`, plain text:
+
+```
+User-agent: *
+Allow: /
+Disallow: /write
+Disallow: /setup
+Disallow: /api/owner/
+
+Sitemap: <origin>/sitemap.xml
+```
+
+**Post links in the HTML.** The server writes the public posts into two markers, so a crawler finds them without the scripts:
+
+- `<!--site:post-rows-->`: the rows of the Win98 post table (on a topic page, only that topic). `<post-list>` replaces them when it loads.
+- `<!--site:post-links-->`: a `<nav aria-label="Posts">` list of links on the phone standby screen. Google crawls as a phone, and phone mode hides the Win98 page (`display: none`). So this list stays in the page in phone mode. It is visually hidden (`.sr-only`), not `display: none`: screen readers and crawlers get the same real links. When the keyboard focus moves into it, it shows as a box. Each link is a 44 px touch target.
+
+Post pages show the post through the scripts (6.3). Google runs the scripts. The head and the JSON-LD carry the title, the summary, and the dates for other crawlers.
+
+**Tests.** `tests/seo.rs`: head tags, JSON-LD values, script escape, no canonical on 404, the post lists, the sitemap with hidden posts, robots.txt, `dc:creator`. The access matrix covers the two routes. `e2e/tests/seo.spec.js`: the name in Win98, MS-DOS, and phone mode, the post table without scripts, and the phone links in an iPhone 13 context.
+
+**Search Console (owner, one time).** Add the property `https://unclebill.blog`, verify it, submit `/sitemap.xml`, and request indexing of the home page and the posts.
 
 ## 7. Testing and verification
 
@@ -815,7 +868,7 @@ Each step ends working, with its tests.
 | `post_input` | JSON body of `PUT /api/owner/posts/{id}` | No panic. Accepted input always meets the limits (title, summary, tags, body). |
 | `slug` | title bytes + id | Passes the slug rules (4.3). |
 | `media_key` | path bytes | No panic. Agrees with T10. |
-| `head_tags` | title + summary + site title, plus a private post | Output never breaks out of an attribute. Never contains the private title. |
+| `head_tags` | title + summary + site title, plus a private post | Output never breaks out of an attribute. Never contains the private title. The JSON-LD parses and keeps the title. |
 | `image` | image bytes | No panic in decode and re-encode. Output has no EXIF. |
 
 Seed inputs live in `fuzz/seeds/<target>/`. The generated corpus is not committed. Each crash → a regression test. PR: 60 s per target. Nightly: 30 min per target, as a CI matrix.
@@ -1066,7 +1119,7 @@ Light mode is the Win98 site. Dark mode is a full-screen MS-DOS prompt. Files: `
   | `HELP` | The command list. DIR is "list files". SURF is "get the swell report for Redondo Beach". | local |
   | `DIR` | Public posts as DOS files: an 8.3 name from the slug (`~1`, `~2` on a clash, in published order), `TXT`, word count as size, date, and the slug as a long-name link to `/posts/{slug}`. Then a dim hint: "To read a file, type TYPE and the file name. Example: TYPE <first file>". Grid rows, not padded spaces. | `/api/posts` |
   | `DIR <topic>` | The files of one topic. It goes to `/topics/{t}`. | `/api/topics/{t}` |
-| `TYPE <file>` | The title, then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
+| `TYPE <file>` | The title, the byline (date, reading time, topic, "by Eitan Seri-Levi"), then the post body. Accepts the 8.3 name (with or without `.TXT`), the slug, or the DIR row number. | `/api/posts/{slug}`, `body_html` in `.dos-prose` |
   | `NOW` | The Now box, or "Nothing here yet." | `/api/now` |
   | `SURF` | Swell, period, wind, water, next tides, stale marks, NOAA attribution. | `/api/surf` |
   | `VER` | `Logbook DOS Version 6.22` | local |
@@ -1155,7 +1208,7 @@ On phones, the site looks and works like a monochrome phone from 2000: the page 
 - **Softkeys.** Two plain words at the bottom of the LCD, left (main action) and right (Back). No border, no background, no arrow buttons. Each half is a 64 px tap area. A tap shows the word in inverse.
 - **Menu.** One item per screen: a large pixel icon, the label, and the index number. Items: Posts, Topics, Now, Surf, Profiles, Games. Tap the icon to open. Swipe or tap the pixel arrows to move. Keys 1–6 open an item directly.
 - **Lists.** Real links (`<a href="/posts/{slug}">`) in a `<ul>`, inverse video for the selected row. Topics filter the post list. An empty list says "No posts yet."
-- **Reading.** The real `body_html` (sanitized). The page itself scrolls: it is the only vertical scroll container, so a swipe anywhere on the screen scrolls the post. The status row and the post title stick to the top, and the softkeys stick to the bottom (with `env(safe-area-inset-bottom)`). ▲ ▼ keys page by 85 % of the visible height. "3/12" at the top right. A thin scroll bar, fixed on the right. The battery drains with reading progress. These come from `window.scrollY`. A new screen starts at the top. Standby, Menu, and Snake fit in `100dvh` and do not scroll. Options (left softkey): Top, Jump to section (from the post headings), Text size (Small 20 / Normal 24 / Large 30 px), Font (Pixel / Clean monospace), Copy link. Code blocks scroll sideways. Images are grayscale and tinted green.
+- **Reading.** The title, one meta line (date, topic, reading time, "by Eitan Seri-Levi"), and the real `body_html` (sanitized). The page itself scrolls: it is the only vertical scroll container, so a swipe anywhere on the screen scrolls the post. The status row and the post title stick to the top, and the softkeys stick to the bottom (with `env(safe-area-inset-bottom)`). ▲ ▼ keys page by 85 % of the visible height. "3/12" at the top right. A thin scroll bar, fixed on the right. The battery drains with reading progress. These come from `window.scrollY`. A new screen starts at the top. Standby, Menu, and Snake fit in `100dvh` and do not scroll. Options (left softkey): Top, Jump to section (from the post headings), Text size (Small 20 / Normal 24 / Large 30 px), Font (Pixel / Clean monospace), Copy link. Code blocks scroll sideways. Images are grayscale and tinted green.
 - **Snake** (Games): 20×16 board, +9 per food, no wall wrap. Keys 2/4/6/8 on a 3×3 pad with 5 = pause, swipe on the board, arrow keys. It pauses when the tab is hidden. A full board is a win. A `role="status"` region reads the score and "Game over".
 - **Keyboard (desktop testing, external keyboards).** Arrows and Page Up/Down, Enter = left softkey, Esc or Backspace = Back.
 - **Routing.** `/` = standby, `/posts/{slug}` = the post (Back goes to the Posts list), `/topics/{t}` = the filtered list, `/about` = standby (at `/`). Softkey Back and browser Back do the same thing.

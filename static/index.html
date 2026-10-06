@@ -92,7 +92,7 @@
             <div class="tablewrap">
               <table class="posts">
                 <thead><tr><th scope="col">Date</th><th scope="col">Title</th><th scope="col">Topic</th><th scope="col">Length</th></tr></thead>
-                <tbody id="ns-rows"></tbody>
+                <tbody id="ns-rows"><!--site:post-rows--></tbody>
               </table>
             </div>
             <post-list target="ns-rows" title-target="list-title">
@@ -135,7 +135,7 @@
               </surf-report>
             </div>
 
-            <p class="foot-note">Last updated October 1, 2026. Best viewed at 800 × 600. <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
+            <p class="foot-note">© <!--site:year--> <span id="site-author"><!--site:author--></span>. Last updated October 1, 2026. Best viewed at 800 × 600. <button class="lnk guest-only" data-signin>Sign in</button><button class="lnk owner-only" data-signout>Sign out</button></p>
             <p class="foot-note view-switch phone-only">View: <button class="lnk" type="button" data-mode-set="phone">Mobile</button> | <b>Desktop</b></p>
           </div>
         </section>
@@ -339,6 +339,9 @@
           <p class="ph-clock" data-clock></p>
           <p class="ph-date" data-date></p>
           <button class="ph-new" type="button" data-new hidden>1 new post</button>
+          <!-- The public posts, from the server (spec 6.16). Visually hidden, but in the
+               page and the accessibility tree, so crawlers and screen readers find them. -->
+          <nav class="ph-index sr-only" aria-label="Posts"><ul><!--site:post-links--></ul></nav>
         </section>
         <section data-screen="menu" hidden>
           <div class="ph-head"><h1>Menu</h1><span data-menu-index></span></div>

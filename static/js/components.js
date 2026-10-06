@@ -138,6 +138,10 @@ const setTopics = list => {
   readTopics();
 };
 
+/* The author name (spec 6.16). The server writes it into the footer. */
+const AUTHOR = document.getElementById('site-author')?.textContent.trim() || '';
+const byAuthor = AUTHOR ? ` · by ${AUTHOR}` : '';
+
 /* A post is "new" for 14 days after it is published. */
 const isNew = iso => iso && Date.now() - new Date(iso).getTime() < 14 * 864e5;
 
@@ -285,7 +289,7 @@ customElements.define('post-view', class extends HTMLElement {
       this.f('body').replaceChildren(p);
     } else {
       this.f('title').textContent = post.title;
-      this.f('byline').textContent = `${fmtDate(post.published_at)} · ${post.reading_minutes} min read`;
+      this.f('byline').textContent = `${fmtDate(post.published_at)} · ${post.reading_minutes} min read${byAuthor}`;
       topic.textContent = post.topic_name;
       topic.href = `/topics/${post.topic}`;
       // body_html is rendered and sanitized on the server (spec 6.7).
@@ -997,7 +1001,7 @@ customElements.define('dos-shell', class extends HTMLElement {
     const body = document.createElement('div');
     // body_html is rendered and sanitized on the server (spec 6.7).
     body.innerHTML = post.body_html;
-    this.show(box, file, post.title, `${fmtDate(post.published_at)} · ${post.reading_minutes} min read · ${post.topic_name}`, body);
+    this.show(box, file, post.title, `${fmtDate(post.published_at)} · ${post.reading_minutes} min read · ${post.topic_name}${byAuthor}`, body);
   }
 
   async now(box) {

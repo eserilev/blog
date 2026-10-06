@@ -393,7 +393,7 @@
       const h = document.createElement('h2');
       h.className = 'ph-title';
       h.textContent = post.title;
-      const meta = this.para(`${fmtDate(post.published_at, 'us')} · ${post.topic_name} · ${post.reading_minutes} min read`, 'ph-meta');
+      const meta = this.para(`${fmtDate(post.published_at, 'us')} · ${post.topic_name} · ${post.reading_minutes} min read${byAuthor}`, 'ph-meta');
       const body = document.createElement('div');
       body.className = 'ph-body';
       // body_html is rendered and sanitized on the server (spec 6.7).

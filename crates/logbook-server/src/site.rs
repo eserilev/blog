@@ -7,7 +7,13 @@ use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::{AppState, auth::Owner, head::escape, posts::OwnerError, topic::Topic};
+use crate::{
+    AppState,
+    auth::Owner,
+    head::{AUTHOR_NAME, escape},
+    posts::{ListItem, OwnerError},
+    topic::Topic,
+};
 
 /// Limits, in characters.
 pub const TITLE_MAX: usize = 80;
@@ -155,32 +161,91 @@ pub async fn save_site(
 }
 
 /// The markers in `index.html` that [`fill`] replaces.
-pub const MARKERS: [&str; 6] = [
+pub const MARKERS: [&str; 10] = [
     "<!--site:title-->",
     "<!--site:subtitle-->",
     "<!--site:tagline-->",
     "<!--site:intro-->",
     "<!--site:topics-->",
     "<!--site:topic-options-->",
+    "<!--site:author-->",
+    "<!--site:year-->",
+    "<!--site:post-rows-->",
+    "<!--site:post-links-->",
 ];
 
-/// Puts the site values and the topics into `index.html`. Text is escaped. The
-/// intro goes through the markdown pipeline, so it is sanitized HTML.
+/// The values that [`fill`] puts into `index.html`.
+#[derive(Debug, Clone, Copy)]
+pub struct Fill<'a> {
+    pub site: &'a Site,
+    pub topics: &'a [Topic],
+    /// Public posts, newest first. Only [`ListItem`] values, so only public posts.
+    pub posts: &'a [ListItem],
+    /// The topic of a topic page. The post table then lists only its posts.
+    pub topic: Option<&'a str>,
+    /// The year for the copyright line.
+    pub year: i32,
+}
+
+/// `M/D/YY` from an RFC 3339 time, in UTC, as the post table shows it.
+fn short_date(rfc3339: &str) -> String {
+    time::OffsetDateTime::parse(rfc3339, &time::format_description::well_known::Rfc3339)
+        .map(|d| {
+            format!(
+                "{}/{}/{:02}",
+                u8::from(d.month()),
+                d.day(),
+                d.year().rem_euclid(100)
+            )
+        })
+        .unwrap_or_default()
+}
+
+/// Puts the site values, the topics, the author, and the post lists into
+/// `index.html`. Text is escaped. The intro goes through the markdown pipeline, so
+/// it is sanitized HTML.
+///
+/// The post table rows and the post links are in the HTML, so a crawler and a
+/// visitor without JavaScript see the posts (spec 6.16). `<post-list>` replaces the
+/// rows when it loads.
 #[must_use]
-pub fn fill(html: &str, site: &Site, topics: &[Topic]) -> String {
+pub fn fill(html: &str, f: &Fill<'_>) -> String {
     use std::fmt::Write as _;
     let (mut links, mut options) = (String::new(), String::new());
-    for t in topics {
+    for t in f.topics {
         let (slug, name) = (escape(&t.slug), escape(&t.name));
         let _ = write!(links, "<li><a href=\"/topics/{slug}\">{name}</a></li>");
         let _ = write!(options, "<option value=\"{slug}\">{name}</option>");
     }
+    let (mut rows, mut post_links) = (String::new(), String::new());
+    for p in f.posts {
+        let (slug, title, summary) = (escape(&p.slug), escape(&p.title), escape(&p.summary));
+        let _ = write!(
+            post_links,
+            "<li><a href=\"/posts/{slug}\">{title}</a> <span>{summary}</span></li>"
+        );
+        if f.topic.is_some_and(|t| t != p.topic) {
+            continue;
+        }
+        let _ = write!(
+            rows,
+            "<tr><td class=\"date\">{date}</td><td><a class=\"ttl\" href=\"/posts/{slug}\">{title}</a><span class=\"ex\">{summary}</span></td><td class=\"topic\">{topic}</td><td class=\"date\">{minutes} min</td></tr>",
+            date = short_date(p.published_at.as_deref().unwrap_or_default()),
+            topic = escape(&p.topic_name),
+            minutes = p.reading_minutes,
+        );
+    }
+    let site = f.site;
     html.replace(MARKERS[0], &escape(&site.title))
         .replace(MARKERS[1], &escape(&site.subtitle))
         .replace(MARKERS[2], &escape(&site.tagline))
         .replace(MARKERS[3], &logbook_render::render(&site.intro_md))
         .replace(MARKERS[4], &links)
         .replace(MARKERS[5], &options)
+        .replace(MARKERS[6], &escape(AUTHOR_NAME))
+        .replace(MARKERS[7], &f.year.to_string())
+        .replace(MARKERS[8], &rows)
+        .replace(MARKERS[9], &post_links)
 }
 
 #[cfg(test)]
@@ -204,7 +269,17 @@ mod tests {
             slug: "a".into(),
             name: "<b>A</b>".into(),
         }];
-        let out = fill(html, &site("\"><script>"), &topics);
+        let site = site("\"><script>");
+        let out = fill(
+            html,
+            &Fill {
+                site: &site,
+                topics: &topics,
+                posts: &[],
+                topic: None,
+                year: 2026,
+            },
+        );
         assert!(!out.contains("<script"), "{out}");
         assert!(out.contains("<h1>&quot;&gt;&lt;script&gt;</h1>"), "{out}");
         assert!(out.contains("<strong>bold</strong>"), "{out}");
@@ -213,6 +288,51 @@ mod tests {
             "{out}"
         );
         assert!(!out.contains("<!--site:"), "{out}");
+    }
+
+    fn item(slug: &str, topic: &str, title: &str) -> ListItem {
+        ListItem {
+            slug: slug.into(),
+            title: title.into(),
+            summary: "<i>s</i>".into(),
+            topic: topic.into(),
+            topic_name: "<T>".into(),
+            tags: Vec::new(),
+            published_at: Some("2026-02-03T23:00:00Z".into()),
+            word_count: 10,
+            reading_minutes: 1,
+        }
+    }
+
+    #[test]
+    fn fill_writes_the_author_the_year_and_the_posts() {
+        let html = "<p>(c) <!--site:year--> <!--site:author--></p><tbody><!--site:post-rows--></tbody><ul><!--site:post-links--></ul>";
+        let posts = [item("a", "rust", "A <b>"), item("b", "surf", "B")];
+        let site = site("S");
+        let mut f = Fill {
+            site: &site,
+            topics: &[],
+            posts: &posts,
+            topic: None,
+            year: 2031,
+        };
+        let out = fill(html, &f);
+        assert!(out.contains("<p>(c) 2031 Eitan Seri-Levi</p>"), "{out}");
+        assert!(out.contains("<tr><td class=\"date\">2/3/26</td><td><a class=\"ttl\" href=\"/posts/a\">A &lt;b&gt;</a><span class=\"ex\">&lt;i&gt;s&lt;/i&gt;</span></td><td class=\"topic\">&lt;T&gt;</td><td class=\"date\">1 min</td></tr>"), "{out}");
+        assert!(
+            out.contains("<li><a href=\"/posts/b\">B</a> <span>&lt;i&gt;s&lt;/i&gt;</span></li>"),
+            "{out}"
+        );
+        assert_eq!(out.matches("<tr>").count(), 2);
+        f.topic = Some("surf");
+        let out = fill(html, &f);
+        assert_eq!(out.matches("<tr>").count(), 1, "{out}");
+        assert!(
+            out.contains("href=\"/posts/b\">B</a></td>")
+                || out.contains("href=\"/posts/b\">B</a><span"),
+            "{out}"
+        );
+        assert_eq!(out.matches("<li>").count(), 2, "the links list every post");
     }
 
     #[test]
