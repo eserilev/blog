@@ -159,7 +159,6 @@
       const s = await Posts.call('GET', '/api/owner/site');
       for (const f of ['title', 'subtitle', 'tagline']) setField(f).value = s[f];
       setField('intro').value = s.intro_md;
-      if (location.hash === '#settings') document.getElementById('settings').scrollIntoView();
     } catch {
       say(setStatus, 'Could not load the settings.', true);
     }
