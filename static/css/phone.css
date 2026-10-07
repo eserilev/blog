@@ -61,7 +61,7 @@ phone-shell .on:focus-visible { outline-color: var(--ph-inv); }
    on the same line as the battery. */
 .ph-right a { display: flex; align-items: flex-end; justify-content: center; width: 44px; height: 44px; color: var(--ph-ink); }
 .ph-ico { display: block; padding: 2px; margin: -2px; }
-.ph-ico svg { display: block; width: 18px; height: 18px; }
+.ph-ico svg { display: block; width: 20px; height: 20px; }
 .ph-right a:active .ph-ico { background: var(--ph-ink); color: var(--ph-inv); }
 .ph-batt { display: flex; align-items: center; margin-left: 4px; }
 .ph-batt-box { display: flex; width: 38px; height: 18px; padding: 2px; border: 3px solid var(--ph-ink); }
