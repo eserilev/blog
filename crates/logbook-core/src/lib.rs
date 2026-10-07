@@ -30,7 +30,7 @@ pub use access::{Access, Decision, SessionState, authorize};
 pub use csrf::{is_json, is_multipart_form, write_allowed};
 pub use html::escape_html;
 pub use ip::{ClientAddr, client_addr};
-pub use media::{media_key_ok, video_key_ok};
+pub use media::media_key_ok;
 pub use policy::{PublicPost, filter_public, reveal};
 pub use post::{Post, State, WORDS_PER_MINUTE, reading_minutes};
 pub use session::{SETUP_TOKEN_SECONDS, session_valid, setup_token_expiry, setup_token_usable};

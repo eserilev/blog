@@ -1,7 +1,7 @@
 A post with videos.
 
 ```video
-/media/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.mp4
+https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1
 Bend on the GPU demo
 ```
 

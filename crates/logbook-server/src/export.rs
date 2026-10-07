@@ -106,8 +106,7 @@ pub fn parse(text: &str) -> Option<ExportPost> {
 
 const SELECT: &str = "SELECT slug, title, summary, topic, tags, state, published_at, updated_at, body_md FROM posts ORDER BY id";
 
-/// Every image key that `text` links to (`/media/<key>`), each checked by `media_key_ok`.
-/// Videos stay in the bucket: the exports do not carry them (spec 4.10).
+/// Every media key that `text` links to (`/media/<key>`), each checked by `media_key_ok`.
 #[must_use]
 pub fn media_keys(text: &str) -> Vec<String> {
     let mut keys = Vec::new();
@@ -115,7 +114,7 @@ pub fn media_keys(text: &str) -> Vec<String> {
         let rest = &text[i + 7..];
         for len in [68, 69] {
             if let Some(k) = rest.get(..len)
-                && image_key(k)
+                && logbook_core::media_key_ok(k.as_bytes())
                 && !keys.iter().any(|x| x == k)
             {
                 keys.push(k.to_string());
@@ -125,12 +124,7 @@ pub fn media_keys(text: &str) -> Vec<String> {
     keys
 }
 
-/// A media key that is not a video key.
-fn image_key(k: &str) -> bool {
-    logbook_core::media_key_ok(k.as_bytes()) && !logbook_core::video_key_ok(k.as_bytes())
-}
-
-/// All uploaded image keys. Videos stay in the bucket.
+/// All uploaded image keys.
 async fn all_media_keys(m: &Media) -> Result<Vec<String>, String> {
     let prefix = object_store::path::Path::from("uploads");
     let list = m
@@ -142,7 +136,7 @@ async fn all_media_keys(m: &Media) -> Result<Vec<String>, String> {
         .objects
         .into_iter()
         .filter_map(|o| o.location.filename().map(str::to_string))
-        .filter(|k| image_key(k))
+        .filter(|k| logbook_core::media_key_ok(k.as_bytes()))
         .collect())
 }
 

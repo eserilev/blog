@@ -1,13 +1,11 @@
-//! Uploads and `/media/{key}` (spec 6.8).
+//! Image uploads and `/media/{key}` (spec 6.8).
 //!
-//! - Image upload: max 10 MB. PNG, JPEG, WebP, GIF only, checked by magic bytes. No SVG.
+//! - Upload: max 10 MB. PNG, JPEG, WebP, GIF only, checked by magic bytes. No SVG.
 //!   The server decodes and re-encodes each image, which drops EXIF (GPS) and all
 //!   other metadata. The key is `<sha256 hex>.<ext>` of the re-encoded bytes.
-//! - Video upload: MP4 or WebM, max 100 MB ([`crate::video`]).
 //! - Storage: the bucket under `uploads/` (production), or a local folder (development).
 //! - `/media/{key}`: the key must pass `logbook_core::media_key_ok` (theorem T10).
-//!   Images are cached on local disk, at most 1 GB, oldest first out. Videos stream
-//!   from the store with byte ranges, and skip the cache.
+//!   Images are cached on local disk, at most 1 GB, oldest first out.
 
 use std::{
     io::Cursor,
@@ -18,25 +16,17 @@ use std::{
 use axum::{
     Json,
     extract::{Multipart, Path, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use image::{ImageFormat, ImageReader, Limits};
 use object_store::{ObjectStore, ObjectStoreExt, PutPayload, path::Path as StorePath};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    AppState,
-    auth::Owner,
-    video::{self, VIDEO_MAX},
-};
+use crate::{AppState, auth::Owner};
 
-/// Most bytes in one image upload.
+/// Most bytes in one upload.
 pub const UPLOAD_MAX: usize = 10 * 1024 * 1024;
-/// The body limit of the upload route: the largest video plus room for the form.
-pub const UPLOAD_BODY_MAX: usize = VIDEO_MAX + 64 * 1024;
-/// The first bytes of an upload that decide its type.
-const SNIFF_LEN: usize = 64;
 /// Most bytes in the local image cache.
 pub const CACHE_MAX: u64 = 1024 * 1024 * 1024;
 
@@ -52,7 +42,6 @@ pub struct Media {
 #[derive(Debug)]
 pub enum MediaError {
     BadRequest(&'static str),
-    TooLarge(&'static str),
     Internal(String),
 }
 
@@ -60,7 +49,6 @@ impl IntoResponse for MediaError {
     fn into_response(self) -> Response {
         let (status, msg) = match self {
             Self::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
-            Self::TooLarge(m) => (StatusCode::PAYLOAD_TOO_LARGE, m),
             Self::Internal(e) => {
                 tracing::error!("media error: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal error")
@@ -88,8 +76,6 @@ fn content_type(key: &str) -> &'static str {
         Some("jpg") => "image/jpeg",
         Some("webp") => "image/webp",
         Some("gif") => "image/gif",
-        Some("mp4") => "video/mp4",
-        Some("webm") => "video/webm",
         _ => "application/octet-stream",
     }
 }
@@ -130,76 +116,49 @@ pub(crate) fn hex(bytes: &[u8]) -> String {
         })
 }
 
-pub(crate) fn store_path(key: &str) -> StorePath {
+fn store_path(key: &str) -> StorePath {
     StorePath::from(format!("uploads/{key}"))
 }
 
-/// `POST /api/owner/uploads`: one multipart field named `file`, an image or a video.
+/// `POST /api/owner/uploads`: one multipart field named `file`.
 ///
 /// # Errors
 ///
-/// 401 without a session, 400 for a bad file, 413 above the size limit.
+/// 401 without a session, 400 for a bad file, 413 above the body limit.
 pub async fn upload(
     _: Owner,
     State(s): State<AppState>,
     mut form: Multipart,
 ) -> Result<Json<serde_json::Value>, MediaError> {
-    let broken = |_| MediaError::BadRequest("the upload is too large or broken");
-    while let Some(mut field) = form
+    let mut bytes = None;
+    while let Some(field) = form
         .next_field()
         .await
         .map_err(|_| MediaError::BadRequest("bad upload form"))?
     {
-        if field.name() != Some("file") {
-            continue;
+        if field.name() == Some("file") {
+            bytes = Some(
+                field
+                    .bytes()
+                    .await
+                    .map_err(|_| MediaError::BadRequest("the upload is too large or broken"))?,
+            );
         }
-        // The first bytes decide the type: a video streams to disk, an image stays
-        // in memory (10 MB at most).
-        let mut head = Vec::new();
-        while head.len() < SNIFF_LEN {
-            match field.chunk().await.map_err(broken)? {
-                Some(c) => head.extend_from_slice(&c),
-                None => break,
-            }
-        }
-        if let Some(container) = video::sniff(&head) {
-            let key = video::receive(&s.media, container, head, field).await?;
-            let url = format!("/media/{key}");
-            return Ok(Json(serde_json::json!({
-                "key": key,
-                "url": url,
-                "kind": "video",
-                "markdown": format!("```video\n{url}\n```"),
-            })));
-        }
-        let mut bytes = head;
-        loop {
-            if bytes.len() > UPLOAD_MAX {
-                return Err(MediaError::TooLarge("the image is larger than 10 MB"));
-            }
-            match field.chunk().await.map_err(broken)? {
-                Some(c) => bytes.extend_from_slice(&c),
-                None => break,
-            }
-        }
-        let (out, key) = tokio::task::spawn_blocking(move || reencode(&bytes))
-            .await
-            .map_err(|e| MediaError::Internal(e.to_string()))?
-            .map_err(MediaError::BadRequest)?;
-        s.media
-            .store
-            .put(&store_path(&key), PutPayload::from(out))
-            .await
-            .map_err(|e| MediaError::Internal(e.to_string()))?;
-        let url = format!("/media/{key}");
-        return Ok(Json(serde_json::json!({
-            "key": key,
-            "url": url,
-            "kind": "image",
-            "markdown": format!("![]({url})"),
-        })));
     }
-    Err(MediaError::BadRequest("no file in the upload"))
+    let bytes = bytes.ok_or(MediaError::BadRequest("no file in the upload"))?;
+    let (out, key) = tokio::task::spawn_blocking(move || reencode(&bytes))
+        .await
+        .map_err(|e| MediaError::Internal(e.to_string()))?
+        .map_err(MediaError::BadRequest)?;
+    s.media
+        .store
+        .put(&store_path(&key), PutPayload::from(out))
+        .await
+        .map_err(|e| MediaError::Internal(e.to_string()))?;
+    let url = format!("/media/{key}");
+    Ok(Json(
+        serde_json::json!({ "key": key, "url": url, "markdown": format!("![]({url})") }),
+    ))
 }
 
 /// Reads an image: the local cache first, then the store.
@@ -264,12 +223,9 @@ pub fn trim_cache(dir: &FsPath, max: u64) {
 }
 
 /// `GET /media/{key}`.
-pub async fn serve(State(s): State<AppState>, Path(key): Path<String>, req: HeaderMap) -> Response {
+pub async fn serve(State(s): State<AppState>, Path(key): Path<String>) -> Response {
     if !logbook_core::media_key_ok(key.as_bytes()) {
         return (StatusCode::NOT_FOUND, "not found").into_response();
-    }
-    if logbook_core::video_key_ok(key.as_bytes()) {
-        return video::serve(&s.media, &key, content_type(&key), &req).await;
     }
     match read(&s.media, &key).await {
         Ok(Some(bytes)) => (

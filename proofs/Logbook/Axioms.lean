@@ -34,14 +34,6 @@ standard ones: no `sorry`, and none of the generated `Option` axioms in
 #guard_msgs in
 #print axioms Logbook.media_key_spec
 
-/-- info: 'Logbook.video_key_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms Logbook.video_key_spec
-
-/-- info: 'Logbook.video_key_is_media_key' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms Logbook.video_key_is_media_key
-
 /-- info: 'Logbook.Video.youtube_id_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms Logbook.Video.youtube_id_spec

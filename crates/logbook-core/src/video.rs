@@ -1,8 +1,7 @@
 //! YouTube addresses in a video block (spec 4.10, theorem T18).
 //!
-//! The first line of a video block names the video. An uploaded file passes
-//! [`crate::video_key_ok`]. A YouTube address passes [`youtube_id`], which finds the
-//! 11-byte video ID. The renderer builds the embed from the key or the ID only,
+//! The first line of a video block is a YouTube address. [`youtube_id`] finds
+//! the 11-byte video ID in it. The renderer builds the embed from the ID only,
 //! never from the rest of the address.
 
 /// The length of a YouTube video ID.

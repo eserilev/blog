@@ -653,7 +653,7 @@ def ip.client_addr
   else ok ip.ClientAddr.Peer
 
 /-- [logbook_core::media::is_lower_hex]:
-    Source: 'crates/logbook-core/src/media.rs', lines 8:0-10:1 -/
+    Source: 'crates/logbook-core/src/media.rs', lines 7:0-9:1 -/
 def media.is_lower_hex (c : Std.U8) : Result Bool := do
   if c >= 48#u8
   then
@@ -667,7 +667,7 @@ def media.is_lower_hex (c : Std.U8) : Result Bool := do
        else ok false
 
 /-- [logbook_core::media::tail_is]: loop body 0:
-    Source: 'crates/logbook-core/src/media.rs', lines 18:4-25:1 -/
+    Source: 'crates/logbook-core/src/media.rs', lines 17:4-24:1 -/
 @[rust_loop_body]
 def media.tail_is_loop.body
   (key : Slice Std.U8) («at» : Std.Usize) (ext : Slice Std.U8)
@@ -687,7 +687,7 @@ def media.tail_is_loop.body
   else ok (done true)
 
 /-- [logbook_core::media::tail_is]: loop 0:
-    Source: 'crates/logbook-core/src/media.rs', lines 18:4-25:1 -/
+    Source: 'crates/logbook-core/src/media.rs', lines 17:4-24:1 -/
 @[rust_loop]
 def media.tail_is_loop
   (key : Slice Std.U8) («at» : Std.Usize) (ext : Slice Std.U8)
@@ -699,7 +699,7 @@ def media.tail_is_loop
     i
 
 /-- [logbook_core::media::tail_is]:
-    Source: 'crates/logbook-core/src/media.rs', lines 13:0-25:1 -/
+    Source: 'crates/logbook-core/src/media.rs', lines 12:0-24:1 -/
 def media.tail_is
   (key : Slice Std.U8) («at» : Std.Usize) (ext : Slice Std.U8) :
   Result Bool
@@ -711,10 +711,11 @@ def media.tail_is
   then ok false
   else media.tail_is_loop key «at» ext 0#usize
 
-/-- [logbook_core::media::hex_dot]: loop body 0:
-    Source: 'crates/logbook-core/src/media.rs', lines 33:4-40:1 -/
+/-- [logbook_core::media::media_key_ok]: loop body 0:
+    Source: 'crates/logbook-core/src/media.rs', lines 34:4-45:1
+    Visibility: public -/
 @[rust_loop_body]
-def media.hex_dot_loop.body
+def media.media_key_ok_loop.body
   (key : Slice Std.U8) (i : Std.Usize) :
   Result (ControlFlow Std.Usize Bool)
   := do
@@ -726,81 +727,54 @@ def media.hex_dot_loop.body
     then let i2 ← i + 1#usize
          ok (cont i2)
     else ok (done false)
-  else let i1 ← Slice.index_usize key 64#usize
-       ok (done (i1 = 46#u8))
+  else
+    let i1 ← Slice.index_usize key 64#usize
+    if i1 = 46#u8
+    then
+      let s ←
+        lift (Array.to_slice (Array.make 3#usize [ 112#u8, 110#u8, 103#u8 ]))
+      let b ← media.tail_is key 65#usize s
+      if b
+      then ok (done true)
+      else
+        let s1 ←
+          lift (Array.to_slice (Array.make 3#usize [ 106#u8, 112#u8, 103#u8 ]))
+        let b1 ← media.tail_is key 65#usize s1
+        if b1
+        then ok (done true)
+        else
+          let s2 ←
+            lift (Array.to_slice
+              (Array.make 3#usize [ 103#u8, 105#u8, 102#u8 ]))
+          let b2 ← media.tail_is key 65#usize s2
+          if b2
+          then ok (done true)
+          else
+            let s3 ←
+              lift (Array.to_slice
+                (Array.make 4#usize [ 119#u8, 101#u8, 98#u8, 112#u8 ]))
+            let b3 ← media.tail_is key 65#usize s3
+            ok (done b3)
+    else ok (done false)
 
-/-- [logbook_core::media::hex_dot]: loop 0:
-    Source: 'crates/logbook-core/src/media.rs', lines 33:4-40:1 -/
+/-- [logbook_core::media::media_key_ok]: loop 0:
+    Source: 'crates/logbook-core/src/media.rs', lines 34:4-45:1
+    Visibility: public -/
 @[rust_loop]
-def media.hex_dot_loop (key : Slice Std.U8) (i : Std.Usize) : Result Bool := do
+def media.media_key_ok_loop
+  (key : Slice Std.U8) (i : Std.Usize) : Result Bool := do
   loop
-    (fun i1 => media.hex_dot_loop.body key i1)
+    (fun i1 => media.media_key_ok_loop.body key i1)
     i
 
-/-- [logbook_core::media::hex_dot]:
-    Source: 'crates/logbook-core/src/media.rs', lines 28:0-40:1 -/
-def media.hex_dot (key : Slice Std.U8) : Result Bool := do
-  let i := Slice.len key
-  if i < 65#usize
-  then ok false
-  else media.hex_dot_loop key 0#usize
-
-/-- [logbook_core::media::video_ext]:
-    Source: 'crates/logbook-core/src/media.rs', lines 43:0-45:1 -/
-def media.video_ext (key : Slice Std.U8) : Result Bool := do
-  let s ←
-    lift (Array.to_slice (Array.make 3#usize [ 109#u8, 112#u8, 52#u8 ]))
-  let b ← media.tail_is key 65#usize s
-  if b
-  then ok true
-  else
-    let s1 ←
-      lift (Array.to_slice
-        (Array.make 4#usize [ 119#u8, 101#u8, 98#u8, 109#u8 ]))
-    media.tail_is key 65#usize s1
-
 /-- [logbook_core::media::media_key_ok]:
-    Source: 'crates/logbook-core/src/media.rs', lines 50:0-57:1
+    Source: 'crates/logbook-core/src/media.rs', lines 29:0-45:1
     Visibility: public -/
 def media.media_key_ok (key : Slice Std.U8) : Result Bool := do
-  let b ← media.hex_dot key
-  if b
-  then
-    let s ←
-      lift (Array.to_slice (Array.make 3#usize [ 112#u8, 110#u8, 103#u8 ]))
-    let b1 ← media.tail_is key 65#usize s
-    if b1
-    then ok true
-    else
-      let s1 ←
-        lift (Array.to_slice (Array.make 3#usize [ 106#u8, 112#u8, 103#u8 ]))
-      let b2 ← media.tail_is key 65#usize s1
-      if b2
-      then ok true
-      else
-        let s2 ←
-          lift (Array.to_slice (Array.make 3#usize [ 103#u8, 105#u8, 102#u8 ]))
-        let b3 ← media.tail_is key 65#usize s2
-        if b3
-        then ok true
-        else
-          let s3 ←
-            lift (Array.to_slice
-              (Array.make 4#usize [ 119#u8, 101#u8, 98#u8, 112#u8 ]))
-          let b4 ← media.tail_is key 65#usize s3
-          if b4
-          then ok true
-          else media.video_ext key
-  else ok false
-
-/-- [logbook_core::media::video_key_ok]:
-    Source: 'crates/logbook-core/src/media.rs', lines 62:0-64:1
-    Visibility: public -/
-def media.video_key_ok (key : Slice Std.U8) : Result Bool := do
-  let b ← media.hex_dot key
-  if b
-  then media.video_ext key
-  else ok false
+  let i := Slice.len key
+  if i < 68#usize
+  then ok false
+  else media.media_key_ok_loop key 0#usize
 
 /-- [logbook_core::post::{impl core::fmt::Debug for logbook_core::post::State}::fmt]:
     Source: 'crates/logbook-core/src/post.rs', lines 7:9-7:14
@@ -1424,12 +1398,12 @@ def slug.make_slug
   else ok out
 
 /-- [logbook_core::video::YOUTUBE_ID_LEN]
-    Source: 'crates/logbook-core/src/video.rs', lines 9:0-9:37
+    Source: 'crates/logbook-core/src/video.rs', lines 8:0-8:37
     Visibility: public -/
 @[global_simps, irreducible] def video.YOUTUBE_ID_LEN : Std.Usize := 11#usize
 
 /-- [logbook_core::video::is_id_byte]:
-    Source: 'crates/logbook-core/src/video.rs', lines 12:0-18:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 11:0-17:1 -/
 def video.is_id_byte (c : Std.U8) : Result Bool := do
   if c >= 65#u8
   then
@@ -1491,7 +1465,7 @@ def video.is_id_byte (c : Std.U8) : Result Bool := do
            else ok (c = 45#u8)
 
 /-- [logbook_core::video::starts]: loop body 0:
-    Source: 'crates/logbook-core/src/video.rs', lines 26:4-33:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 25:4-32:1 -/
 @[rust_loop_body]
 def video.starts_loop.body
   (s : Slice Std.U8) (p : Slice Std.U8) (j : Std.Usize) :
@@ -1509,7 +1483,7 @@ def video.starts_loop.body
   else ok (done true)
 
 /-- [logbook_core::video::starts]: loop 0:
-    Source: 'crates/logbook-core/src/video.rs', lines 26:4-33:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 25:4-32:1 -/
 @[rust_loop]
 def video.starts_loop
   (s : Slice Std.U8) (p : Slice Std.U8) (j : Std.Usize) : Result Bool := do
@@ -1518,7 +1492,7 @@ def video.starts_loop
     j
 
 /-- [logbook_core::video::starts]:
-    Source: 'crates/logbook-core/src/video.rs', lines 21:0-33:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 20:0-32:1 -/
 def video.starts (s : Slice Std.U8) (p : Slice Std.U8) : Result Bool := do
   let i := Slice.len s
   let i1 := Slice.len p
@@ -1527,7 +1501,7 @@ def video.starts (s : Slice Std.U8) (p : Slice Std.U8) : Result Bool := do
   else video.starts_loop s p 0#usize
 
 /-- [logbook_core::video::youtube_prefix]:
-    Source: 'crates/logbook-core/src/video.rs', lines 37:0-53:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 36:0-52:1 -/
 def video.youtube_prefix (url : Slice Std.U8) : Result Std.Usize := do
   let s ←
     lift (Array.to_slice
@@ -1602,7 +1576,7 @@ def video.youtube_prefix (url : Slice Std.U8) : Result Std.Usize := do
             else ok 0#usize
 
 /-- [logbook_core::video::id_at]: loop body 0:
-    Source: 'crates/logbook-core/src/video.rs', lines 62:4-70:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 61:4-69:1 -/
 @[rust_loop_body]
 def video.id_at_loop.body
   (url : Slice Std.U8) («at» : Std.Usize) (j : Std.Usize) :
@@ -1631,7 +1605,7 @@ def video.id_at_loop.body
            else ok (done (i1 = 35#u8))
 
 /-- [logbook_core::video::id_at]: loop 0:
-    Source: 'crates/logbook-core/src/video.rs', lines 62:4-70:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 61:4-69:1 -/
 @[rust_loop]
 def video.id_at_loop
   (url : Slice Std.U8) («at» : Std.Usize) (j : Std.Usize) : Result Bool := do
@@ -1640,7 +1614,7 @@ def video.id_at_loop
     j
 
 /-- [logbook_core::video::id_at]:
-    Source: 'crates/logbook-core/src/video.rs', lines 57:0-70:1 -/
+    Source: 'crates/logbook-core/src/video.rs', lines 56:0-69:1 -/
 def video.id_at (url : Slice Std.U8) («at» : Std.Usize) : Result Bool := do
   let i := Slice.len url
   if «at» > i
@@ -1653,7 +1627,7 @@ def video.id_at (url : Slice Std.U8) («at» : Std.Usize) : Result Bool := do
     else video.id_at_loop url «at» 0#usize
 
 /-- [logbook_core::video::youtube_id]:
-    Source: 'crates/logbook-core/src/video.rs', lines 80:0-87:1
+    Source: 'crates/logbook-core/src/video.rs', lines 79:0-86:1
     Visibility: public -/
 def video.youtube_id (url : Slice Std.U8) : Result (Option Std.Usize) := do
   let «at» ← video.youtube_prefix url
