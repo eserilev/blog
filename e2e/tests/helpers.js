@@ -70,12 +70,17 @@ export async function videoPost(page, title) {
   return published.slug;
 }
 
-/* A stand-in for the YouTube player: the same postMessage protocol, a 180 s
-   video, a gray picture. CI never loads the real YouTube. */
+/* A stand-in for the YouTube player: the same postMessage protocol, a video of
+   __D__ s (180 by default), a colored picture. CI never loads the real YouTube.
+   __DELAY__: the player answers the handshake after this many ms.
+   __SILENT__: the player never answers. */
 const STUB = `<!doctype html><html><body style="margin:0;height:100vh;background:linear-gradient(90deg,#c22,#2c2,#22c)">
 <script>
 let state = -1, t = 0, vol = 100, muted = false, listening = false, last = Date.now();
-const d = 180, autoplay = new URLSearchParams(location.search).get('autoplay') === '1';
+window.hellos = 0;
+window.volume = () => vol;
+const delay = __DELAY__, silent = __SILENT__, start = Date.now();
+const d = __D__, autoplay = new URLSearchParams(location.search).get('autoplay') === '1';
 window.commands = [];
 const send = o => parent.postMessage(JSON.stringify(o), '*');
 const info = () => ({ currentTime: t, duration: d, playerState: state, volume: vol, muted });
@@ -88,7 +93,8 @@ setInterval(() => {
 addEventListener('message', e => {
   let m;
   try { m = JSON.parse(e.data); } catch { return; }
-  if (m.event === 'listening' && !listening) {
+  if (m.event === 'listening') window.hellos++;
+  if (m.event === 'listening' && !listening && !silent && Date.now() - start >= delay) {
     listening = true;
     if (autoplay) state = 1;
     send({ event: 'onReady', info: null });
@@ -109,13 +115,14 @@ addEventListener('message', e => {
 
 /** Serves the stub player for youtube-nocookie.com and blocks every other host.
     Returns the list of requests that left the site. */
-export async function stubYouTube(page) {
+export async function stubYouTube(page, { delay = 0, silent = false, duration = 180 } = {}) {
+  const body = STUB.replace('__DELAY__', delay).replace('__SILENT__', silent).replace('__D__', duration);
   const seen = [];
   await page.route(url => url.protocol.startsWith('http') && url.origin !== 'http://localhost:18100', route => {
     const url = route.request().url();
     seen.push(url);
     if (url.startsWith('https://www.youtube-nocookie.com/embed/')) {
-      return route.fulfill({ status: 200, contentType: 'text/html', body: STUB });
+      return route.fulfill({ status: 200, contentType: 'text/html', body });
     }
     return route.abort();
   });

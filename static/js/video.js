@@ -29,18 +29,16 @@
   const ENDED = 0, PLAYING = 1, PAUSED = 2, BUFFERING = 3;
 
   const two = n => String(n).padStart(2, '0');
-  /* "00:42", or "1:02:03" for an hour or more. "--:--" if unknown. */
-  const clock = s => {
-    if (!Number.isFinite(s) || s < 0) return '--:--';
+  /* A time: "00:42" (or "1:02:03" for an hour or more), "--:--" if unknown.
+     short: the length as people say it ("3:15"), empty if unknown. */
+  const clock = (s, short = false) => {
+    if (!Number.isFinite(s) || s < 0 || (short && s === 0)) return short ? '' : '--:--';
     s = Math.floor(s);
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-    return h ? `${h}:${two(m)}:${two(s % 60)}` : `${two(m)}:${two(s % 60)}`;
+    if (h) return `${h}:${two(m)}:${two(s % 60)}`;
+    return `${short ? m : two(m)}:${two(s % 60)}`;
   };
-  /* "3:15": the length, as people say it. Empty if unknown. */
-  const length = s => {
-    if (!Number.isFinite(s) || s <= 0) return '';
-    return s >= 3600 ? clock(s) : `${Math.floor(s / 60)}:${two(Math.floor(s % 60))}`;
-  };
+  const length = s => clock(s, true);
   const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
   const el = (tag, cls, text) => {
@@ -110,10 +108,11 @@
       if (!this.built) this.build();
     }
 
+    /* A frame that leaves the page reloads when it comes back, so the embed goes
+       back to its pre-play screen. */
     disconnectedCallback() {
       live.delete(this);
-      this.pause();
-      clearInterval(this.hello);
+      this.unload();
     }
 
     /* ---- Set up ---- */
@@ -145,9 +144,9 @@
     screen(cls, start) {
       const s = el('div', `ve-screen ${cls || ''}`.trim());
       // MS-DOS: the screen takes the focus, so its keys work after the start
-      // button goes. Other skins: the focus moves here from the start button.
-      s.tabIndex = this.skin === 'night' ? 0 : -1;
+      // button goes.
       if (this.skin === 'night') {
+        s.tabIndex = 0;
         s.setAttribute('role', 'group');
         s.setAttribute('aria-label', `Video player${this.label ? `: ${this.label}` : ''}. Keys: Enter play or pause, Escape stop, A text mode, F full screen.`);
       }
@@ -264,6 +263,9 @@
       this.ui.statusText = el('span');
       this.ui.bar = el('span', 've-bar');
       status.append(this.ui.statusText, this.ui.bar);
+      // The status line is drawn text. Screen readers get the state here.
+      this.ui.said = el('span', 'dos-sr');
+      this.ui.said.setAttribute('aria-live', 'polite');
       const keys = el('div', 've-keys');
       const key = (k, text, fn) => {
         const b = btn('ve-key', `${k} ${text}`, el('b', null, k), el('span', null, text));
@@ -275,7 +277,7 @@
       this.ui.textKey = key('A', 'Text mode', () => this.setTextMode(!this.textMode));
       keys.append(this.ui.toggle, key('ESC', 'Stop', () => this.stop()), this.ui.textKey,
         key('F', 'Full screen', () => this.fullscreen(this.ui.screen)));
-      box.append(label, screen, status, keys);
+      box.append(label, screen, status, this.ui.said, keys);
       fig.append(box);
       if (this.label) fig.append(el('figcaption', 've-caption', this.label));
       return fig;
@@ -286,6 +288,7 @@
       ui.info.textContent = `YOUTUBE · ${length(i.d) || '--:--'}`;
       const state = { play: '► PLAY ', pause: '‖ PAUSE', idle: '■ STOP ' }[this.state];
       ui.statusText.textContent = `${state}  ${clock(i.t)} / ${clock(i.d)}  `;
+      ui.said.textContent = { play: 'Playing', pause: 'Paused', idle: 'Stopped' }[this.state];
       const n = Math.round(this.progress() * 20);
       ui.bar.textContent = `[${'█'.repeat(n)}${'░'.repeat(20 - n)}]`;
       ui.toggleText.textContent = this.state === 'play' ? 'Pause' : 'Play';
@@ -398,7 +401,8 @@
       f.src = `${YT_ORIGIN}/embed/${this.ytId}?${params}`;
       f.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
       f.allowFullscreen = true;
-      f.referrerPolicy = 'strict-origin-when-cross-origin';
+      // The page sends Referrer-Policy: strict-origin-when-cross-origin (6.9), and
+      // the frame request uses it. YouTube needs the origin in the Referer.
       f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups');
       f.addEventListener('load', () => this.handshake());
       this.frame = f;
@@ -410,7 +414,9 @@
       clearInterval(this.hello);
       let n = 0;
       const hello = () => {
-        if (this.ready || ++n > HELLO_MAX) { clearInterval(this.hello); return; }
+        if (this.ready) { clearInterval(this.hello); return; }
+        // No answer in 10 s: back to the pre-play screen.
+        if (++n > HELLO_MAX) { this.unload(); return; }
         this.post({ event: 'listening', id: this.uid, channel: 'widget' });
       };
       hello();
@@ -437,6 +443,8 @@
       if (['onReady', 'infoDelivery', 'initialDelivery'].includes(m.event)) this.ready = true;
       if (first && this.ready) {
         clearInterval(this.hello);
+        // A volume change before the answer goes now.
+        if (this.info.volume !== 100 || this.info.muted) this.sendVolume();
         if (this.wantPlay) this.command('playVideo');
       }
       let ps = null;
@@ -467,17 +475,43 @@
 
     /* ---- Controls ---- */
 
-    /* The first click loads the frame and plays. */
+    /* The first click loads the frame and plays. One video plays at a time, so
+       the other embeds pause. */
     play() {
+      const moveFocus = this.ui.start.contains(document.activeElement);
+      live.forEach(v => { if (v !== this) v.pause(); });
       this.state = this.state === 'play' ? 'play' : 'pause';
       this.wantPlay = true;
       if (!this.frame) this.load();
       else this.command('playVideo');
       this.update();
-      if (this.ui.start.contains(document.activeElement)) this.ui.screen.focus({ preventScroll: true });
+      // The start button goes: the focus moves to a control that stays.
+      if (moveFocus) {
+        const next = this.skin === 'general' ? this.ui.pause : this.skin === 'phone' ? this.ui.toggle : this.ui.screen;
+        next.focus({ preventScroll: true });
+      }
     }
 
-    pause() { this.command('pauseVideo'); }
+    /* A player that has not answered yet cannot take a command, and it plays
+       when it answers. So the embed removes it and shows the pre-play screen. */
+    pause() {
+      this.wantPlay = false;
+      if (this.frame && !this.ready) { this.unload(); return; }
+      this.command('pauseVideo');
+    }
+
+    /* Removes the frame: the pre-play screen shows again. */
+    unload() {
+      clearInterval(this.hello);
+      this.wantPlay = false;
+      this.ready = false;
+      if (!this.frame) return;
+      this.frame.remove();
+      this.frame = null;
+      this.state = 'idle';
+      this.info.t = 0;
+      this.update();
+    }
 
     toggle() {
       if (this.state === 'play') this.pause();
@@ -485,6 +519,7 @@
     }
 
     stop() {
+      if (this.frame && !this.ready) { this.unload(); return; }
       this.wantPlay = false;
       this.command('pauseVideo');
       this.command('seekTo', [0, true]);
@@ -505,12 +540,17 @@
 
     seekBy(dt) { this.seekTo(this.info.t + dt); }
 
+    /* Before the player answers, the value waits, and the handshake sends it. */
     setVolume(v) {
-      this.command('setVolume', [v]);
-      this.command(v === 0 ? 'mute' : 'unMute');
       this.info.volume = v;
       this.info.muted = v === 0;
+      this.sendVolume();
       this.update();
+    }
+
+    sendVolume() {
+      this.command('setVolume', [this.info.volume]);
+      this.command(this.info.muted ? 'mute' : 'unMute');
     }
 
     fullscreen(target) {

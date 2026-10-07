@@ -309,28 +309,30 @@ The ammonia allow-list accepts `video-embed` with `data-id` and `data-title` onl
 ```html
 <iframe src="https://www.youtube-nocookie.com/embed/<id>?enablejsapi=1&controls=0&playsinline=1&autoplay=1&rel=0&origin=<site origin>"
   allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen
-  referrerpolicy="strict-origin-when-cross-origin"
   sandbox="allow-scripts allow-same-origin allow-presentation allow-popups">
 ```
 
 - The page loads no YouTube script (`iframe_api`). The skin talks to the frame with `postMessage` only.
-- First, the skin sends `{"event":"listening"}` every 250 ms, until the player answers (10 s at most).
+- First, the skin sends `{"event":"listening"}` every 250 ms, until the player answers. Without an answer in 10 s, the skin removes the frame and shows the pre-play screen.
+- Before the answer, the player cannot take a command, and it plays when it answers. So Pause, Stop, or a mode change before the answer removes the frame. A volume change before the answer goes to the player with the answer.
+- One video plays at a time. When an embed starts to play, the other embeds pause.
 - Commands: `{"event":"command","func":"playVideo"}`, and `pauseVideo`, `seekTo` (seconds), `setVolume`, `mute`, and `unMute`.
 - The player sends `infoDelivery` messages. The skin reads only numbers from them: `currentTime`, `duration`, `playerState`, `volume`, and `muted`.
 - The skin accepts a message only if its origin is `https://www.youtube-nocookie.com` and its source is the frame of that embed.
 - Before the player gives a duration, the time shows `--:--`.
-- YouTube needs the origin in the `Referer` header, so the policy is not `no-referrer`.
+- YouTube needs the origin in the `Referer` header. The frame request uses the policy of the page header, `strict-origin-when-cross-origin` (6.9), so the frame has no `referrerpolicy` attribute.
 
 **Skins.**
 
 - **general: Media Player.** A small Win98 window: the title bar "Media Player - <title>" with _ □ ×, a menu row, a black 16:9 screen, and a sunken seek trough with a raised thumb (a real range input). Then raised pixel buttons: Play, Pause, Stop, Go to the start, Back 10 s, Forward 10 s, Go to the end. Then a volume icon and a slider. The sunken status bar shows Playing, Paused, or Stopped, then `00:42 / 03:15`, then Stereo (Muted when the sound is off).
   - The window controls and the menu row are decoration: `aria-hidden`, no behavior.
   - One video has no previous or next track. So these two buttons go to the start and to the end of the video.
-  - Before play, the screen shows a pixel ▶ and "Click ▶ to play", with the length when it is known. Stop shows this screen again.
+  - Before play, the screen shows a pixel ▶ and "Click ▶ to play", with the length when it is known. Stop and the end of the video show this screen again.
+  - After the click, the focus moves from the start button to Pause.
 - **night: PLAY.EXE.** A double-border box with the title `PLAY.EXE ─ <NAME>`. Before play, a `► PRESS ENTER` box-drawing frame shows `YOUTUBE` and the length.
   - The frame is cross-origin, so the page cannot read its pixels, and ASCII art is not possible. Text mode replaces it, on by default: grayscale with high contrast, scanlines, and a coarse grid of 80 × 25 character cells over the picture. The grid and the scanlines are CSS on a layer with `pointer-events: none`.
   - `[A]` turns text mode off (grayscale only) and on.
-  - The status line is `► PLAY  00:42 / 03:15  [████░░░░…]`.
+  - The status line is `► PLAY  00:42 / 03:15  [████░░░░…]`. It is drawn text (`aria-hidden`). A visually hidden live region gives screen readers the state: Playing, Paused, or Stopped.
   - Keys: `[ENTER] Play/Pause`, `[ESC] Stop`, `[A] Text mode`, `[F] Full screen`. They work by click, and by keyboard while the focus is in the player. No key listener is on the page, so the prompt keeps its keys.
   - A slow roll band moves down the screen while the video plays.
 - **phone: the LCD player.** An inverted header "► VIDEO  3:15", a 16:9 screen with a 3 px ink border, and a ▶ box before play. Then a 12-block progress bar, the time line with PLAY, PAUSE, or STOP, and four 48 px keys: `◀◀ 10s`, Play/Pause, LCD, and FULL.
@@ -982,7 +984,7 @@ Playwright, Chromium:
 - MS-DOS mode (`dos.spec.js`): toggle and reload, DIR then TYPE, a deep link, Back, WIN, F-keys, keyboard only, 390 px layout.
 - Phone mode (`phone.spec.js`): see 11.8.
 - Start menu (`start.spec.js`): see 11.3.
-- Video embeds (`video.spec.js`): a stub page stands in for the YouTube player and answers its `postMessage` protocol, so CI never loads YouTube. The tests: no request to another host before the click, one click that loads and plays, the frame address and attributes, the Win98 buttons, seek bar, volume, and status, a message from another origin that changes nothing, MS-DOS text mode and its keys, the phone LCD tint and keys, a mode change that pauses a hidden video, and the editor preview.
+- Video embeds (`video.spec.js`): a stub page stands in for the YouTube player and answers its `postMessage` protocol, so CI never loads YouTube. The tests: no request to another host before the click, one click that loads and plays, the frame address and attributes, the Win98 buttons, seek bar, volume, and status, a message from another origin that changes nothing, Pause, Stop, and a mode change before a late answer, the 10 s handshake limit, the end of the video, one video at a time with two embeds, a volume change before the answer, MS-DOS text mode and its keys, the phone LCD tint and keys, a mode change that pauses a hidden video, and the editor preview.
 
 ### 7.6 Formal verification (Aeneas)
 

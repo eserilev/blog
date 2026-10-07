@@ -34,7 +34,6 @@ video-embed { display: block; min-width: 0; }
 .ve-general .ve-screen > iframe, .ve-general .ve-start { inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); }
 .ve-general .ve-start { gap: 14px; background: #000; color: var(--chrome); }
 .ve-general .ve-start:focus-visible { outline: 1px dotted var(--chrome); outline-offset: -6px; }
-.ve-general .ve-screen:focus { outline: none; }
 .ve-big { width: 120px; max-width: 30%; height: auto; aspect-ratio: 24 / 16; }
 .ve-hint { font: clamp(18px, 4vw, 28px)/1 var(--f-lcd); }
 

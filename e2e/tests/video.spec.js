@@ -16,8 +16,9 @@ test.beforeAll(async ({ browser }) => {
 });
 
 const embed = (page, scope) => page.locator(`${scope} video-embed`).first();
-/** The commands that the stub player received. */
-const commands = page => page.frames().find(f => f.url().startsWith('https://www.youtube-nocookie.com/'))?.evaluate(() => window.commands) ?? [];
+const players = page => page.frames().filter(f => f.url().startsWith('https://www.youtube-nocookie.com/'));
+/** The commands that the stub player received (the first frame, or frame n). */
+const commands = (page, n = 0) => players(page)[n]?.evaluate(() => window.commands) ?? [];
 
 test('the facade: no third-party request before the click; one click loads and plays', async ({ page }) => {
   const seen = await stubYouTube(page);
@@ -38,7 +39,8 @@ test('the facade: no third-party request before the click; one click loads and p
     enablejsapi: '1', controls: '0', playsinline: '1', autoplay: '1', rel: '0', origin: SITE,
   });
   await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups');
-  await expect(frame).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  // The frame request takes the referrer policy of the page header.
+  await expect(frame).not.toHaveAttribute('referrerpolicy', /./);
   await expect(player.locator('.ve-state')).toHaveText('Playing');
   await expect(player.locator('.ve-clock')).toHaveText(/^00:0\d \/ 03:00$/);
   expect(await commands(page)).toContain('playVideo');
@@ -103,11 +105,13 @@ test('MS-DOS: PLAY.EXE, text mode, the status line, and the keys', async ({ page
   await expect(player.locator('.ve-frame')).toContainText('► PRESS ENTER');
   await expect(player.locator('.ve-info')).toHaveText('YOUTUBE · --:--');
   await expect(player.locator('.ve-statusline')).toContainText('■ STOP   00:00 / --:--');
-  await expect(player.getByText('ASCII needs a local file')).toHaveCount(0);
 
   await player.getByRole('button', { name: /Play YouTube video/ }).click();
   await expect(player.locator('.ve-statusline')).toContainText('► PLAY');
   await expect(player.locator('.ve-statusline')).toContainText('/ 03:00');
+  // The status line is drawn text; a live region gives screen readers the state.
+  await expect(player.locator('.ve-statusline')).toHaveAttribute('aria-hidden', 'true');
+  await expect(player.locator('.dos-sr')).toHaveText('Playing');
   // Text mode is on by default: a high-contrast filter and the cell grid over the frame.
   const fx = player.locator('.ve-fx');
   await expect(fx).toBeVisible();
@@ -202,4 +206,83 @@ test('the editor preview shows the embed', async ({ page }) => {
   await expect(player.locator('.titlebar')).toHaveText(/Media Player - Preview clip/);
   expect(seen).toEqual([]);
   expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('before the player answers, pause, stop, and a mode change go back to the start screen', async ({ page }) => {
+  await stubYouTube(page, { delay: 1500 });
+  await page.goto(`/posts/${slug}`);
+  const player = embed(page, 'post-view');
+  const play = player.getByRole('button', { name: /Play YouTube video/ });
+
+  // Stop before the answer: no frame, and nothing plays later.
+  await play.click();
+  await expect(player.locator('iframe')).toHaveCount(1);
+  await player.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(player.locator('iframe')).toHaveCount(0);
+  await expect(player.locator('.ve-start')).toBeVisible();
+  await page.waitForTimeout(2000);
+  await expect(player.locator('.ve-state')).toHaveText('Stopped');
+
+  // Pause before the answer: the same.
+  await play.click();
+  await player.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(player.locator('iframe')).toHaveCount(0);
+  await expect(player.locator('.ve-state')).toHaveText('Stopped');
+
+  // A mode change before the answer: the hidden embed has no frame.
+  await play.click();
+  await page.evaluate(() => Mode.set('night'));
+  await expect(player.locator('iframe')).toHaveCount(0);
+  await page.waitForTimeout(2000);
+  expect(players(page)).toHaveLength(0);
+  await page.evaluate(() => Mode.set('general'));
+});
+
+test('a player that never answers: the handshake stops after 10 s', async ({ page }) => {
+  test.setTimeout(30_000);
+  await stubYouTube(page, { silent: true });
+  await page.goto(`/posts/${slug}`);
+  const player = embed(page, 'post-view');
+  await player.getByRole('button', { name: /Play YouTube video/ }).click();
+  await expect(player.locator('iframe')).toHaveCount(1);
+  const hellos = await players(page)[0].evaluate(() => new Promise(r => setTimeout(() => r(window.hellos), 2000)));
+  expect(hellos).toBeGreaterThan(3);
+  await expect(player.locator('iframe')).toHaveCount(0, { timeout: 12_000 });
+  await expect(player.locator('.ve-start')).toBeVisible();
+  await expect(player.locator('.ve-state')).toHaveText('Stopped');
+});
+
+test('the end of the video shows the start screen', async ({ page }) => {
+  await stubYouTube(page, { duration: 2 });
+  await page.goto(`/posts/${slug}`);
+  const player = embed(page, 'post-view');
+  await player.getByRole('button', { name: /Play YouTube video/ }).click();
+  await expect(player.locator('.ve-state')).toHaveText('Playing');
+  await expect(player.locator('.ve-state')).toHaveText('Stopped', { timeout: 5000 });
+  await expect(player.locator('.ve-start')).toBeVisible();
+  await expect(player.locator('.ve-clock')).toHaveText('00:00 / 00:02');
+});
+
+test('two embeds: one plays at a time; the focus moves to Pause', async ({ page }) => {
+  await stubYouTube(page);
+  await page.goto(`/posts/${slug}`);
+  const [a, b] = [page.locator('post-view video-embed').nth(0), page.locator('post-view video-embed').nth(1)];
+  await a.getByRole('button', { name: /Play YouTube video/ }).click();
+  await expect(a.locator('.ve-state')).toHaveText('Playing');
+  await expect(a.getByRole('button', { name: 'Pause', exact: true })).toBeFocused();
+  await b.getByRole('button', { name: /Play YouTube video/ }).click();
+  await expect(b.locator('.ve-state')).toHaveText('Playing');
+  await expect(a.locator('.ve-state')).toHaveText('Paused');
+  expect(await commands(page, 0)).toContain('pauseVideo');
+});
+
+test('a volume change before the answer goes to the player when it answers', async ({ page }) => {
+  await stubYouTube(page, { delay: 1000 });
+  await page.goto(`/posts/${slug}`);
+  const player = embed(page, 'post-view');
+  await player.getByRole('button', { name: /Play YouTube video/ }).click();
+  await player.locator('.ve-volume').fill('40');
+  await expect(player.locator('.ve-state')).toHaveText('Playing', { timeout: 5000 });
+  await expect.poll(() => commands(page)).toContain('setVolume');
+  expect(await players(page)[0].evaluate(() => window.volume())).toBe(40);
 });

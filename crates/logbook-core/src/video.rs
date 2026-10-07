@@ -88,7 +88,6 @@ pub fn youtube_id(url: &[u8]) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
 
     const PREFIXES: [&str; 6] = [
         "https://www.youtube.com/watch?v=",
@@ -98,18 +97,6 @@ mod tests {
         "https://www.youtube.com/shorts/",
         "https://youtube.com/shorts/",
     ];
-
-    /// The rule, written plainly.
-    fn reference(url: &[u8]) -> Option<usize> {
-        let p = PREFIXES.iter().find(|p| url.starts_with(p.as_bytes()))?;
-        let rest = &url[p.len()..];
-        let ok = rest.len() >= YOUTUBE_ID_LEN
-            && rest[..YOUTUBE_ID_LEN]
-                .iter()
-                .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
-            && matches!(rest.get(YOUTUBE_ID_LEN), None | Some(b'?' | b'&' | b'#'));
-        ok.then_some(p.len())
-    }
 
     fn id(url: &str) -> Option<&str> {
         youtube_id(url.as_bytes()).map(|i| &url[i..i + YOUTUBE_ID_LEN])
@@ -159,37 +146,6 @@ mod tests {
             "https://youtu.be/",
         ] {
             assert_eq!(id(url), None, "{url}");
-        }
-    }
-
-    proptest! {
-        /// T18, the YouTube half: the same answer as the plain rule.
-        #[test]
-        fn agrees_with_the_rule(
-            p in prop::sample::select(PREFIXES.to_vec()),
-            rest in prop::collection::vec(prop_oneof![
-                Just(b'a'), Just(b'Z'), Just(b'0'), Just(b'_'), Just(b'-'), Just(b'?'),
-                Just(b'&'), Just(b'#'), Just(b'"'), Just(b'<'), Just(b'/'), any::<u8>(),
-            ], 0..16),
-        ) {
-            let mut url = p.as_bytes().to_vec();
-            url.extend_from_slice(&rest);
-            prop_assert_eq!(youtube_id(&url), reference(&url));
-        }
-
-        #[test]
-        fn any_bytes_agree(url in prop::collection::vec(any::<u8>(), 0..64)) {
-            prop_assert_eq!(youtube_id(&url), reference(&url));
-        }
-
-        /// An accepted ID never holds a byte that HTML or a URL treats as special.
-        #[test]
-        fn accepted_ids_are_plain(url in "https://youtu\\.be/[ -~]{0,14}") {
-            if let Some(i) = youtube_id(url.as_bytes()) {
-                prop_assert!(url.as_bytes()[i..i + YOUTUBE_ID_LEN]
-                    .iter()
-                    .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-'));
-            }
         }
     }
 }

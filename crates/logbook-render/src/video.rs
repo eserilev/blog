@@ -67,13 +67,11 @@ pub fn html(block: &Block<'_>) -> String {
     out
 }
 
-/// True if `value` is a YouTube ID: 11 bytes of `A-Z a-z 0-9 _ -`.
+/// True if `value` is a YouTube ID: 11 bytes of `A-Z a-z 0-9 _ -`. The check is
+/// `youtube_id` (T18) on the short form of the address.
 #[must_use]
 pub fn id_ok(value: &str) -> bool {
-    value.len() == YOUTUBE_ID_LEN
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    value.len() == YOUTUBE_ID_LEN && id(&format!("https://youtu.be/{value}")) == Some(value)
 }
 
 #[cfg(test)]
