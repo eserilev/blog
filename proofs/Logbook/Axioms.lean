@@ -8,6 +8,7 @@ import Logbook.Html
 import Logbook.Ip
 import Logbook.Access
 import Logbook.Session
+import Logbook.Video
 
 /-! The build fails if a theorem below depends on any axiom other than Lean's three
 standard ones: no `sorry`, and none of the generated `Option` axioms in
@@ -32,6 +33,22 @@ standard ones: no `sorry`, and none of the generated `Option` axioms in
 /-- info: 'Logbook.media_key_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms Logbook.media_key_spec
+
+/-- info: 'Logbook.video_key_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.video_key_spec
+
+/-- info: 'Logbook.video_key_is_media_key' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.video_key_is_media_key
+
+/-- info: 'Logbook.Video.youtube_id_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Video.youtube_id_spec
+
+/-- info: 'Logbook.Video.youtube_id_plain' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Video.youtube_id_plain
 
 /-- info: 'Logbook.make_slug_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

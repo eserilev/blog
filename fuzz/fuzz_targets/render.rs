@@ -1,5 +1,6 @@
 //! Spec 7.3 `render`: any bytes as markdown. No panic, and the output passes the
-//! sanitizer check of spec 7.2.
+//! sanitizer check of spec 7.2. A video loads only an uploaded video or a YouTube
+//! ID (T18).
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -45,6 +46,15 @@ fuzz_target!(|data: &[u8]| {
                 "forbidden <{name}>"
             );
             for (attr, value) in el.attrs() {
+                match (name, attr) {
+                    ("video" | "video-embed", "src" | "data-src") => {
+                        assert!(logbook_render::video::src_ok(value), "video {value}");
+                    }
+                    ("video-embed", "data-id") => {
+                        assert!(logbook_render::video::id_ok(value), "video ID {value}");
+                    }
+                    _ => {}
+                }
                 assert!(
                     !attr.starts_with("on") && attr != "style",
                     "attribute {attr}"

@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 ammonia = "4.2.1"
 comrak = { version = "0.55.0", default-features = false }
+logbook-core = { version = "0.1.0", path = "../logbook-core" }
 syntect = { version = "5.3.0", default-features = false, features = ["parsing", "html", "default-syntaxes", "default-themes", "dump-load", "regex-fancy"] }
 
 [dev-dependencies]

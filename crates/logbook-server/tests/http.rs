@@ -307,9 +307,19 @@ fn csp_allows_no_inline_code_and_no_third_parties() {
         !CSP.contains(" 'unsafe-eval'"),
         "only 'wasm-unsafe-eval' is allowed"
     );
-    assert!(!CSP.contains("http"), "no third-party origins");
     assert!(CSP.contains("object-src 'none'"));
     assert!(CSP.contains("frame-ancestors 'none'"));
+    // Spec 4.10: one third-party origin, for frames only, and nothing broader.
+    let directives: Vec<&str> = CSP.split(';').map(str::trim).collect();
+    assert!(directives.contains(&"frame-src https://www.youtube-nocookie.com"));
+    for d in &directives {
+        if !d.starts_with("frame-src ") {
+            assert!(!d.contains("http"), "a third-party origin in {d}");
+        }
+        assert!(!d.contains('*'), "a wildcard in {d}");
+    }
+    assert_eq!(CSP.matches("http").count(), 1, "{CSP}");
+    assert!(!directives.iter().any(|d| d.starts_with("child-src")));
 }
 
 #[tokio::test]

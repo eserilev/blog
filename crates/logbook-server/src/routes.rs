@@ -358,9 +358,7 @@ fn handler(kind: Kind) -> MethodRouter<AppState> {
         Kind::Feed => get(feed::feed),
         Kind::ExportZip => get(export::owner_zip),
         Kind::Media => get(media::serve),
-        Kind::Upload => {
-            post(media::upload).layer(DefaultBodyLimit::max(media::UPLOAD_MAX + 64 * 1024))
-        }
+        Kind::Upload => post(media::upload).layer(DefaultBodyLimit::max(media::UPLOAD_BODY_MAX)),
         Kind::Surf => get(surf::api_surf),
         Kind::ApiTopics => get(topic::api_topics),
         Kind::CreateTopic => post(topic::create),

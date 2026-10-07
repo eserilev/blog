@@ -276,6 +276,74 @@ The owner edits the title section in Compose → Site Settings. One row in `site
 - The server fills these values and the topic list into `index.html` on each page load. Text is escaped. So the page needs no extra request and has no flash of old text.
 - One owner, so the last save wins.
 
+### 4.10 Video embeds [built]
+
+A post can show a video: a file that the owner uploads, or a YouTube video. Designs: the "Video embed" canvas, artboards Player (Win98), Phone, and Terminal (MS-DOS). The TV design is rejected.
+
+**Markdown.** A fenced block with the info string `video`:
+
+````
+```video
+/media/<key>.mp4
+Bend on the GPU demo
+```
+````
+
+- Line 1 is the source. It is `/media/<key>` with a video key (64 lowercase hex digits, then `.mp4` or `.webm`), or a YouTube address.
+- The YouTube forms are `https://www.youtube.com/watch?v=<id>`, `https://youtube.com/watch?v=<id>`, `https://m.youtube.com/watch?v=<id>`, `https://youtu.be/<id>`, `https://www.youtube.com/shorts/<id>`, and `https://youtube.com/shorts/<id>`.
+- `<id>` is 11 bytes of `A-Z a-z 0-9 _ -`. After the ID, the address ends, or it goes on with `?`, `&`, or `#`.
+- Line 2 is the title. It is optional: at most 200 characters, no control characters.
+- Blank lines do not count. Any other block (a bad source, a third line, a long title) stays a plain code block.
+- The editor VID button uploads a file and inserts the block.
+
+**HTML.** `render()` (6.7) turns a valid block into one neutral element. The source comes from `logbook-core` (`video_key_ok`, `youtube_id`, T18). Only the key or the ID goes into the output, never the rest of the line. The title is escaped.
+
+```html
+<video-embed data-kind="file" data-src="/media/<key>" data-title="..."><video src="/media/<key>" controls preload="metadata"></video><p>title</p></video-embed>
+<video-embed data-kind="youtube" data-id="<id>" data-title="..."><p><a href="https://www.youtube.com/watch?v=<id>">title</a></p></video-embed>
+```
+
+The ammonia allow-list accepts these two tags with these attributes only. `data-src` and `src` must be `/media/` and a video key. `data-id` must be an ID. `data-kind` must be `file` or `youtube`, and `preload` must be `metadata`. Without scripts (for example, in an RSS reader), a file is a working `<video controls>`, and a YouTube video is a link.
+
+**Component.** `<video-embed>` (`static/js/video.js`, `static/css/video.css`) replaces the fallback with the skin of the view that holds it. The view follows `<html data-mode>`: the Win98 page in `general` (and the editor in every mode), the MS-DOS screen in `night`, and the phone screen in `phone`. Each view holds its own copy of the post. So a mode change shows another copy of the embed, in its own skin. A video that plays in the hidden copy stops.
+
+- **general: Media Player.** A small Win98 window: the title bar "Media Player - <title>" with _ □ ×, a menu row, a black 16:9 screen, and a sunken seek trough with a raised thumb (a real range input). Then raised pixel buttons: Play, Pause, Stop, Go to the start, Back 10 s, Forward 10 s, Go to the end. Then a volume icon and a slider. The sunken status bar shows Playing, Paused, or Stopped, then `00:42 / 03:15`, then Stereo (Muted when the sound is off).
+  - The window controls and the menu row are decoration: `aria-hidden`, no behavior.
+  - One video has no previous or next track. So these two buttons go to the start and to the end of the video.
+  - Before play, the screen shows a pixel ▶ and "Click ▶ to play · 3:15". A double click on the picture opens full screen.
+- **night: PLAY.EXE.** A double-border box with the title `PLAY.EXE ─ <NAME>.<EXT>`. Before play, a `► PRESS ENTER` box-drawing frame shows the length, the resolution, and the file size.
+  - ASCII mode is on by default. A hidden canvas reads each frame with `getImageData`. The light of each cell picks a character of the ramp ` .:-=+*#%@`, about 12 times per second.
+  - The loop runs only while the video plays, the tab shows, and the embed is on the screen.
+  - `[A]` changes to the real video in grayscale. The status line is `► PLAY  00:42 / 03:15  [████░░░░…]`.
+  - Keys: `[ENTER] Play/Pause`, `[ESC] Stop`, `[A] ASCII`, `[F] Full screen`. They work by click, and by keyboard while the focus is in the player. No key listener is on the page, so the prompt keeps its keys.
+  - A slow roll band moves down the screen while the video plays.
+- **phone: the LCD player.** An inverted header "► VIDEO  3:15", a 16:9 screen with a 3 px ink border, and a ▶ box before play. Then a 12-block progress bar, the time line with PLAY, PAUSE, or STOP, and three 48 px keys: `◀◀ 10s`, Play/Pause, and LCD.
+  - The LCD tint is on by default: grayscale, then multiplied into the green LCD. The LCD key turns it off and on.
+  - A tap on the picture opens the native full screen, in full color.
+
+**YouTube.** Nothing from YouTube loads before the reader clicks play. No poster comes from `i.ytimg.com`: the skin shows its own pre-play screen. The click adds this frame:
+
+```html
+<iframe src="https://www.youtube-nocookie.com/embed/<id>?autoplay=1"
+  allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen
+  referrerpolicy="strict-origin-when-cross-origin"
+  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups">
+```
+
+- YouTube needs the origin in the `Referer` header, so the policy is not `no-referrer`.
+- The skin wraps the frame: the window, the LCD frame, or the double box.
+- The custom controls, the LCD tint, and ASCII mode do not apply, because the frame is cross-origin.
+- MS-DOS mode shows a dim "ASCII needs a local file" and puts the grayscale filter on the frame.
+- Stop (`[ESC]`) and a mode change remove the frame.
+
+**CSP.** One new directive: `frame-src https://www.youtube-nocookie.com` (6.9). `script-src` and the other directives do not change. A video from the site needs no change (`default-src 'self'`). The canvas can read the frames of a video from the site, so ASCII mode works.
+
+**Limits.** A video is MP4 or WebM, at most 100 MB (`VIDEO_MAX` in `crates/logbook-server/src/video.rs`). Details in 6.8.
+
+**Accessibility.** The controls are real buttons. Icon buttons have `aria-label`. The phone keys are 48 px. The focus is always visible. The MS-DOS screen is a focusable group, and its name lists the keys. The Win98 state cell is `aria-live="polite"`. With `prefers-reduced-motion`, the roll band does not show. The video still plays.
+
+**Exports and backups.** The zip and the git export carry images, not videos. Videos stay in the bucket. The backup does not cover uploads (6.12).
+
 ## 5. Front end
 
 Native custom elements, light DOM.
@@ -292,6 +360,7 @@ Native custom elements, light DOM.
 | `<dos-shell>` | MS-DOS mode (11.1): the prompt, the commands, and the F-key bar. Follows the router. |
 | `<phone-shell>` | Phone mode (11.8): standby, menu, lists, reading, Snake, and softkeys. Follows the router. |
 | `<start-menu>` | The Win98 Start menu, the Shut Down dialog, and the end screen (11.3). |
+| `<video-embed>` | A video in a post (4.10): the skin of the view, the controls, the ASCII art, and the YouTube frame after the click. |
 
 Rules:
 
@@ -319,7 +388,7 @@ The site uses CSS Grid and Flexbox only. These rules apply to all three modes:
 - **Touch.** Phone mode and the MS-DOS F-key bar have tap targets of 44 px or more.
 - **Look.** The fixes keep the Win98 bevels, the MS-DOS screen, and the phone LCD.
 
-Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e2e/tests/layout.spec.js` opens every view at each width that applies: Win98 (guest and owner views, a post with a long code line, a long address, and a wide table, the open Start menu, the Topics submenu, the Shut Down dialog, and the end screen), MS-DOS mode (prompt, HELP, DIR, TYPE), and phone mode at 390 px (standby, menu, lists, a post, Options, Profiles, Snake). For each view it checks:
+Test widths: 390 × 844 (phone), 768 × 1024 (tablet), 1280 × 800 (desktop). `e2e/tests/layout.spec.js` opens every view at each width that applies: Win98 (guest and owner views, a post with a long code line, a long address, a wide table, and two videos, one of them playing, the open Start menu, the Topics submenu, the Shut Down dialog, and the end screen), MS-DOS mode (prompt, HELP, DIR, TYPE, a post with videos in ASCII mode), and phone mode at 390 px (standby, menu, lists, a post, Options, Profiles, Snake, a post with videos). For each view it checks:
 
 - `scrollWidth` is not more than the screen width.
 - No visible element passes the left or right edge, except inside a box that scrolls or clips sideways.
@@ -404,7 +473,7 @@ Public API:
 | `GET /feed.xml` | RSS |
 | `GET /sitemap.xml` | Sitemap of the public pages (6.16) |
 | `GET /robots.txt` | Crawler rules and the sitemap address (6.16) |
-| `GET /media/{key}` | Image (6.8) |
+| `GET /media/{key}` | Image or video (6.8). A video answers byte ranges. |
 | `GET /healthz` | 200 if the DB and replication are fine |
 | `GET /static/*` | CSS, JS, fonts, logo, WASM |
 
@@ -425,7 +494,7 @@ Owner API (`/api/owner/*`). No valid session → 401. Every response has `Cache-
 | `POST /api/owner/topics` | Add a topic |
 | `PUT /api/owner/topics` | Rename and order every topic |
 | `DELETE /api/owner/topics/{topic}` | Delete a topic without posts |
-| `POST /api/owner/uploads` | Upload an image (6.8) |
+| `POST /api/owner/uploads` | Upload an image or a video (6.8) |
 | `GET /api/owner/export.zip` | All posts, all states, as markdown |
 | `GET /api/owner/passkeys` | List passkeys |
 | `DELETE /api/owner/passkeys/{id}` | Revoke a passkey. Refused for the last one. |
@@ -531,7 +600,13 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
    - `bend` and `bend2` use the Python grammar (no Bend grammar exists). An unknown language stays plain text, with numbers if asked.
 3. ammonia: allow-list of tags and attributes. Links get `rel="noopener noreferrer"`. Only `http`, `https`, `mailto`, and relative URLs.
 
+Video blocks (4.10): before the HTML step, a ```` ```video ```` block with a valid source becomes a `<video-embed>` element (a comrak raw node). The allow-list accepts `video-embed` and `video` with checked attributes only. Any other video block goes through step 2 as code.
+
 ### 6.8 Uploads
+
+One route, `POST /api/owner/uploads`, takes an image or a video. The first 64 bytes of the file decide the type.
+
+Images:
 
 - Max 10 MB.
 - Allowed: PNG, JPEG, WebP, GIF. Checked by magic bytes, not by name or header.
@@ -543,6 +618,19 @@ CREATE TABLE heartbeat (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT NOT NULL)
 - Without `S3_BUCKET`, images go to a local folder (`LOGBOOK_MEDIA_DIR`), for development and tests.
 - The editor inserts `![](/media/<key>)` from the IMG button or a pasted image. The exports carry the images: the zip has all of them, the git export only the ones that public posts use.
 
+Videos (4.10):
+
+- MP4 or WebM, max 100 MB (`VIDEO_MAX`). Above that, the upload stops with 413.
+- Checked by magic bytes. An MP4 starts with an `ftyp` box with a known brand: `isom`, `iso2` to `iso6`, `mp41`, `mp42`, `avc1`, `M4V `, `dash`, or `mmp4`. QuickTime (`qt  `) is refused. A WebM starts with the EBML magic and has the DocType `webm`. Matroska is refused.
+- The file streams to a temporary file, never into memory.
+- MP4: the server blanks the `udta` and `meta` boxes at the top level, in `moov`, and in each `trak`. The type becomes `free`, and the content becomes zeros. These boxes hold the GPS position that phones write. The box sizes do not change, so no offset in the file changes. A file with boxes that do not parse is refused (400). WebM files are stored as they are.
+- The file goes to the store in 5 MB parts (a multipart upload), at most 2 parts at a time.
+- Key = `<sha256 hex>.mp4` or `.webm`, of the stored bytes. The same video twice gives the same key, and the second upload stores nothing.
+- Body limit: the upload route accepts 100 MB + 64 KB (`UPLOAD_BODY_MAX`). Other routes keep the axum default (2 MB). Caddy (6.11) sets no body limit, so `deploy/logbook.caddy` does not change.
+- `/media/{key}` streams a video from the store, not from the local cache. The response has `Accept-Ranges: bytes`. A `Range` header with one range (`bytes=a-b`, `bytes=a-`, or `bytes=-n`) gives 206, `Content-Range: bytes a-b/size`, and only those bytes. Seeking in a `<video>` needs this. A start after the end gives 416 with `Content-Range: bytes */size`. Several ranges or a bad value give the whole file with 200 (RFC 9110).
+- `Content-Type` is `video/mp4` or `video/webm`, with `nosniff` and the long cache of 6.9.
+- The exports do not carry videos.
+
 ### 6.9 HTTP headers
 
 Set by the app on every response:
@@ -550,6 +638,7 @@ Set by the app on every response:
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval';
   style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self';
+  frame-src https://www.youtube-nocookie.com;
   object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
 Strict-Transport-Security: max-age=63072000; includeSubDomains
 X-Content-Type-Options: nosniff
@@ -638,7 +727,7 @@ One-time edits to sandcastle:
 | Prefix | Content | Writer |
 |---|---|---|
 | `db/` | SQLite replica | Litestream |
-| `uploads/` | Images | App |
+| `uploads/` | Images and videos | App |
 
 The server disk holds only rebuildable things: image, local DB copy, image cache.
 
@@ -705,6 +794,8 @@ Point-in-time restore (`-timestamp`): exact only inside `l0-retention` (default 
 - Lifecycle rule: expire noncurrent versions after 40 days. Litestream deletes old files every day, so without this rule, storage grows forever.
 - Object lock must be chosen when the bucket is created.
 
+**Uploads are not in the backup.** Litestream copies only SQLite. Images and videos live only in the bucket under `uploads/`, and no second copy exists. Versioning and object lock keep a deleted or replaced file for 35 to 40 days. They do not help if the bucket itself is lost. The owner zip carries the images, not the videos. Without `S3_BUCKET` (development), media lives in `LOGBOOK_MEDIA_DIR` with no backup. The restore test (7.7) checks an image, not a video.
+
 **Recovery** (the VPS is dead; both apps are down):
 
 1. New VPS, as in sandcastle "One-time: the VPS".
@@ -753,7 +844,7 @@ blog/
 │   └── logbook-server/
 │       ├── migrations/
 │       └── src/ main.rs routes.rs config.rs db.rs auth.rs pages.rs posts.rs
-│                now.rs surf.rs media.rs uploads.rs headers.rs checks.rs
+│                now.rs surf.rs media.rs video.rs uploads.rs headers.rs checks.rs
 │                feed.rs export.rs counter.rs cli.rs assets.rs seo.rs
 ├── editor-wasm/               logbook-render for the browser; build.sh → static/wasm/
 ├── static/                    index.html, CSS, JS components, fonts, logo
@@ -853,7 +944,7 @@ Post pages show the post through the scripts (6.3). Google runs the scripts. The
 
 ### 7.2 Property tests
 
-- **Sanitizer:** for any markdown, the output has no `<script>`, `<iframe>`, `<object>`, `<style>`, `<svg>`, no `on*` attribute, no `javascript:` or `data:` URL. Checked by parsing with html5ever and walking every node.
+- **Sanitizer:** for any markdown, the output has no `<script>`, `<iframe>`, `<object>`, `<style>`, `<svg>`, no `on*` attribute, no `javascript:` or `data:` URL. The source of a `<video>` or `<video-embed>` is always `/media/` and a video key, and a `data-id` is always an 11-byte ID (T18). Checked by parsing with html5ever and walking every node.
 - **Preview = server:** for any markdown, WASM `render()` and native `render()` give the same bytes.
 - **Export round trip:** `parse(write(post)) == post`.
 - **Head tags:** for any title and summary, the output `<head>` parses with exactly the expected elements.
@@ -863,11 +954,12 @@ Post pages show the post through the scripts (6.3). Google runs the scripts. The
 
 | Target | Input | Oracle |
 |---|---|---|
-| `render` | markdown bytes | No panic. Passes the sanitizer check. |
+| `render` | markdown bytes | No panic. Passes the sanitizer check, video sources included. |
 | `frontmatter` | export file bytes | No panic. Parses → round trip holds. |
 | `post_input` | JSON body of `PUT /api/owner/posts/{id}` | No panic. Accepted input always meets the limits (title, summary, tags, body). |
 | `slug` | title bytes + id | Passes the slug rules (4.3). |
-| `media_key` | path bytes | No panic. Agrees with T10. |
+| `media_key` | path bytes | No panic. Agrees with T10 and with `video_key_ok` (T18). |
+| `video_source` | first line of a video block | No panic. `youtube_id` agrees with the rule of T18. A source from the renderer is a video key or an 11-byte ID. |
 | `head_tags` | title + summary + site title, plus a private post | Output never breaks out of an attribute. Never contains the private title. The JSON-LD parses and keeps the title. |
 | `image` | image bytes | No panic in decode and re-encode. Output has no EXIF. |
 
@@ -892,6 +984,8 @@ Other integration tests:
 - Setup token: expires after 15 min, works once, never appears in logs.
 - Last passkey cannot be revoked.
 - Uploads: SVG refused, wrong magic bytes refused, EXIF removed, size limit.
+- Videos: MP4 and WebM pass, QuickTime and Matroska are refused, the 100 MB cap gives 413, GPS boxes are blanked, ranges give 206 with `Content-Range` and 416 past the end, the exports carry no video.
+- The CSP has `frame-src https://www.youtube-nocookie.com` and no other third-party origin.
 - `/posts/{private}` and `/posts/{unknown}`: status 404, `noindex`, no marker.
 - Security headers present on every route.
 - Start with an empty bucket and no `ALLOW_EMPTY_START` → refuses to start.
@@ -911,6 +1005,7 @@ Playwright, Chromium:
 - MS-DOS mode (`dos.spec.js`): toggle and reload, DIR then TYPE, a deep link, Back, WIN, F-keys, keyboard only, 390 px layout.
 - Phone mode (`phone.spec.js`): see 11.8.
 - Start menu (`start.spec.js`): see 11.3.
+- Video embeds (`video.spec.js`, a 13 KB WebM in `e2e/fixtures`): the design of each mode, play, pause, and stop in the status, the phone LCD key, ASCII art from a local file in MS-DOS mode and its keys, the ASCII loop that stops on pause, a mode change that stops a hidden video, the editor preview, and no request to another host before a YouTube click (request interception).
 
 ### 7.6 Formal verification (Aeneas)
 
@@ -937,6 +1032,8 @@ pub fn reveal(p: Post) -> Option<PublicPost>;
 pub fn filter_public(ps: &[Post]) -> Vec<PublicPost>;
 pub fn make_slug(title: &[u8], id: u64) -> Vec<u8>;
 pub fn media_key_ok(key: &[u8]) -> bool;
+pub fn video_key_ok(key: &[u8]) -> bool;
+pub fn youtube_id(url: &[u8]) -> Option<usize>;
 pub fn reading_minutes(words: u32) -> u32;
 
 // Security decisions (T13–T17). The server reads the request and the database,
@@ -972,7 +1069,7 @@ Guest code paths use `PublicPost` only. Owner paths use `Post`. A guest route th
 | T7 | `slug_fallback` | `(∀ c ∈ t, c ∉ [A-Za-z0-9]) → make_slug t i = ok ("post-" ++ decimal i)` | A title with no ASCII letters or digits gets `post-<id>`. `decimal i` is `Nat.toDigits 10 i` as ASCII bytes. |
 | T8 | `slug_lower` | `make_slug (upper t) i = make_slug t i` | Case does not matter. `upper` changes `a-z` to `A-Z` and keeps all other bytes. |
 | T9 | `slug_idempotent` | `make_slug t i = ok s → make_slug s i = ok s` | The slug of a slug is the same slug. |
-| T10 | `media_key_spec` | `media_key_ok k = ok b → (b ↔ k ∈ [0-9a-f]{64} "." ("png" ∣ "jpg" ∣ "webp" ∣ "gif"))` | Accepts exactly the keys that the server makes. Nothing that can leave the folder. |
+| T10 | `media_key_spec` | `media_key_ok k = ok b → (b ↔ k ∈ [0-9a-f]{64} "." ("png" ∣ "jpg" ∣ "webp" ∣ "gif" ∣ "mp4" ∣ "webm"))` | Accepts exactly the keys that the server makes. Nothing that can leave the folder. |
 | T11 | `reading_spec` | `reading_minutes w = ok m → m = max 1 ⌈w / 220⌉` | Exact formula. |
 | T12 | `total_*` | For each function `f` and every input `x`: `∃ v, f x = ok v` | No panic, overflow, or out-of-bounds access, for any input. |
 | T13 | `write_allowed_spec` | `write_allowed r o b ct u = ok x → (x ↔ r ∨ (o ∧ (¬b ∨ JsonType ct ∨ (u ∧ MultipartForm ct))))` | The CSRF decision. `csrf_cross_origin`: a write without the site `Origin` is refused. `csrf_body`: a write with a body passes only as `application/json`, or as `multipart/form-data` on the upload path. `csrf_read`: `GET` and `HEAD` always pass. |
@@ -980,17 +1077,18 @@ Guest code paths use `PublicPost` only. Owner paths use `Post`. A guest route th
 | T15 | `client_addr_spec` | `client_addr p h = ok r → ClientRule p h r` | `client_addr_untrusted_peer`: an untrusted peer is always the result, so the header has no effect. For a trusted peer: the rightmost untrusted hop, or the peer if all hops are trusted. |
 | T16 | `authorize_spec` | `authorize a s = ok d → (d = Unauthorized ↔ a = Owner ∧ s ≠ Valid)` | `authorize_owner`: an owner route allows only a valid session. `authorize_not_owner`: for Public, Session and Auth, `authorize` never gives 401, for every session state. The server calls `authorize` in the `Owner` extractor. A sign-in handler still gives 401 for a bad setup token or a failed passkey check: that is not a session decision. |
 | T17 | `session_valid_spec`, `setup_token_usable_spec`, `setup_token_expiry_spec` | `session_valid n e = ok b → (b ↔ n < e)`; `setup_token_usable n e u = ok b → (b ↔ ¬u ∧ n < e)`; `setup_token_expiry n = ok e → n ≤ e ≤ n + 900` | A session is valid only before its expiry. A setup token works only if it is not used and not expired. A new setup token lives at most 15 minutes (exactly 15 if `n + 900` fits in an `i64`). |
+| T18 | `video_key_spec`, `youtube_id_spec` | `video_key_ok k = ok b → (b ↔ k ∈ [0-9a-f]{64} "." ("mp4" ∣ "webm"))`; `youtube_id u = ok r → (∀ i, r = some i → YouTube u i) ∧ (r = none → ∀ i, ¬ YouTube u i)`, with `YouTube u i = ∃ p ∈ prefixes, p <+: u ∧ i = len p ∧ IdAt u i` | Only an uploaded video key or an accepted YouTube address becomes a video source. `youtube_id_plain`: the ID is 11 bytes of `A-Z a-z 0-9 _ -`, so it cannot leave an attribute or change the path of the embed address. `video_key_is_media_key`: `/media/` serves every video key. `prefixes_disjoint`: no accepted part starts another. |
 
 T12 turns every "if `ok`" above into "always".
 
-**Status (2026-10-05):**
+**Status (2026-10-07):**
 
 | Theorem | Status | Lean |
 |---|---|---|
 | T1, T2 | Proved | `reveal_spec`, `reveal_iff` |
 | T3 | Proved | `filter_public_spec` |
 | T4, T5 | Proved | `make_slug_spec` (`ValidSlug`), `slug_charset` |
-| T10 | Proved | `media_key_spec` (`keyShape`) |
+| T10 | Proved | `media_key_spec` (`keyShape`, with `mp4` and `webm`) |
 | T11 | Proved | `reading_spec` |
 | T12 | Proved for every function above. `escape_html` needs `6 · len ≤ usize::MAX`: a longer output does not fit in memory. | the `⦃ ⦄` form of each theorem |
 | T13 | Proved | `write_allowed_spec` (`CsrfRule`, `JsonType`, `MultipartForm`), `csrf_cross_origin`, `csrf_body`, `csrf_read` |
@@ -999,6 +1097,7 @@ T12 turns every "if `ok`" above into "always".
 | T16 | Proved | `authorize_spec`, `authorize_owner`, `authorize_not_owner` |
 | T17 | Proved | `session_valid_spec`, `setup_token_usable_spec`, `setup_token_expiry_spec` |
 | T6, T7, T8, T9 | Proved | `slug_plain`, `slug_fallback` (`decimal`), `slug_lower` (`upper`), `slug_idempotent` |
+| T18 | Proved | `video_key_spec` (`videoKeyShape`), `youtube_id_spec` (`YouTube`, `IdAt`), `youtube_id_plain`, `video_key_is_media_key` |
 
 `Logbook/Axioms.lean` makes the build fail if any proved theorem depends on an axiom other than `propext`, `Classical.choice`, and `Quot.sound`.
 
@@ -1009,6 +1108,7 @@ T12 turns every "if `ok`" above into "always".
 - T15: the `X-Forwarded-For` parsing and the trusted network check (`IpNet::contains`).
 - T16: the cookie parsing and the session lookup in SQL. That each owner handler takes the `Owner` extractor, and that its route has `Access::Owner` (access matrix test).
 - T17: the SQL row read, the RFC 3339 parsing (a time that does not parse counts as expired), and the clock. Single use of a setup token relies on the atomic `UPDATE ... WHERE used_at IS NULL AND expires_at > now` in `register_finish`. The 30-day session lifetime is still set in SQL.
+- T18: the line split and the trim in `logbook-render`, the strip of the `/media/` prefix, and the HTML that `render` builds from the key or the ID. The ammonia filter checks the values again (tests and the `render` fuzz target). The browser component checks them a third time with regular expressions.
 
 **What the spike showed.** Aeneas handles every function in `logbook-core`, including loops over slices of structs with `Vec<u8>` fields. The Rust code keeps away from std helpers that Aeneas does not model: `u8::is_ascii_*`, `contains` on ranges, `Vec::is_empty`, and `Option::clone` (so `Post` has a hand-written `Clone`). The derived `Debug` and `PartialEq` of `Option` stay as generated axioms, because no verified function calls them.
 

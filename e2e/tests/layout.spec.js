@@ -3,7 +3,7 @@
 // hold wide content), and the items of each bar share one center line.
 // Each check saves a full-page screenshot in test-results.
 import { test, expect, devices } from '@playwright/test';
-import { signIn, watchErrors } from './helpers.js';
+import { signIn, uploadClip, videoBlocks, videoPost, watchErrors } from './helpers.js';
 
 const WIDTHS = {
   phone: { width: 390, height: 844 },
@@ -30,6 +30,10 @@ const ROWS = [
   ['.ph-soft', ':scope > button'],
   ['.start-item', ':scope > *'],
   ['.shutdown-buttons', ':scope > *'],
+  ['.ve-buttons', ':scope > *'],
+  ['.ve-keys', ':scope > button'],
+  ['.ve-head', ':scope > *'],
+  ['.ve-line', ':scope > *'],
 ];
 
 /* Runs in the page. Returns the layout faults it finds. */
@@ -162,13 +166,14 @@ for (const [size, viewport] of Object.entries(WIDTHS)) {
 test('Win98: owner views at every width', async ({ page }) => {
   test.setTimeout(90_000);
   await signIn(page);
-  // A post with a long title, a long code line, a long address, and a wide table.
+  // A post with a long title, a long code line, a long address, a wide table, and videos.
+  const clip = await uploadClip(page);
   await page.getByRole('button', { name: 'New post' }).click();
   await expect(page.locator('md-editor')).toHaveAttribute('data-loaded', '');
   const editUrl = new URL(page.url()).pathname;
   await page.locator('md-editor').getByLabel('Title', { exact: true }).fill('Layout test: a long title that wraps on a phone screen');
   const long = 'let x = '.padEnd(240, 'y') + ';';
-  await page.getByLabel('Post markdown').fill(`# Layout\n\nA long address: https://example.com/${'a'.repeat(120)}\n\n\`\`\`rust\n${long}\n\`\`\`\n\n| a | b | c |\n|---|---|---|\n| ${'w'.repeat(80)} | ${'v'.repeat(80)} | c |\n`);
+  await page.getByLabel('Post markdown').fill(`# Layout\n\nA long address: https://example.com/${'a'.repeat(120)}\n\n\`\`\`rust\n${long}\n\`\`\`\n\n| a | b | c |\n|---|---|---|\n| ${'w'.repeat(80)} | ${'v'.repeat(80)} | c |\n\n${videoBlocks(clip)}`);
   // Save first: a save resets the state choice to the saved state.
   await page.locator('md-editor').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('[data-dirty]')).toBeHidden();
@@ -185,10 +190,19 @@ test('Win98: owner views at every width', async ({ page }) => {
     await go(page, editUrl, p => p.locator('[data-preview] pre'));
     await check(page, `${size}-editor`);
     await go(page, `/posts/${slug}`, p => p.locator('post-view .prose table'));
+    await expect(page.locator('post-view .ve-general')).toHaveCount(2);
     await check(page, `${size}-post-wide`);
+    // A playing video shows its controls and status.
+    await page.locator('post-view video-embed[data-kind="file"] .ve-start').click();
+    await expect(page.locator('post-view .ve-state').first()).toHaveText('Playing');
+    await check(page, `${size}-post-video`);
     await page.evaluate(() => localStorage.setItem('logbook.mode', 'night'));
     await go(page, `/posts/${slug}`, p => p.locator('.dos-prose table'));
+    await expect(page.locator('dos-shell .ve-night')).toHaveCount(2);
     await check(page, `${size}-dos-type-wide`);
+    await page.locator('dos-shell video-embed[data-kind="file"] .ve-start').click();
+    await expect(page.locator('dos-shell .ve-ascii')).toBeVisible();
+    await check(page, `${size}-dos-video`);
     await page.evaluate(() => localStorage.setItem('logbook.mode', 'general'));
     await go(page, '/', p => p.locator('#now-open'));
     await check(page, `${size}-home-owner`);
@@ -225,6 +239,19 @@ test.describe('phone mode 390 px', () => {
     await soft(page, 'left').tap();
     await expect(shell(page).getByRole('menu', { name: 'Options' })).toBeVisible();
     await check(page, 'phone-options');
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
+  test('phone mode: a post with videos', async ({ page }) => {
+    const errors = watchErrors(page);
+    await signIn(page);
+    const slug = await videoPost(page, 'Layout test: videos on a phone');
+    await page.goto(`/posts/${slug}`);
+    await expect(shell(page).locator('.ve-phone')).toHaveCount(2);
+    await check(page, 'phone-video');
+    await shell(page).locator('video-embed[data-kind="file"] .ve-start').tap();
+    await expect(shell(page).locator('.ve-line').first()).toContainText('PLAY');
+    await check(page, 'phone-video-play');
     expect(errors, errors.join('\n')).toEqual([]);
   });
 });

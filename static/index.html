@@ -12,10 +12,12 @@
 <link rel="alternate" type="application/rss+xml" title="<!--site:title-->" href="/feed.xml">
 <link rel="stylesheet" href="/static/css/logbook.css">
 <link rel="stylesheet" href="/static/css/phone.css">
+<link rel="stylesheet" href="/static/css/video.css">
 <script src="/static/js/mode.js"></script>
 <script src="/static/js/components.js" defer></script>
 <script src="/static/js/app.js" defer></script>
 <script src="/static/js/phone.js" defer></script>
+<script src="/static/js/video.js" defer></script>
 </head>
 <body>
 <noscript><p class="noscript">This site needs JavaScript.</p></noscript>
@@ -195,6 +197,8 @@
                   <button class="btn98" type="button" data-md="link" aria-label="Link">URL</button>
                   <button class="btn98" type="button" data-image aria-label="Insert image">IMG</button>
                   <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-image-file hidden>
+                  <button class="btn98" type="button" data-video aria-label="Insert video">VID</button>
+                  <input type="file" accept="video/mp4,video/webm" data-video-file hidden>
                 </div>
                 <div class="well sunken"><textarea id="ns-draft" data-field="body_md" aria-label="Post markdown" spellcheck="true"></textarea></div>
               </div>

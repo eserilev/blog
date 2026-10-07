@@ -21,6 +21,7 @@ pub mod seo;
 pub mod site;
 pub mod surf;
 pub mod topic;
+pub mod video;
 
 use std::{sync::Arc, time::Duration};
 

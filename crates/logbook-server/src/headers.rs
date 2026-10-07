@@ -7,9 +7,11 @@ use axum::{
 use tower_http::set_header::SetResponseHeaderLayer;
 
 /// The Content Security Policy. No inline scripts or styles. WASM is allowed for the
-/// editor preview. No third-party origins.
+/// editor preview. One third-party origin, for frames only: the YouTube player of a
+/// video embed, after the reader clicks play (spec 4.10).
 pub const CSP: &str = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; \
 style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; \
+frame-src https://www.youtube-nocookie.com; \
 object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 
 /// Every header that [`apply`] sets, as `(name, value)`.

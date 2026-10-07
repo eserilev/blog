@@ -1,0 +1,139 @@
+/* Video embeds (spec 4.10). static/js/video.js builds one of three skins in each
+   <video-embed>: a Win98 Media Player window (.ve-general), PLAY.EXE in MS-DOS mode
+   (.ve-night), or the LCD player in phone mode (.ve-phone). Dynamic values (the seek
+   fill, the ASCII font size) come from JS through CSSOM. No inline styles (CSP). */
+
+/* Without scripts: a plain <video controls>, or a link to YouTube. */
+video-embed { display: block; min-width: 0; }
+video-embed > video { display: block; max-width: 100%; height: auto; }
+
+.ve { margin: 0; min-width: 0; }
+.ve-screen { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+.ve-screen > video, .ve-screen > iframe, .ve-ascii { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ve-screen > video { object-fit: contain; }
+.ve-screen > iframe { border: 0; }
+.ve-start {
+  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; margin: 0; padding: 0; border: 0; font: inherit; color: inherit; cursor: pointer;
+}
+.ve-start[hidden] { display: none; }
+.ve-ico { display: block; fill: currentColor; }
+
+/* ---- Win98: Media Player ---- */
+.ve-general { max-width: 640px; margin-inline: auto; font: 12px var(--f-ui); color: #000; }
+.ve-general .ve-win { display: flex; flex-direction: column; min-width: 0; padding: 3px; }
+.ve-general .ve-titlebar { font-size: 12px; padding: 2px 3px 2px 6px; }
+.ve-general .ve-reel { width: 14px; height: 14px; flex: none; }
+.ve-c-white { fill: #fff; }
+.ve-c-navy { fill: var(--title-a); }
+.ve-c-blue { fill: var(--title-b); }
+.ve-c-gray { fill: var(--chrome); }
+.ve-ctl { display: flex; gap: 2px; flex: none; }
+.ve-general .ve-menu { font-size: 12px; }
+.ve-general .ve-screen { margin: 2px 4px; }
+.ve-general .ve-screen > video, .ve-general .ve-screen > iframe, .ve-general .ve-start { inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); }
+.ve-general .ve-start { gap: 14px; background: #000; color: var(--chrome); }
+.ve-general .ve-start:focus-visible { outline: 1px dotted var(--chrome); outline-offset: -6px; }
+.ve-general .ve-screen:focus { outline: none; }
+.ve-big { width: 120px; max-width: 30%; height: auto; aspect-ratio: 24 / 16; }
+.ve-hint { font: clamp(18px, 4vw, 28px)/1 var(--f-lcd); }
+
+/* The seek trough: sunken, navy fill up to the play position, a raised thumb. */
+.ve-track { display: flex; padding: 6px 8px 0; }
+.ve-general input[type="range"] { -webkit-appearance: none; appearance: none; margin: 0; padding: 0; background: transparent; cursor: pointer; }
+.ve-general input[type="range"]:focus { outline: none; }
+.ve-general input[type="range"]:focus-visible { outline: 1px dotted #000; outline-offset: 2px; }
+.ve-seek { flex: 1; min-width: 0; height: 20px; }
+.ve-seek::-webkit-slider-runnable-track { height: 6px; background: linear-gradient(90deg, var(--title-a) var(--p, 0%), #fff var(--p, 0%)); box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+.ve-seek::-moz-range-track { height: 6px; background: linear-gradient(90deg, var(--title-a) var(--p, 0%), #fff var(--p, 0%)); box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+.ve-volume { width: 96px; height: 20px; flex: none; }
+.ve-volume::-webkit-slider-runnable-track { height: 2px; box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+.ve-volume::-moz-range-track { height: 2px; box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+.ve-general input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 10px; height: 18px; margin-top: -6px; border: 0; border-radius: 0; background: var(--chrome);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid);
+}
+.ve-volume::-webkit-slider-thumb { margin-top: -8px; }
+.ve-general input[type="range"]::-moz-range-thumb {
+  width: 10px; height: 18px; border: 0; border-radius: 0; background: var(--chrome);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid);
+}
+
+.ve-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; }
+.ve-btn {
+  display: grid; place-items: center; width: 34px; height: 28px; padding: 0; border: 0; background: var(--chrome); color: #000; cursor: pointer;
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid);
+}
+.ve-btn:active, .ve-btn.on { background: #d4d0c8; box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo); }
+.ve-btn:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
+.ve-btn .ve-ico { width: 12px; height: 12px; }
+.ve-btn .ve-wide { width: 14px; }
+.ve-sep { width: 2px; height: 24px; margin: 0 4px; border-left: 1px solid var(--chrome-lo); border-right: 1px solid var(--chrome-hi); }
+.ve-grow { flex: 1; }
+.ve-vol-ico { width: 16px; height: 16px; flex: none; }
+.ve-status { gap: 2px; padding: 2px; }
+.ve-status > span { min-width: 0; padding: 1px 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ve-state { flex: 1; }
+.ve-clock { flex: none; font: 16px/16px var(--f-lcd); text-align: right; }
+.ve-sound { flex: none; }
+.ve-general .ve-caption { margin-top: 8px; color: #444; text-align: center; overflow-wrap: anywhere; }
+
+/* ---- MS-DOS: PLAY.EXE ---- */
+.ve-night { max-width: 640px; margin-top: 22px; }
+.ve-night .ve-box { position: relative; padding: 14px 14px 8px; border: 4px double var(--dos-gray); }
+.ve-night .ve-label { position: absolute; top: -0.85em; left: 12px; max-width: calc(100% - 24px); padding: 0 8px; overflow: hidden; background: #000; color: var(--dos-hi); white-space: nowrap; text-overflow: ellipsis; }
+.ve-night .ve-screen { border: 1px solid var(--dos-dim); outline: none; }
+.ve-night .ve-screen:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 3px; }
+.ve-night .ve-start { gap: 4px; background: #000; color: var(--dos-fg); }
+.ve-night .ve-start:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: -6px; }
+.ve-frame { white-space: pre; line-height: 1.1; }
+.ve-info { margin-top: 10px; color: var(--dos-dim); text-shadow: none; }
+/* ASCII off: the real video in grayscale. ASCII on: the characters, over a hidden video. */
+.ve-night .ve-screen > video, .ve-night .ve-frame-yt { filter: grayscale(1) contrast(1.15); }
+.ve-night .ve-screen.ascii > video { opacity: 0; }
+.ve-ascii { z-index: 1; display: none; margin: 0; padding: 0; overflow: hidden; background: #000; color: var(--dos-fg); font-family: var(--f-dos); font-weight: 600; letter-spacing: 0; white-space: pre; text-shadow: none; }
+.dos-prose .ve-ascii { margin: 0; padding: 0; border: 0; font-size: inherit; overflow: hidden; }
+.ve-night .ve-screen.ascii > .ve-ascii { display: block; }
+.ve-statusline { display: flex; flex-wrap: wrap; column-gap: 2ch; margin-top: 8px; white-space: pre; }
+.ve-bar { color: var(--dos-cyan); }
+.ve-night .ve-keys { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 2px; font-size: 16px; }
+.ve-night .ve-key { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; border: 0; background: transparent; color: var(--dos-fg); font: inherit; text-shadow: inherit; cursor: pointer; }
+.ve-night .ve-key b { margin-right: 8px; padding: 0 6px; background: var(--dos-gray); color: #000; font-weight: 600; text-shadow: none; }
+.ve-night .ve-key:hover b, .ve-night .ve-key.on b { background: var(--dos-cyan); }
+.ve-night .ve-key:focus-visible { outline: 1px dotted var(--dos-fg); outline-offset: 2px; }
+.ve-note { margin-top: 8px; color: var(--dos-dim); text-shadow: none; }
+.ve-night .ve-caption { margin-top: 4px; color: var(--dos-dim); text-shadow: none; }
+.ve-night .ve-screen:fullscreen { border: 0; }
+/* A slow roll band moves down the screen while the video plays. */
+video-embed.ve-on .ve-night .ve-screen::after {
+  content: ""; position: absolute; left: 0; right: 0; top: -20%; height: 20%; z-index: 3; pointer-events: none;
+  background: linear-gradient(transparent, rgba(255,255,255,.05), transparent); animation: ve-roll 7s linear infinite;
+}
+@keyframes ve-roll { to { transform: translateY(600%); } }
+
+/* ---- Phone: the LCD player ---- */
+.ve-phone { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 14px; }
+.ve-phone .ve-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 8px; background: var(--ph-ink); color: var(--ph-inv); }
+.ve-phone .ve-screen { border: 3px solid var(--ph-ink); background: var(--ph-lcd-lo); outline-offset: 2px; }
+.ve-phone .ve-start { gap: 6px; background: var(--ph-lcd-lo); color: var(--ph-ink); }
+.ve-playbox { display: flex; align-items: center; justify-content: center; width: 72px; height: 56px; border: 3px solid var(--ph-ink); background: var(--ph-lcd); }
+.ve-playbox .ve-ico { width: 28px; height: 28px; }
+.ve-name { max-width: 90%; overflow: hidden; font-size: 22px; white-space: nowrap; text-overflow: ellipsis; }
+/* LCD tint: grayscale, then multiplied into the green LCD. Full screen shows full color. */
+.ve-phone .ve-screen.tint > video { filter: grayscale(1) contrast(1.3) brightness(.9); mix-blend-mode: multiply; }
+.ve-phone .ve-screen > video:fullscreen { filter: none; mix-blend-mode: normal; }
+.ve-blocks { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; height: 12px; }
+.ve-blocks i { border: 2px solid var(--ph-ink); }
+.ve-blocks i.on { background: var(--ph-ink); }
+.ve-line { display: flex; justify-content: space-between; gap: 8px; font-size: 24px; }
+.ve-phone .ve-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ve-phone .ve-key { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 48px; padding: 0 4px; border: 3px solid var(--ph-ink); background: transparent; color: var(--ph-ink); font: 26px/1 var(--f-lcd); cursor: pointer; }
+.ve-phone .ve-key:active, .ve-phone .ve-key.on { background: var(--ph-ink); color: var(--ph-inv); }
+.ve-phone .ve-key .ve-ico { width: 22px; height: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+  video-embed.ve-on .ve-night .ve-screen::after { content: none; animation: none; }
+}
+@media print {
+  .ve-buttons, .ve-track, .ve-keys, .ve-menu { display: none; }
+}

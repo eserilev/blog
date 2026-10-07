@@ -433,10 +433,12 @@ customElements.define('md-editor', class extends HTMLElement {
       ta.focus();
       ta.dispatchEvent(new Event('input'));
     }));
-    // Images: the IMG button, or paste an image into the text.
-    const file = $('[data-image-file]');
-    $('[data-image]').addEventListener('click', () => file.click());
-    file.addEventListener('change', () => { if (file.files[0]) this.upload(file.files[0]); file.value = ''; });
+    // Images and videos: the IMG and VID buttons, or paste an image into the text.
+    for (const kind of ['image', 'video']) {
+      const file = $(`[data-${kind}-file]`);
+      $(`[data-${kind}]`).addEventListener('click', () => file.click());
+      file.addEventListener('change', () => { if (file.files[0]) this.upload(file.files[0]); file.value = ''; });
+    }
     this.ta.addEventListener('paste', e => {
       const img = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
       if (img) { e.preventDefault(); this.upload(img); }
@@ -526,9 +528,11 @@ customElements.define('md-editor', class extends HTMLElement {
     }
   }
 
-  /* Uploads an image and inserts its markdown at the cursor (spec 6.8). */
+  /* Uploads an image or a video and inserts its markdown at the cursor (spec 6.8, 4.10).
+     A video becomes a ```video block. */
   async upload(f) {
-    this.say('Uploading image...');
+    const what = f.type.startsWith('video/') ? 'video' : 'image';
+    this.say(`Uploading ${what}...`);
     const form = new FormData();
     form.append('file', f);
     try {
@@ -537,9 +541,9 @@ customElements.define('md-editor', class extends HTMLElement {
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       this.ta.setRangeText(`\n${data.markdown}\n`, this.ta.selectionStart, this.ta.selectionEnd, 'end');
       this.ta.dispatchEvent(new Event('input'));
-      this.say('Image added.');
+      this.say(data.kind === 'video' ? 'Video added.' : 'Image added.');
     } catch (e) {
-      this.say(`Could not upload the image. ${e.message}`, true);
+      this.say(`Could not upload the ${what}. ${e.message}`, true);
     }
   }
 
