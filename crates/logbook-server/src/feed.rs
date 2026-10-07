@@ -1,4 +1,5 @@
-//! The RSS feed (spec 4.7). Public posts only, through `filter_public`.
+//! The RSS feed (spec 4.7). Public posts only, through `filter_public`. Each item
+//! names the author in `dc:creator`.
 
 use axum::{
     extract::State,
@@ -6,13 +7,13 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use logbook_core::filter_public;
-use rss::{ChannelBuilder, GuidBuilder, ItemBuilder};
+use rss::{ChannelBuilder, GuidBuilder, ItemBuilder, extension::dublincore::DublinCoreExtension};
 use time::{
     OffsetDateTime,
     format_description::well_known::{Rfc2822, Rfc3339},
 };
 
-use crate::{AppState, posts, site, topic};
+use crate::{AppState, head::AUTHOR_NAME, posts, site, topic};
 
 /// RFC 3339 → RFC 2822, the date format of RSS.
 fn rss_date(rfc3339: &str) -> Option<String> {
@@ -68,6 +69,10 @@ pub async fn feed(State(s): State<AppState>) -> Response {
                         .build(),
                 ))
                 .pub_date(p.published_at.as_deref().and_then(|d| rss_date(&text(d))))
+                .dublin_core_ext(Some(DublinCoreExtension {
+                    creators: vec![AUTHOR_NAME.into()],
+                    ..DublinCoreExtension::default()
+                }))
                 .build()
         })
         .collect();

@@ -81,6 +81,17 @@ phone-shell .on:focus-visible { outline-color: var(--ph-inv); }
 /* Standby. */
 .ph-standby { align-items: center; text-align: center; }
 .ph-standby h1 { margin: 24px 0 0; font: inherit; font-size: 34px; letter-spacing: .04em; }
+/* The post links from the server (spec 6.16). They are visually hidden (.sr-only).
+   When the keyboard focus moves into them, they show as a box above the softkeys. */
+.ph-index ul { margin: 0; padding: 0; list-style: none; }
+/* Each link is a 44 px touch target, as on the other screens. */
+.ph-index a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; color: var(--ph-ink); }
+.ph-index span { display: none; }
+.ph-index:focus-within {
+  position: fixed; inset: auto 8px 72px; z-index: 4; width: auto; height: auto; margin: 0; padding: 6px 10px;
+  overflow: visible; clip-path: none; white-space: normal; text-align: left; font-size: 22px;
+  background: var(--ph-lcd); border: 2px solid var(--ph-ink);
+}
 .ph-logo { width: 112px; height: 112px; margin-top: 14px; }
 .ph-logo .far { opacity: .45; }
 .ph-clock { margin: 12px 0 0; font-size: 96px; line-height: .9; }

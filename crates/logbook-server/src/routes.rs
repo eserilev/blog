@@ -13,8 +13,8 @@ use axum::{
 use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::{
-    AppState, auth, checks, counter, export, feed, guard, media, now, pages, posts, site, surf,
-    topic,
+    AppState, auth, checks, counter, export, feed, guard, media, now, pages, posts, seo, site,
+    surf, topic,
 };
 
 /// HTTP method of a route.
@@ -70,6 +70,8 @@ pub enum Kind {
     ApiSite,
     OwnerSite,
     SaveSite,
+    Sitemap,
+    Robots,
 }
 
 /// Every route kind. The test `every_kind_is_routed` checks that each one is in
@@ -112,6 +114,8 @@ pub const ALL_KINDS: &[Kind] = &[
     Kind::ApiSite,
     Kind::OwnerSite,
     Kind::SaveSite,
+    Kind::Sitemap,
+    Kind::Robots,
 ];
 
 const fn _all_kinds_listed(k: Kind) {
@@ -152,7 +156,9 @@ const fn _all_kinds_listed(k: Kind) {
         | Kind::DeleteTopic
         | Kind::ApiSite
         | Kind::OwnerSite
-        | Kind::SaveSite => {}
+        | Kind::SaveSite
+        | Kind::Sitemap
+        | Kind::Robots => {}
     }
 }
 
@@ -318,6 +324,8 @@ pub const ROUTES: &[Route] = &[
     r(Verb::Get, "/api/site", Access::Public, Kind::ApiSite),
     r(Verb::Get, "/api/owner/site", Access::Owner, Kind::OwnerSite),
     r(Verb::Put, "/api/owner/site", Access::Owner, Kind::SaveSite),
+    r(Verb::Get, "/sitemap.xml", Access::Public, Kind::Sitemap),
+    r(Verb::Get, "/robots.txt", Access::Public, Kind::Robots),
 ];
 
 fn handler(kind: Kind) -> MethodRouter<AppState> {
@@ -361,6 +369,8 @@ fn handler(kind: Kind) -> MethodRouter<AppState> {
         Kind::ApiSite => get(site::api_site),
         Kind::OwnerSite => get(site::owner_site),
         Kind::SaveSite => put(site::save_site),
+        Kind::Sitemap => get(seo::sitemap_xml),
+        Kind::Robots => get(seo::robots_txt),
     }
 }
 

@@ -17,6 +17,7 @@ pub mod pages;
 pub mod posts;
 pub mod routes;
 pub mod seed;
+pub mod seo;
 pub mod site;
 pub mod surf;
 pub mod topic;
