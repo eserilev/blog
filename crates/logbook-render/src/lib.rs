@@ -6,7 +6,8 @@
 use std::{borrow::Cow, collections::HashMap, fmt, sync::LazyLock};
 
 use comrak::{
-    Options, adapters::SyntaxHighlighterAdapter, markdown_to_html_with_plugins, options::Plugins,
+    Arena, Options, adapters::SyntaxHighlighterAdapter, format_html_with_plugins, nodes::NodeValue,
+    options::Plugins, parse_document,
 };
 use syntect::{
     highlighting::ThemeSet,
@@ -14,6 +15,8 @@ use syntect::{
     parsing::SyntaxSet,
     util::LinesWithEndings,
 };
+
+pub mod video;
 
 /// Prefix for syntax highlight classes. The sanitizer allows only these classes.
 const CLASS_PREFIX: &str = "hl-";
@@ -32,6 +35,9 @@ static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_ne
 /// - Code blocks get syntax classes (`hl-*`), not inline styles, so the CSP holds.
 /// - A fence like `` ```rust= `` (the `HackMD` syntax) adds line numbers; `rust=10`
 ///   starts them at 10. Each number is a `<span class="hl-ln">` at the start of a line.
+/// - A ```` ```video ```` block with a valid YouTube address becomes a
+///   `<video-embed>` element ([`video`], spec 4.10). Any other video block stays
+///   a code block.
 /// - The result passes the ammonia allow-list in [`sanitize`].
 #[must_use]
 pub fn render(md: &str) -> String {
@@ -48,7 +54,23 @@ pub fn render(md: &str) -> String {
     let mut plugins = Plugins::default();
     plugins.render.codefence_syntax_highlighter = Some(&Highlighter);
 
-    sanitize(&markdown_to_html_with_plugins(md, &options, &plugins))
+    let arena = Arena::new();
+    let root = parse_document(&arena, md, &options);
+    for node in root.descendants() {
+        let embed = match &node.data().value {
+            NodeValue::CodeBlock(c) if c.fenced && c.info == "video" => {
+                video::parse(&c.literal).map(|b| video::html(&b))
+            }
+            _ => None,
+        };
+        if let Some(html) = embed {
+            node.data_mut().value = NodeValue::Raw(html);
+        }
+    }
+    let mut html = String::new();
+    // Writing to a String does not fail.
+    let _ = format_html_with_plugins(root, &options, &mut html, &plugins);
+    sanitize(&html)
 }
 
 /// Number of words in a markdown source, for the reading time.
@@ -252,6 +274,7 @@ static SANITIZER: LazyLock<ammonia::Builder<'static>> = LazyLock::new(|| {
         "sup",
         "section",
         "input",
+        "video-embed",
     ])
     .add_tag_attributes("a", ["href", "title", "id"])
     .add_tag_attributes("img", ["src", "alt", "title"])
@@ -265,6 +288,7 @@ static SANITIZER: LazyLock<ammonia::Builder<'static>> = LazyLock::new(|| {
     .add_tag_attributes("section", ["class"])
     .add_tag_attributes("ol", ["start"])
     .add_tag_attributes("input", ["type", "checked", "disabled"])
+    .add_tag_attributes("video-embed", ["data-id", "data-title"])
     .url_schemes(["http", "https", "mailto"].into())
     .link_rel(Some("noopener noreferrer"))
     .attribute_filter(|element, attribute, value| {
@@ -284,6 +308,8 @@ static SANITIZER: LazyLock<ammonia::Builder<'static>> = LazyLock::new(|| {
             ("input", "type") => value == "checkbox",
             ("th" | "td", "align") => matches!(value, "left" | "right" | "center"),
             ("ol", "start") => value.len() <= 9 && value.bytes().all(|b| b.is_ascii_digit()),
+            // A video is a YouTube ID only (T18).
+            ("video-embed", "data-id") => video::id_ok(value),
             _ => true,
         };
         keep.then(|| value.into())
@@ -327,6 +353,11 @@ mod tests {
                     "forbidden <{name}> in {html}"
                 );
                 for (attr, value) in el.attrs() {
+                    // A video is a YouTube ID only (T18).
+                    if (name, attr) == ("video-embed", "data-id") {
+                        assert!(video::id_ok(value), "video ID {value} in {html}");
+                    }
+                    assert!(name != "video", "<video> in {html}");
                     assert!(!attr.starts_with("on"), "event handler {attr} in {html}");
                     assert!(attr != "style", "style attribute in {html}");
                     let v = value.trim().to_ascii_lowercase();
@@ -460,6 +491,75 @@ mod tests {
     }
 
     #[test]
+    fn video_blocks_become_embeds() {
+        let html = render(
+            "Before.\n\n```video\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1\nBend on the GPU demo\n```\n\nAfter.\n",
+        );
+        assert!(
+            html.contains("<video-embed data-id=\"dQw4w9WgXcQ\" data-title=\"Bend on the GPU demo\"><p><a href=\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\" rel=\"noopener noreferrer\">Bend on the GPU demo</a></p></video-embed>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<p>Before.</p>") && html.contains("<p>After.</p>"),
+            "{html}"
+        );
+        assert!(
+            !html.contains("t=1"),
+            "only the ID reaches the output: {html}"
+        );
+        assert!(!html.contains("iframe"), "{html}");
+        assert_safe(&html);
+
+        let html = render("```video\nhttps://youtu.be/dQw4w9WgXcQ\n```\n");
+        assert!(html.contains(">Watch on YouTube</a>"), "{html}");
+        assert_safe(&html);
+    }
+
+    #[test]
+    fn bad_video_blocks_stay_code() {
+        let key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        for src in [
+            "javascript:alert(1)".to_string(),
+            "https://evil.test/v.mp4".to_string(),
+            "https://www.youtube.com.evil.test/watch?v=dQw4w9WgXcQ".to_string(),
+            "https://youtu.be/dQw4w9WgX\"Q".to_string(),
+            "https://youtu.be/dQw4w9WgX<Q".to_string(),
+            format!("/media/{key}.mp4"),
+            "data:video/mp4;base64,AAAA".to_string(),
+        ] {
+            let html = render(&format!("```video\n{src}\n```\n"));
+            assert!(!html.contains("<video"), "{src}: {html}");
+            assert!(html.contains("<pre data-lang=\"video\">"), "{src}: {html}");
+            assert_safe(&html);
+        }
+        // Three lines: a code block.
+        let html = render("```video\nhttps://youtu.be/dQw4w9WgXcQ\na\nb\n```\n");
+        assert!(!html.contains("<video"), "{html}");
+        // Not fenced with `video`: never an embed.
+        let html = render("```text\nhttps://youtu.be/dQw4w9WgXcQ\n```\n");
+        assert!(!html.contains("<video"), "{html}");
+    }
+
+    #[test]
+    fn video_titles_are_escaped() {
+        let html = render(
+            "```video\nhttps://youtu.be/dQw4w9WgXcQ\n\" onerror=\"alert(1)\"><script>alert(1)</script>\n```\n",
+        );
+        assert!(html.contains("<video-embed"), "{html}");
+        assert!(!html.contains("<script"), "{html}");
+        assert_safe(&html);
+    }
+
+    #[test]
+    fn hand_written_video_tags_are_text() {
+        let html = render(
+            "<video-embed data-id=\"dQw4w9WgXcQ\"></video-embed>\n\n<video src=\"/x.mp4\"></video>\n",
+        );
+        assert!(!html.contains("<video"), "{html}");
+        assert_safe(&html);
+    }
+
+    #[test]
     fn counts_words() {
         assert_eq!(word_count(""), 0);
         assert_eq!(word_count("# Hello world\n\n- one\n- two --- three"), 5);
@@ -499,6 +599,9 @@ mod tests {
             Just("\n\n".to_string()),
             Just("| a | b |\n|-|-|\n".to_string()),
             Just("[^1]: x\n".to_string()),
+            Just("```video\n".to_string()),
+            Just("https://youtu.be/dQw4w9WgXcQ\n".to_string()),
+            Just("<video src=x>".to_string()),
             "[ -~]{0,20}",
         ];
         prop::collection::vec(piece, 0..30).prop_map(|v| v.concat())

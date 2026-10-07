@@ -24,6 +24,7 @@ pub mod policy;
 pub mod post;
 pub mod session;
 pub mod slug;
+pub mod video;
 
 pub use access::{Access, Decision, SessionState, authorize};
 pub use csrf::{is_json, is_multipart_form, write_allowed};
@@ -34,3 +35,4 @@ pub use policy::{PublicPost, filter_public, reveal};
 pub use post::{Post, State, WORDS_PER_MINUTE, reading_minutes};
 pub use session::{SETUP_TOKEN_SECONDS, session_valid, setup_token_expiry, setup_token_usable};
 pub use slug::{SLUG_MAX, make_slug};
+pub use video::{YOUTUBE_ID_LEN, youtube_id};

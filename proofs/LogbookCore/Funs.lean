@@ -1397,4 +1397,245 @@ def slug.make_slug
   then slug.fallback id
   else ok out
 
+/-- [logbook_core::video::YOUTUBE_ID_LEN]
+    Source: 'crates/logbook-core/src/video.rs', lines 8:0-8:37
+    Visibility: public -/
+@[global_simps, irreducible] def video.YOUTUBE_ID_LEN : Std.Usize := 11#usize
+
+/-- [logbook_core::video::is_id_byte]:
+    Source: 'crates/logbook-core/src/video.rs', lines 11:0-17:1 -/
+def video.is_id_byte (c : Std.U8) : Result Bool := do
+  if c >= 65#u8
+  then
+    if c <= 90#u8
+    then ok true
+    else
+      if c >= 97#u8
+      then
+        if c <= 122#u8
+        then ok true
+        else
+          if c >= 48#u8
+          then
+            if c <= 57#u8
+            then ok true
+            else if c = 95#u8
+                 then ok true
+                 else ok (c = 45#u8)
+          else if c = 95#u8
+               then ok true
+               else ok (c = 45#u8)
+      else
+        if c >= 48#u8
+        then
+          if c <= 57#u8
+          then ok true
+          else if c = 95#u8
+               then ok true
+               else ok (c = 45#u8)
+        else if c = 95#u8
+             then ok true
+             else ok (c = 45#u8)
+  else
+    if c >= 97#u8
+    then
+      if c <= 122#u8
+      then ok true
+      else
+        if c >= 48#u8
+        then
+          if c <= 57#u8
+          then ok true
+          else if c = 95#u8
+               then ok true
+               else ok (c = 45#u8)
+        else if c = 95#u8
+             then ok true
+             else ok (c = 45#u8)
+    else
+      if c >= 48#u8
+      then
+        if c <= 57#u8
+        then ok true
+        else if c = 95#u8
+             then ok true
+             else ok (c = 45#u8)
+      else if c = 95#u8
+           then ok true
+           else ok (c = 45#u8)
+
+/-- [logbook_core::video::starts]: loop body 0:
+    Source: 'crates/logbook-core/src/video.rs', lines 25:4-32:1 -/
+@[rust_loop_body]
+def video.starts_loop.body
+  (s : Slice Std.U8) (p : Slice Std.U8) (j : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  let i := Slice.len p
+  if j < i
+  then
+    let i1 ← Slice.index_usize s j
+    let i2 ← Slice.index_usize p j
+    if i1 != i2
+    then ok (done false)
+    else let j1 ← j + 1#usize
+         ok (cont j1)
+  else ok (done true)
+
+/-- [logbook_core::video::starts]: loop 0:
+    Source: 'crates/logbook-core/src/video.rs', lines 25:4-32:1 -/
+@[rust_loop]
+def video.starts_loop
+  (s : Slice Std.U8) (p : Slice Std.U8) (j : Std.Usize) : Result Bool := do
+  loop
+    (fun j1 => video.starts_loop.body s p j1)
+    j
+
+/-- [logbook_core::video::starts]:
+    Source: 'crates/logbook-core/src/video.rs', lines 20:0-32:1 -/
+def video.starts (s : Slice Std.U8) (p : Slice Std.U8) : Result Bool := do
+  let i := Slice.len s
+  let i1 := Slice.len p
+  if i < i1
+  then ok false
+  else video.starts_loop s p 0#usize
+
+/-- [logbook_core::video::youtube_prefix]:
+    Source: 'crates/logbook-core/src/video.rs', lines 36:0-52:1 -/
+def video.youtube_prefix (url : Slice Std.U8) : Result Std.Usize := do
+  let s ←
+    lift (Array.to_slice
+      (Array.make 32#usize [
+        104#u8, 116#u8, 116#u8, 112#u8, 115#u8, 58#u8, 47#u8, 47#u8, 119#u8,
+        119#u8, 119#u8, 46#u8, 121#u8, 111#u8, 117#u8, 116#u8, 117#u8, 98#u8,
+        101#u8, 46#u8, 99#u8, 111#u8, 109#u8, 47#u8, 119#u8, 97#u8, 116#u8,
+        99#u8, 104#u8, 63#u8, 118#u8, 61#u8
+        ]))
+  let b ← video.starts url s
+  if b
+  then ok 32#usize
+  else
+    let s1 ←
+      lift (Array.to_slice
+        (Array.make 28#usize [
+          104#u8, 116#u8, 116#u8, 112#u8, 115#u8, 58#u8, 47#u8, 47#u8, 121#u8,
+          111#u8, 117#u8, 116#u8, 117#u8, 98#u8, 101#u8, 46#u8, 99#u8, 111#u8,
+          109#u8, 47#u8, 119#u8, 97#u8, 116#u8, 99#u8, 104#u8, 63#u8, 118#u8,
+          61#u8
+          ]))
+    let b1 ← video.starts url s1
+    if b1
+    then ok 28#usize
+    else
+      let s2 ←
+        lift (Array.to_slice
+          (Array.make 30#usize [
+            104#u8, 116#u8, 116#u8, 112#u8, 115#u8, 58#u8, 47#u8, 47#u8,
+            109#u8, 46#u8, 121#u8, 111#u8, 117#u8, 116#u8, 117#u8, 98#u8,
+            101#u8, 46#u8, 99#u8, 111#u8, 109#u8, 47#u8, 119#u8, 97#u8, 116#u8,
+            99#u8, 104#u8, 63#u8, 118#u8, 61#u8
+            ]))
+      let b2 ← video.starts url s2
+      if b2
+      then ok 30#usize
+      else
+        let s3 ←
+          lift (Array.to_slice
+            (Array.make 17#usize [
+              104#u8, 116#u8, 116#u8, 112#u8, 115#u8, 58#u8, 47#u8, 47#u8,
+              121#u8, 111#u8, 117#u8, 116#u8, 117#u8, 46#u8, 98#u8, 101#u8,
+              47#u8
+              ]))
+        let b3 ← video.starts url s3
+        if b3
+        then ok 17#usize
+        else
+          let s4 ←
+            lift (Array.to_slice
+              (Array.make 31#usize [
+                104#u8, 116#u8, 116#u8, 112#u8, 115#u8, 58#u8, 47#u8, 47#u8,
+                119#u8, 119#u8, 119#u8, 46#u8, 121#u8, 111#u8, 117#u8, 116#u8,
+                117#u8, 98#u8, 101#u8, 46#u8, 99#u8, 111#u8, 109#u8, 47#u8,
+                115#u8, 104#u8, 111#u8, 114#u8, 116#u8, 115#u8, 47#u8
+                ]))
+          let b4 ← video.starts url s4
+          if b4
+          then ok 31#usize
+          else
+            let s5 ←
+              lift (Array.to_slice
+                (Array.make 27#usize [
+                  104#u8, 116#u8, 116#u8, 112#u8, 115#u8, 58#u8, 47#u8, 47#u8,
+                  121#u8, 111#u8, 117#u8, 116#u8, 117#u8, 98#u8, 101#u8, 46#u8,
+                  99#u8, 111#u8, 109#u8, 47#u8, 115#u8, 104#u8, 111#u8, 114#u8,
+                  116#u8, 115#u8, 47#u8
+                  ]))
+            let b5 ← video.starts url s5
+            if b5
+            then ok 27#usize
+            else ok 0#usize
+
+/-- [logbook_core::video::id_at]: loop body 0:
+    Source: 'crates/logbook-core/src/video.rs', lines 61:4-69:1 -/
+@[rust_loop_body]
+def video.id_at_loop.body
+  (url : Slice Std.U8) («at» : Std.Usize) (j : Std.Usize) :
+  Result (ControlFlow Std.Usize Bool)
+  := do
+  if j < video.YOUTUBE_ID_LEN
+  then
+    let i ← «at» + j
+    let i1 ← Slice.index_usize url i
+    let b ← video.is_id_byte i1
+    if b
+    then let j1 ← j + 1#usize
+         ok (cont j1)
+    else ok (done false)
+  else
+    let «end» ← «at» + video.YOUTUBE_ID_LEN
+    let i := Slice.len url
+    if «end» = i
+    then ok (done true)
+    else
+      let i1 ← Slice.index_usize url «end»
+      if i1 = 63#u8
+      then ok (done true)
+      else if i1 = 38#u8
+           then ok (done true)
+           else ok (done (i1 = 35#u8))
+
+/-- [logbook_core::video::id_at]: loop 0:
+    Source: 'crates/logbook-core/src/video.rs', lines 61:4-69:1 -/
+@[rust_loop]
+def video.id_at_loop
+  (url : Slice Std.U8) («at» : Std.Usize) (j : Std.Usize) : Result Bool := do
+  loop
+    (fun j1 => video.id_at_loop.body url «at» j1)
+    j
+
+/-- [logbook_core::video::id_at]:
+    Source: 'crates/logbook-core/src/video.rs', lines 56:0-69:1 -/
+def video.id_at (url : Slice Std.U8) («at» : Std.Usize) : Result Bool := do
+  let i := Slice.len url
+  if «at» > i
+  then ok false
+  else
+    let i1 := Slice.len url
+    let i2 ← i1 - «at»
+    if i2 < video.YOUTUBE_ID_LEN
+    then ok false
+    else video.id_at_loop url «at» 0#usize
+
+/-- [logbook_core::video::youtube_id]:
+    Source: 'crates/logbook-core/src/video.rs', lines 79:0-86:1
+    Visibility: public -/
+def video.youtube_id (url : Slice Std.U8) : Result (Option Std.Usize) := do
+  let «at» ← video.youtube_prefix url
+  if «at» > 0#usize
+  then let b ← video.id_at url «at»
+       if b
+       then ok (some «at»)
+       else ok none
+  else ok none
+
 end logbook_core
