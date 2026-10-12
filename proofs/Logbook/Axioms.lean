@@ -9,6 +9,7 @@ import Logbook.Ip
 import Logbook.Access
 import Logbook.Session
 import Logbook.Video
+import Logbook.Paint.NoPanic
 
 /-! The build fails if a theorem below depends on any axiom other than Lean's three
 standard ones: no `sorry`, and none of the generated `Option` axioms in
@@ -129,3 +130,75 @@ standard ones: no `sorry`, and none of the generated `Option` axioms in
 /-- info: 'Logbook.setup_token_expiry_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms Logbook.setup_token_expiry_spec
+
+/-- info: 'Logbook.Paint.flood_fill_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.flood_fill_spec
+
+/-- info: 'Logbook.Paint.flood_fill_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.flood_fill_ok
+
+/-- info: 'Logbook.Paint.flood_fill_unchanged' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.flood_fill_unchanged
+
+/-- info: 'Logbook.Paint.stack_bound' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.stack_bound
+
+/-- info: 'Logbook.Paint.adj_iff' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.adj_iff
+
+/-- info: 'Logbook.Paint.line_points_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.line_points_spec
+
+/-- info: 'Logbook.Paint.rect_outline_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.rect_outline_spec
+
+/-- info: 'Logbook.Paint.rect_outline_only' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.rect_outline_only
+
+/-- info: 'Logbook.Paint.flip_h_twice' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.flip_h_twice
+
+/-- info: 'Logbook.Paint.flip_v_twice' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.flip_v_twice
+
+/-- info: 'Logbook.Paint.rotate90_four' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.rotate90_four
+
+/-- info: 'Logbook.Paint.rotate90_swap' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.rotate90_swap
+
+/-- info: 'Logbook.Paint.invert_twice' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.invert_twice
+
+/-- info: 'Logbook.Paint.invert_alpha' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.invert_alpha
+
+/-- info: 'Logbook.Paint.color_replace_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.color_replace_spec
+
+/-- info: 'Logbook.Paint.clip_rect_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.clip_rect_spec
+
+/-- info: 'Logbook.Paint.no_panic' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.no_panic
+
+/-- info: 'Logbook.Paint.invalid_unchanged' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms Logbook.Paint.invalid_unchanged

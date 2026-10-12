@@ -212,8 +212,9 @@ pub fn clip_rect(x: i32, y: i32, w: i32, h: i32, cw: usize, ch: usize) -> Rect {
     let y = i64::from(clamp_coord(y));
     let w = i64::from(clamp_span(w));
     let h = i64::from(clamp_span(h));
-    let cw = min_i64(cw as i64, MAX_DIM as i64);
-    let ch = min_i64(ch as i64, MAX_DIM as i64);
+    // Clamp before the cast: a `usize` above `i64::MAX` would wrap to a negative value.
+    let cw = (if cw < MAX_DIM { cw } else { MAX_DIM }) as i64;
+    let ch = (if ch < MAX_DIM { ch } else { MAX_DIM }) as i64;
     let x0 = min_i64(max_i64(x, 0), cw);
     let y0 = min_i64(max_i64(y, 0), ch);
     let x1 = min_i64(max_i64(x + w, x0), cw);
@@ -342,24 +343,36 @@ pub fn flood_fill(c: &mut Canvas, x: i32, y: i32, color: u32) {
         top -= 1;
         let i = stack[top];
         let col = i % w;
-        if col > 0 && c.px[i - 1] == target {
-            c.px[i - 1] = color;
-            stack[top] = i - 1;
-            top += 1;
+        // Each neighbor index is computed once. rustc turns a repeated `i - 1` into an
+        // unchecked subtraction, and Aeneas cannot translate that.
+        if col > 0 {
+            let j = i - 1;
+            if c.px[j] == target {
+                c.px[j] = color;
+                stack[top] = j;
+                top += 1;
+            }
         }
-        if col + 1 < w && c.px[i + 1] == target {
-            c.px[i + 1] = color;
-            stack[top] = i + 1;
-            top += 1;
+        if col + 1 < w {
+            let j = i + 1;
+            if c.px[j] == target {
+                c.px[j] = color;
+                stack[top] = j;
+                top += 1;
+            }
         }
-        if i >= w && c.px[i - w] == target {
-            c.px[i - w] = color;
-            stack[top] = i - w;
-            top += 1;
+        if i >= w {
+            let j = i - w;
+            if c.px[j] == target {
+                c.px[j] = color;
+                stack[top] = j;
+                top += 1;
+            }
         }
-        if i + w < n && c.px[i + w] == target {
-            c.px[i + w] = color;
-            stack[top] = i + w;
+        let j = i + w;
+        if j < n && c.px[j] == target {
+            c.px[j] = color;
+            stack[top] = j;
             top += 1;
         }
     }

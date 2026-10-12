@@ -10,6 +10,10 @@ package logbook
 lean_lib LogbookCore where
   globs := #[.submodules `LogbookCore]
 
+-- The model generated from crates/logbook-paint (extract.sh). Do not edit.
+lean_lib LogbookPaint where
+  globs := #[.submodules `LogbookPaint]
+
 -- The theorems (spec 7.6).
 @[default_target]
 lean_lib Logbook where

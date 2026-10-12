@@ -997,7 +997,7 @@ Playwright, Chromium:
 
 Charon reads the Rust code. Aeneas translates it into a pure Lean 4 model. Each function returns `ok v`, or `fail` (panic, overflow, out of bounds). Theorems about the model are theorems about the Rust code.
 
-Scope: `logbook-core` only. Its rules: no I/O, no async, no `dyn`, no `String` (bytes only), plain structs, enums, loops, `Option`, `Result`, `Vec`.
+Scope: `logbook-core` and `logbook-paint`. Their rules: no I/O, no async, no `dyn`, no `String` (bytes only), plain structs, enums, loops, `Option`, `Result`, `Vec`.
 
 **Verified API:**
 
@@ -1084,6 +1084,25 @@ T12 turns every "if `ok`" above into "always".
 | T6, T7, T8, T9 | Proved | `slug_plain`, `slug_fallback` (`decimal`), `slug_lower` (`upper`), `slug_idempotent` |
 | T18 | Proved | `youtube_id_spec` (`YouTube`, `IdAt`), `youtube_id_plain` |
 
+**Paint theorems** (`logbook-paint`, 11.9; Lean names in `proofs/Logbook/Paint/`, namespace `Logbook.Paint`). Each one also proves that the function returns `ok`. A canvas is valid if `1 ≤ w, h ≤ 4096` and `px.len = w · h`.
+
+| # | Name | Statement |
+|---|---|---|
+| P1 | `flood_fill_spec`, `adj_iff`, `flood_fill_unchanged` | Fill With Color changes exactly the pixels in `Filled c x y color` to `color`. Every other pixel stays. `Filled`: `(x, y)` is inside, its color is not `color`, and the pixel is in its 4-connected region of the same color. `adj_iff`: a step is exactly a 4-way neighbor in the rows and columns. |
+| P2 | `flood_fill_ok`, `stack_bound` | The fill ends for every input. The stack never holds more than `w · h` entries. |
+| P3 | `line_points_spec` | The line starts at the clamped first point and ends at the clamped second point. It has `max(dx, dy) + 1` points, each an 8-way neighbor of the one before, all in the bounding box. |
+| P4 | `rect_outline_spec`, `rect_outline_only` | The outline sets exactly the pixels of the rectangle that are less than `lw` from one of its edges. No other pixel changes. |
+| P5 | `flip_h_twice`, `flip_v_twice` | Each flip, done twice, gives the same canvas. Any canvas. |
+| P6 | `rotate90_four`, `rotate90_swap` | Four turns give the same canvas. One turn of a valid canvas swaps `w` and `h` and stays valid. |
+| P7 | `invert_twice`, `invert_alpha` | Invert twice gives the same canvas. Alpha does not change. |
+| P8 | `color_replace_spec` | The color eraser sets a pixel to `to` exactly when it is in the clipped rectangle and equals `from`. Every other pixel stays. |
+| P9 | `clip_rect_spec` | A clipped rectangle is inside the canvas and inside 4096 × 4096. |
+| P10 | `no_panic`, `invalid_unchanged` | All 25 public functions return `ok` for every input. The functions that change a canvas leave an invalid canvas as it is. |
+
+Status (2026-10-12): P1–P10 proved. The proofs found one bug: `clip_rect` cast `cw` and `ch` to `i64` before the clamp, so on a 64-bit machine a value above `i64::MAX` became negative. It now clamps first.
+
+**Not covered for Paint:** the undo history and the exported functions in `paint-wasm` (property tests and the `paint_ops` fuzz target), stretch, skew, `blit`, and `copy_region` beyond P10, and everything that Paint draws with Canvas 2D in the browser: ellipses, rounded rectangles, the round brush, text, the free-form mask, and PNG and JPEG files.
+
 `Logbook/Axioms.lean` makes the build fail if any proved theorem depends on an axiom other than `propext`, `Classical.choice`, and `Quot.sound`.
 
 **Not covered by proofs:** `render()` (property tests + fuzz), passkeys, SQL and route code (access matrix), the tools themselves (rustc, Charon, Aeneas, Lean). For T13–T17 the proofs cover the decision only. The server code that makes the inputs is not proved:
@@ -1102,9 +1121,9 @@ T12 turns every "if `ok`" above into "always".
 - `proofs/tools.sh` downloads pinned Charon and Aeneas release builds and checks their SHA-256. No Nix.
 - The Charon version must match the `charon-pin` of the Aeneas build. Aeneas refuses files from another Charon version.
 - Charon drives the Rust nightly in its `rust-toolchain` file (with `rustc-dev`, `llvm-tools`, `rust-src`).
-- `proofs/extract.sh`: Rust → Charon → Aeneas → `proofs/LogbookCore/{Types,Funs,FunsExternal}.lean`. These files are generated and committed.
+- `proofs/extract.sh`: Rust → Charon → Aeneas → `proofs/LogbookCore/{Types,Funs,FunsExternal}.lean` and `proofs/LogbookPaint/{Types,Funs}.lean`. These files are generated and committed. `logbook-paint` calls no external functions, so it has no `FunsExternal`.
 - `proofs/Logbook/*.lean` hold the theorems. `lean-toolchain` follows the Aeneas build. Mathlib comes from `lake exe cache get`.
-- CI: run `extract.sh`, fail on a diff in `proofs/LogbookCore`, then `lake build Logbook`, and fail on any `sorry`.
+- CI: run `extract.sh`, fail on a diff in `proofs/LogbookCore` or `proofs/LogbookPaint`, then `lake build Logbook`, and fail on any `sorry`.
 
 ### 7.7 Restore test
 
