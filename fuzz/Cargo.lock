@@ -1681,10 +1681,23 @@ version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
  "logbook-core",
+ "logbook-paint",
+ "logbook-paint-wasm",
  "logbook-render",
  "logbook-server",
  "scraper",
  "serde_json",
+]
+
+[[package]]
+name = "logbook-paint"
+version = "0.1.0"
+
+[[package]]
+name = "logbook-paint-wasm"
+version = "0.1.0"
+dependencies = [
+ "logbook-paint",
 ]
 
 [[package]]

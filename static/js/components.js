@@ -1067,14 +1067,15 @@ customElements.define('dos-shell', class extends HTMLElement {
 
 /* <start-menu>: the Win98 Start menu, the Shut Down dialog, and the "safe to turn
    off" screen (spec 11.3). The menu follows the WAI-ARIA menu button pattern: the
-   arrow keys move, Right opens Topics, Left and Escape close one level, Enter
-   activates. Links and [data-goto] items go through the <blog-app> router. */
+   arrow keys move, Right opens a cascade (Programs, Accessories, Topics), Left and
+   Escape close one level, Enter activates. A cascade opens one level at a time, and
+   the menu opens with all cascades closed. Links and [data-goto] items go through
+   the <blog-app> router. [data-app] items fire "openapp" for the Win98 apps (11.9). */
 customElements.define('start-menu', class extends HTMLElement {
   connectedCallback() {
     this.app = this.closest('blog-app');
     this.btn = this.querySelector('.start');
     this.menu = this.querySelector('#start-menu');
-    this.topics = this.querySelector('[data-topics]');
     this.sub = this.querySelector('#start-sub');
     this.dialog = document.getElementById('shutdown');
     this.safe = document.getElementById('safe-off');
@@ -1092,14 +1093,15 @@ customElements.define('start-menu', class extends HTMLElement {
     });
     this.menu.addEventListener('keydown', e => this.onKey(e));
     this.menu.addEventListener('click', e => this.onClick(e));
-    // The highlight follows the mouse, like Windows 98. Topics opens on hover.
-    // Only a real move counts: a menu that opens under a still mouse keeps the focus.
+    // The highlight follows the mouse, like Windows 98. A cascade opens on hover, and
+    // the other cascades of the same menu close. Only a real move counts: a menu that
+    // opens under a still mouse keeps the focus.
     this.menu.addEventListener('pointermove', e => {
       const item = e.target.closest('[role="menuitem"]');
       if (!item || e.pointerType !== 'mouse' || item === document.activeElement) return;
       item.focus({ preventScroll: true });
-      if (item === this.topics) this.openSub(false);
-      else if (!this.sub.contains(item)) this.closeSub(false);
+      if (this.isTrigger(item)) this.openSub(item, false);
+      else this.closeSubsOf(this.menuOf(item));
     });
     document.addEventListener('pointerdown', e => { if (this.isOpen() && !this.contains(e.target)) this.close(false); });
     this.app.addEventListener('viewchange', () => this.close(false));
@@ -1124,12 +1126,18 @@ customElements.define('start-menu', class extends HTMLElement {
   }
 
   isOpen() { return !this.menu.hidden; }
-  items(menu) { return [...menu.querySelectorAll('[role="menuitem"]')].filter(el => menu === this.sub || !this.sub.contains(el)); }
+  /* The menu that holds `el`: the Start menu or a cascade. */
+  menuOf(el) { return el.closest('[role="menu"]'); }
+  /* The items of one menu. Items of its cascades are not in the list. */
+  items(menu) { return [...menu.querySelectorAll('[role="menuitem"]')].filter(el => this.menuOf(el) === menu); }
+  isTrigger(item) { return item.getAttribute('aria-haspopup') === 'menu'; }
+  subOf(trigger) { return document.getElementById(trigger.getAttribute('aria-controls')); }
 
   /* Opens the menu. `at` is the index of the item to focus (-1 is the last). With
      null the menu itself gets the focus, so the arrow keys still work. */
   open(at) {
     this.fillTopics();
+    this.closeSubsOf(this.menu);
     this.menu.hidden = false;
     this.btn.setAttribute('aria-expanded', 'true');
     const items = this.items(this.menu);
@@ -1139,7 +1147,7 @@ customElements.define('start-menu', class extends HTMLElement {
   close(focusStart) {
     if (!this.isOpen()) return;
     const inside = this.menu.contains(document.activeElement);
-    this.closeSub(false);
+    this.closeSubsOf(this.menu);
     this.menu.hidden = true;
     this.btn.setAttribute('aria-expanded', 'false');
     if (focusStart || inside) this.btn.focus();
@@ -1166,36 +1174,48 @@ customElements.define('start-menu', class extends HTMLElement {
     this.sub.replaceChildren(...links);
   }
 
-  openSub(focusFirst) {
-    if (this.sub.hidden) {
-      this.sub.hidden = false;
-      this.topics.setAttribute('aria-expanded', 'true');
-      this.placeSub();
+  /* Opens the cascade of `trigger`. The other cascades of its menu close first. */
+  openSub(trigger, focusFirst) {
+    this.closeSubsOf(this.menuOf(trigger), trigger);
+    const sub = this.subOf(trigger);
+    if (sub.hidden) {
+      sub.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      this.placeSub(sub);
     }
-    if (focusFirst) this.items(this.sub)[0].focus();
+    if (focusFirst) this.items(sub)[0].focus();
   }
 
-  closeSub(focusTopics) {
-    if (this.sub.hidden) return;
-    this.sub.hidden = true;
-    this.topics.setAttribute('aria-expanded', 'false');
-    if (focusTopics) this.topics.focus();
+  /* Closes the cascade of `trigger` and the cascades inside it. */
+  closeSub(trigger, focusTrigger) {
+    const sub = this.subOf(trigger);
+    if (sub.hidden) return;
+    this.closeSubsOf(sub);
+    sub.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    if (focusTrigger) trigger.focus();
+  }
+
+  /* Closes every open cascade of `menu`, except the one of `keep`. */
+  closeSubsOf(menu, keep = null) {
+    for (const t of this.items(menu)) if (t !== keep && this.isTrigger(t)) this.closeSub(t, false);
   }
 
   /* A submenu beside the menu moves up until it ends above the taskbar. On narrow
      screens it opens inside the menu, so it needs no move. */
-  placeSub() {
-    this.sub.style.removeProperty('translate');
-    if (getComputedStyle(this.sub).position !== 'absolute') return;
-    const r = this.sub.getBoundingClientRect();
+  placeSub(sub) {
+    sub.style.removeProperty('translate');
+    if (getComputedStyle(sub).position !== 'absolute') return;
+    const r = sub.getBoundingClientRect();
     const floor = this.closest('.taskbar').getBoundingClientRect().top;
     const up = Math.min(r.bottom - floor, r.top);
-    if (up > 0) this.sub.style.translate = `0 ${-up}px`;
+    if (up > 0) sub.style.translate = `0 ${-up}px`;
   }
 
   onKey(e) {
-    const inSub = this.sub.contains(e.target);
-    const items = this.items(inSub ? this.sub : this.menu);
+    const menu = this.menuOf(e.target);
+    const inSub = menu !== this.menu;
+    const items = this.items(menu);
     const i = items.indexOf(document.activeElement);
     const move = n => items.at(n % items.length).focus();
     switch (e.key) {
@@ -1203,8 +1223,11 @@ customElements.define('start-menu', class extends HTMLElement {
       case 'ArrowUp': move(i < 0 ? -1 : i - 1); break;
       case 'Home': move(0); break;
       case 'End': move(-1); break;
-      case 'ArrowRight': if (e.target === this.topics) this.openSub(true); break;
-      case 'ArrowLeft': case 'Escape': if (inSub) this.closeSub(true); else this.close(true); break;
+      case 'ArrowRight': if (this.isTrigger(e.target)) this.openSub(e.target, true); break;
+      case 'ArrowLeft': case 'Escape':
+        if (inSub) this.closeSub(this.menu.querySelector(`[aria-controls="${menu.id}"]`), true);
+        else this.close(true);
+        break;
       case 'Tab': this.close(true); break;
       case ' ': if (e.target.matches('a[role="menuitem"]')) e.target.click(); else return; break;
       default: return;
@@ -1216,12 +1239,12 @@ customElements.define('start-menu', class extends HTMLElement {
   onClick(e) {
     const item = e.target.closest('[role="menuitem"]');
     if (!item || item.getAttribute('aria-disabled') === 'true') return;
-    if (item === this.topics) {
+    if (this.isTrigger(item)) {
       // A mouse click keeps the submenu open; a tap opens or closes it. Enter or
-      // Space (a click with detail 0) opens it and focuses the first topic.
+      // Space (a click with detail 0) opens it and focuses the first item.
       const keyboard = e.detail === 0;
-      if (!keyboard && e.pointerType !== 'mouse' && !this.sub.hidden) this.closeSub(false);
-      else this.openSub(keyboard);
+      if (!keyboard && e.pointerType !== 'mouse' && !this.subOf(item).hidden) this.closeSub(item, false);
+      else this.openSub(item, keyboard);
       return;
     }
     if (item.hasAttribute('data-shutdown')) {
@@ -1231,6 +1254,7 @@ customElements.define('start-menu', class extends HTMLElement {
     }
     // The <blog-app> router handles the link or the [data-goto] after this.
     this.close(true);
+    if (item.dataset.app) this.dispatchEvent(new CustomEvent('openapp', { bubbles: true, detail: { app: item.dataset.app } }));
   }
 
   openShutdown() {

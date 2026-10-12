@@ -273,14 +273,15 @@ start-menu { display: flex; }
 .pix16 { width: 16px; height: 16px; flex: none; shape-rendering: crispEdges; }
 .start-sep { height: 2px; margin: 3px 2px; box-shadow: inset 0 1px var(--chrome-lo), inset 0 -1px var(--chrome-hi); }
 .start-sub-wrap { position: relative; display: grid; }
-.start-sub { position: absolute; left: calc(100% + 7px); top: -3px; z-index: 56; display: grid; align-content: start; width: 190px; padding: 3px;
-  max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; }
+.start-sub { position: absolute; left: calc(100% + 7px); top: -3px; z-index: 56; display: grid; align-content: start; width: 190px; padding: 3px; }
+/* Only the Topics list scrolls. A scroll box would clip the Accessories cascade. */
+.start-scroll { max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; }
 .start-sub .start-item { min-height: 32px; }
 /* Phones: the menu fits above the taskbar and scrolls. Topics opens inside it. */
 @media (max-width: 520px) {
   .start-menu { max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
   .start-item, .start-sub .start-item { min-height: 44px; }
-  .start-sub { position: static; width: auto; max-height: none; overflow: visible; padding: 0 0 0 16px; background: none; box-shadow: none; }
+  .start-sub, .start-scroll { position: static; width: auto; max-height: none; overflow: visible; padding: 0 0 0 16px; background: none; box-shadow: none; }
 }
 
 /* Shut Down dialog. A native <dialog>: showModal() traps the focus and Escape closes it. */

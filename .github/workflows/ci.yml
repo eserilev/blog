@@ -40,7 +40,7 @@ jobs:
           fi
           files=$(git diff --name-only "$BASE" HEAD)
           echo "$files"
-          if echo "$files" | grep -qE '^(crates/logbook-core/|proofs/|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'; then
+          if echo "$files" | grep -qE '^(crates/logbook-core/|crates/logbook-paint/|proofs/|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'; then
             echo "proofs=true" >> "$GITHUB_OUTPUT"
           else
             echo "proofs=false" >> "$GITHUB_OUTPUT"
@@ -84,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [render, slug, media_key, video_source, head_tags, post_input, frontmatter, image]
+        target: [render, slug, media_key, video_source, head_tags, post_input, frontmatter, image, paint_ops, paint_canvas]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install nightly-2026-09-17 --profile minimal
@@ -149,7 +149,7 @@ jobs:
       - name: The Lean model matches the Rust code
         run: |
           proofs/extract.sh
-          git diff --exit-code -- proofs/LogbookCore
+          git diff --exit-code -- proofs/LogbookCore proofs/LogbookPaint
       - name: Mathlib cache
         working-directory: proofs
         run: lake exe cache get

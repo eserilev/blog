@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="asset-wasm" content="/static/wasm/logbook_render.wasm">
+<!-- Paint (spec 11.9) loads these the first time it opens. -->
+<meta name="asset-paint-wasm" content="/static/wasm/logbook_paint.wasm">
+<meta name="asset-paint-js" content="/static/js/paint.js">
+<meta name="asset-paint-css" content="/static/css/paint.css">
 <!--head-->
 <title>Eitan's Logbook</title>
 <meta name="description" content="An Ethereum core developer keeps notes on protocol work, Rust, and the time between.">
@@ -13,21 +17,23 @@
 <link rel="stylesheet" href="/static/css/logbook.css">
 <link rel="stylesheet" href="/static/css/phone.css">
 <link rel="stylesheet" href="/static/css/video.css">
+<link rel="stylesheet" href="/static/css/apps.css">
 <script src="/static/js/mode.js"></script>
 <script src="/static/js/components.js" defer></script>
 <script src="/static/js/app.js" defer></script>
 <script src="/static/js/phone.js" defer></script>
 <script src="/static/js/video.js" defer></script>
+<script src="/static/js/apps.js" defer></script>
 </head>
 <body>
 <noscript><p class="noscript">This site needs JavaScript.</p></noscript>
 <blog-app>
   <div class="desktop">
-    <div class="window raised">
+    <div class="window raised" data-win="logbook">
       <div class="titlebar">
         <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" fill="#000"/><text x="8" y="10.5" text-anchor="middle" font-size="10" font-family="Tinos, 'Times New Roman', serif" font-weight="700" fill="#fff">E</text><path d="M2 13.2 q1.5 -1.4 3 0 t3 0 t3 0 t3 0" stroke="#fff" stroke-width="1.2" fill="none"/></svg>
         <span class="ttl" id="ns-title"><!--site:title--></span>
-        <span class="ctl raised" aria-hidden="true">_</span><span class="ctl raised" aria-hidden="true">□</span><span class="ctl raised" aria-hidden="true">×</span>
+        <button class="ctl raised" type="button" data-min aria-label="Minimize">_</button><button class="ctl raised" type="button" data-max aria-label="Maximize">□</button><button class="ctl raised" type="button" data-close aria-label="Close">×</button>
       </div>
       <div>
         <div class="menubar"><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Bookmarks</span><span>Help</span></div>
@@ -398,6 +404,65 @@
     </nav>
   </phone-shell>
 
+  <!-- Win98 apps (spec 11.9): desktop icons and app windows over the Logbook window.
+       CSS shows them only under html[data-mode="general"]. Paint builds its own window. -->
+  <div class="apps" data-apps>
+    <div class="wallpaper" data-wallpaper></div>
+    <button class="dicon" type="button" data-icon="logbook"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" fill="#000"/><text x="16" y="21" text-anchor="middle" font-family="Tinos, 'Times New Roman', serif" font-weight="700" font-size="18" fill="#fff">E</text><path d="M5 26 q2.75 -2 5.5 0 t5.5 0 t5.5 0 t5.5 0" stroke="#fff" stroke-width="1.5" fill="none"/><rect x="1.5" y="1.5" width="29" height="29" fill="none" stroke="#808080"/></svg><span>Logbook.exe</span></button>
+    <button class="dicon" type="button" data-icon="docs"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 8h11l3 3h14v18H2z" fill="#ffd84a" stroke="#000"/><path d="M7 4h15l4 4v13H7z" fill="#fff" stroke="#000"/><path d="M10 10h12v1H10zM10 13h12v1H10zM10 16h8v1H10z" fill="#000080"/><path d="M2 14h28v15H2z" fill="#ffe680" stroke="#000"/></svg><span>Documents</span></button>
+    <button class="dicon" type="button" data-icon="bin"><svg viewBox="0 0 32 32" aria-hidden="true">
+      <g data-bin="empty"><path d="M7 9h18l-2 20H9z" fill="#c0c0c0" stroke="#000"/><path d="M5 6h22v3H5z" fill="#dfdfdf" stroke="#000"/><path d="M11 12v14M16 12v14M21 12v14" stroke="#808080"/></g>
+      <g data-bin="full" hidden><path d="M7 9h18l-2 20H9z" fill="#c0c0c0" stroke="#000"/><path d="M8 3l7 1-1 6-7-1zM15 1h8v8h-8z" fill="#fff" stroke="#000"/><path d="M17 4h4v1h-4zM17 6h4v1h-4z" fill="#000080"/><path d="M5 7h22v3H5z" fill="#dfdfdf" stroke="#000"/><path d="M11 13v13M16 13v13M21 13v13" stroke="#808080"/></g>
+    </svg><span>Recycle Bin</span></button>
+
+    <!-- Documents: the public posts as .md files. -->
+    <section class="app raised app-explorer" data-win="docs" aria-label="Documents" tabindex="-1" hidden>
+      <div class="titlebar">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 4h5l2 2h7v9H1z" fill="#ffd84a" stroke="#000"/></svg>
+        <span class="ttl">Documents</span>
+        <button class="ctl raised" type="button" data-min aria-label="Minimize">_</button><button class="ctl raised" type="button" data-max aria-label="Maximize">□</button><button class="ctl raised" type="button" data-close aria-label="Close">×</button>
+      </div>
+      <div class="mbar" data-menu></div>
+      <div class="ex-addr"><span>Address</span><div class="field sunken">C:\My Documents\Logbook</div></div>
+      <div class="ex-view sunken icons" data-view-files tabindex="0" aria-label="Published posts"></div>
+      <div class="ex-status"><span data-status></span><span>Published posts</span></div>
+    </section>
+
+    <!-- Recycle Bin. Nothing in it is really deleted. -->
+    <section class="app raised app-explorer" data-win="bin" aria-label="Recycle Bin" tabindex="-1" hidden>
+      <div class="titlebar">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10l-1 11H4z" fill="#c0c0c0" stroke="#000"/><path d="M2 3h12v2H2z" fill="#808080" stroke="#000"/></svg>
+        <span class="ttl">Recycle Bin</span>
+        <button class="ctl raised" type="button" data-min aria-label="Minimize">_</button><button class="ctl raised" type="button" data-max aria-label="Maximize">□</button><button class="ctl raised" type="button" data-close aria-label="Close">×</button>
+      </div>
+      <div class="mbar" data-menu></div>
+      <div class="ex-addr"><span>Address</span><div class="field sunken">C:\RECYCLED</div></div>
+      <div class="ex-view sunken icons" data-view-files tabindex="0" aria-label="Recycle Bin contents"></div>
+      <div class="ex-status"><span data-status></span><span>Nothing here is really deleted</span></div>
+    </section>
+
+    <!-- Notepad, for visitors. The owner gets Compose. -->
+    <section class="app raised app-notepad" data-win="notepad" aria-label="Notepad" tabindex="-1" hidden>
+      <div class="titlebar">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 1h12v14H2z" fill="#fff" stroke="#000"/><path d="M2 1h12v3H2z" fill="#00a0a0" stroke="#000"/><path d="M4 7h8v1H4zM4 10h8v1H4zM4 13h5v1H4z" fill="#000080"/></svg>
+        <span class="ttl" data-title>Untitled - Notepad</span>
+        <button class="ctl raised" type="button" data-min aria-label="Minimize">_</button><button class="ctl raised" type="button" data-max aria-label="Maximize">□</button><button class="ctl raised" type="button" data-close aria-label="Close">×</button>
+      </div>
+      <div class="mbar" data-menu></div>
+      <div class="np-wrap sunken"><textarea class="np-text" spellcheck="false" aria-label="Notepad text" placeholder="Write in Markdown"></textarea></div>
+    </section>
+
+    <!-- Icons that the scripts copy: files in Explorer and message boxes. -->
+    <template data-icons>
+      <svg data-i="md" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 2h14l6 6v22H6z" fill="#fff" stroke="#000"/><path d="M20 2v6h6" fill="#c0c0c0" stroke="#000"/><rect x="8" y="17" width="16" height="9" fill="#000080"/><text x="16" y="24" text-anchor="middle" font-family="Tahoma, sans-serif" font-weight="700" font-size="7" fill="#fff">MD</text><path d="M9 11h9v1H9zM9 14h12v1H9z" fill="#808080"/></svg>
+      <svg data-i="md16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1h7l3 3v11H3z" fill="#fff" stroke="#000"/><rect x="4" y="8" width="8" height="5" fill="#000080"/></svg>
+      <svg data-i="warn" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 31 29H1z" fill="#ff0" stroke="#000"/><path d="M14.5 10h3l-.6 11h-1.8zM14.5 23h3v3h-3z" fill="#000"/></svg>
+      <svg data-i="info" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#fff" stroke="#000"/><path d="M14 13h4v12h-4zM14 7h4v4h-4z" fill="#00f"/></svg>
+      <svg data-i="q" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#fff" stroke="#000"/><text x="16" y="23" text-anchor="middle" font-family="Tinos, serif" font-weight="700" font-size="20" fill="#00f">?</text></svg>
+    </template>
+    <div class="w98-modal" data-modal hidden></div>
+  </div>
+
   <div class="taskbar">
     <!-- The Start menu (spec 11.3). -->
     <start-menu>
@@ -405,11 +470,25 @@
       <div class="start-menu raised" id="start-menu" role="menu" aria-labelledby="start-btn" tabindex="-1" hidden>
         <div class="start-band" aria-hidden="true"><span>Logbook <b>98</b></span></div>
         <div class="start-items" role="none">
+          <div class="start-sub-wrap" role="none">
+            <button class="start-item" role="menuitem" tabindex="-1" type="button" id="start-programs" aria-haspopup="menu" aria-expanded="false" aria-controls="start-sub-programs"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h8l2 2h10v13H2z" fill="#ffd84a" stroke="#000"/><path d="M6 11h12v6H6z" fill="#000080"/><path d="M8 13h3v2H8z" fill="#fff"/></svg><span>Programs</span><span class="start-arrow" aria-hidden="true">▸</span></button>
+            <div class="start-sub raised" id="start-sub-programs" role="menu" aria-labelledby="start-programs" hidden>
+              <div class="start-sub-wrap" role="none">
+                <button class="start-item" role="menuitem" tabindex="-1" type="button" id="start-accessories" aria-haspopup="menu" aria-expanded="false" aria-controls="start-sub-accessories"><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3h5l1 2h8v9H1z" fill="#ffd84a" stroke="#000"/></svg><span>Accessories</span><span class="start-arrow" aria-hidden="true">▸</span></button>
+                <div class="start-sub raised" id="start-sub-accessories" role="menu" aria-labelledby="start-accessories" hidden>
+                  <button class="start-item" role="menuitem" tabindex="-1" type="button" data-app="notepad"><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 1h12v14H2z" fill="#fff" stroke="#000"/><path d="M2 1h12v3H2z" fill="#00a0a0" stroke="#000"/><path d="M4 7h8v1H4zM4 10h8v1H4zM4 13h5v1H4z" fill="#000080"/></svg><span>Notepad</span></button>
+                  <button class="start-item" role="menuitem" tabindex="-1" type="button" data-app="paint"><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3h12v11H1z" fill="#fff" stroke="#000"/><path d="M3 6h3v3H3z" fill="#f00"/><path d="M7 9h3v3H7z" fill="#00f"/><path d="M8 5h3v3H8z" fill="#ff0"/><path d="M15 0 9 8l1 1 6-7z" fill="#804000"/></svg><span>Paint</span></button>
+                </div>
+              </div>
+              <button class="start-item" role="menuitem" tabindex="-1" type="button" data-app="logbook"><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" fill="#000"/><text x="8" y="11" text-anchor="middle" font-size="10" font-family="Tinos, 'Times New Roman', serif" font-weight="700" fill="#fff">E</text></svg><span>Logbook</span></button>
+            </div>
+          </div>
+          <button class="start-item" role="menuitem" tabindex="-1" type="button" data-app="docs"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h8l2 2h10v13H2z" fill="#ffd84a" stroke="#000"/><path d="M6 3h10l3 3v6H6z" fill="#fff" stroke="#000"/><path d="M2 10h20v10H2z" fill="#ffe680" stroke="#000"/></svg><span>Documents</span></button>
           <a class="start-item" role="menuitem" tabindex="-1" href="/"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v9h14v-9h3z" fill="#ffff99" stroke="#000"/><path d="M10 14h4v7h-4z" fill="#804000"/><path d="M16 5h2v4h-2z" fill="#c00000" stroke="#000"/></svg><span>Home</span></a>
           <button class="start-item" role="menuitem" tabindex="-1" type="button" data-goto="latest"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2h10l4 4v16H5z" fill="#fff" stroke="#000"/><path d="M15 2v4h4" fill="#c0c0c0" stroke="#000"/><path d="M8 10h8v1H8zM8 13h8v1H8zM8 16h5v1H8z" fill="#000080"/></svg><span>Latest post</span></button>
           <div class="start-sub-wrap" role="none">
             <button class="start-item" role="menuitem" tabindex="-1" type="button" id="start-topics" aria-haspopup="menu" aria-expanded="false" aria-controls="start-sub" data-topics><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h8l2 2h10v13H2z" fill="#ffd84a" stroke="#000"/><path d="M2 9h20" stroke="#c09000"/></svg><span>Topics</span><span class="start-arrow" aria-hidden="true">▸</span></button>
-            <div class="start-sub raised" id="start-sub" role="menu" aria-labelledby="start-topics" hidden></div>
+            <div class="start-sub start-scroll raised" id="start-sub" role="menu" aria-labelledby="start-topics" hidden></div>
           </div>
           <a class="start-item" role="menuitem" tabindex="-1" href="/feed.xml"><svg class="pix24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3z" fill="#ff8c00" stroke="#000"/><path d="M6 15h3v3H6z" fill="#fff"/><path d="M6 10h2a6 6 0 0 1 6 6v2h-2v-2a4 4 0 0 0-4-4H6zM6 6h2a10 10 0 0 1 10 10v2h-2v-2a8 8 0 0 0-8-8H6z" fill="#fff"/></svg><span>RSS feed</span></a>
           <div class="start-sep" role="separator"></div>
@@ -421,6 +500,10 @@
     <button class="btn98 task" data-goto="/" data-nav="home">Home</button>
     <button class="btn98 task" data-goto="latest" data-nav="post">Latest post</button>
     <button class="btn98 task owner-only" data-goto="/write" data-nav="write">Notepad</button>
+    <button class="btn98 task app-task" type="button" data-task="docs" aria-pressed="false" hidden><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 4h5l2 2h7v9H1z" fill="#ffd84a" stroke="#000"/></svg><span>Documents</span></button>
+    <button class="btn98 task app-task" type="button" data-task="bin" aria-pressed="false" hidden><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10l-1 11H4z" fill="#c0c0c0" stroke="#000"/><path d="M2 3h12v2H2z" fill="#808080" stroke="#000"/></svg><span>Recycle Bin</span></button>
+    <button class="btn98 task app-task" type="button" data-task="paint" aria-pressed="false" hidden><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3h12v11H1z" fill="#fff" stroke="#000"/><path d="M3 6h3v3H3z" fill="#f00"/><path d="M7 9h3v3H7z" fill="#00f"/><path d="M8 5h3v3H8z" fill="#ff0"/><path d="M15 0 9 8l1 1 6-7z" fill="#804000"/></svg><span>untitled - Paint</span></button>
+    <button class="btn98 task app-task" type="button" data-task="notepad" aria-pressed="false" hidden><svg class="pix16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 1h12v14H2z" fill="#fff" stroke="#000"/><path d="M2 1h12v3H2z" fill="#00a0a0" stroke="#000"/><path d="M4 7h8v1H4zM4 10h8v1H4zM4 13h5v1H4z" fill="#000080"/></svg><span>Untitled - Notepad</span></button>
     <span class="tray sunken" id="ns-clock">12:00 PM</span>
   </div>
 

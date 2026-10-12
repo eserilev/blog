@@ -12,5 +12,7 @@ mkdir -p "$(dirname "$LOGBOOK_DB")"
 rm -f "$LOGBOOK_DB" "$LOGBOOK_DB"-*
 cargo build -q -p logbook-server
 editor-wasm/build.sh
-./target/debug/logbook seed-sample
-exec ./target/debug/logbook serve
+paint-wasm/build.sh
+bin="${CARGO_TARGET_DIR:-target}/debug/logbook"
+"$bin" seed-sample
+exec "$bin" serve

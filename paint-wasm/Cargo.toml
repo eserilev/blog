@@ -1,0 +1,25 @@
+[package]
+name = "logbook-paint-wasm"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Not the workspace lints: the exported functions need `#[unsafe(no_mangle)]`.
+# Everything else in this crate denies unsafe code.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+[dependencies]
+logbook-paint = { version = "0.1.0", path = "../crates/logbook-paint" }
+
+[dev-dependencies]
+proptest = "1.11.0"

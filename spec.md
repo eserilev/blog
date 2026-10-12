@@ -820,6 +820,7 @@ blog/
 ├── crates/
 │   ├── logbook-core/          pure logic. No I/O, no async, no unsafe. Verified (7.6).
 │   │   └── src/ policy.rs slug.rs media.rs post.rs
+│   ├── logbook-paint/         Paint pixel logic (11.9). Integers only. Verified (7.6).
 │   ├── logbook-render/        render(): comrak + syntect + ammonia. Server and WASM.
 │   └── logbook-server/
 │       ├── migrations/
@@ -827,6 +828,7 @@ blog/
 │                now.rs surf.rs media.rs uploads.rs headers.rs checks.rs
 │                feed.rs export.rs counter.rs cli.rs assets.rs seo.rs
 ├── editor-wasm/               logbook-render for the browser; build.sh → static/wasm/
+├── paint-wasm/                logbook-paint + undo for the browser; build.sh → static/wasm/
 ├── static/                    index.html, CSS, JS components, fonts, logo
 ├── fuzz/                      cargo-fuzz targets, seed inputs in fuzz/seeds/
 ├── proofs/                    Lean 4: Aeneas output + proofs
@@ -929,6 +931,8 @@ Post pages show the post through the scripts (6.3). Google runs the scripts. The
 - **Export round trip:** `parse(write(post)) == post`.
 - **Head tags:** for any title and summary, the output `<head>` parses with exactly the expected elements.
 - **Server = core:** for any post set, the public API returns exactly `filter_public` of it.
+- **Paint core** (`logbook-paint`): the same rules as P1–P10 (7.6) on small random canvases. Flood fill equals a breadth-first reference fill. Lines start and end at their points, have no gaps, and stay in their box. Flips, invert, and four rotations give the first canvas. The color eraser and the outline change only the pixels they own. Copy then paste at the same place, neutral stretch, and zero skew change nothing. No function panics on any canvas, also one whose fields do not agree.
+- **Paint undo** (`paint-wasm`): any 0–30 actions, then the same number of undos, give the first picture. Undo all then repeat all gives the last picture. Both canvases stay valid after every action. The history keeps at most 30 steps.
 
 ### 7.3 Fuzz targets
 
@@ -942,6 +946,8 @@ Post pages show the post through the scripts (6.3). Google runs the scripts. The
 | `video_source` | first line of a video block | No panic. `youtube_id` agrees with the rule of T18. An ID from the renderer is 11 ID bytes. |
 | `head_tags` | title + summary + site title, plus a private post | Output never breaks out of an attribute. Never contains the private title. The JSON-LD parses and keeps the title. |
 | `image` | image bytes | No panic in decode and re-encode. Output has no EXIF. |
+| `paint_ops` | a sequence of up to 30 Paint actions on a small picture | No panic. Both canvases stay valid after each action. The same number of undos gives the first picture. |
+| `paint_canvas` | any canvas (also one whose fields do not agree) and any numbers | No pixel function panics (P10). An invalid canvas does not change. A clipped rectangle is inside the canvas (P9). |
 
 Seed inputs live in `fuzz/seeds/<target>/`. The generated corpus is not committed. Each crash → a regression test. PR: 60 s per target. Nightly: 30 min per target, as a CI matrix.
 
@@ -984,13 +990,14 @@ Playwright, Chromium:
 - MS-DOS mode (`dos.spec.js`): toggle and reload, DIR then TYPE, a deep link, Back, WIN, F-keys, keyboard only, 390 px layout.
 - Phone mode (`phone.spec.js`): see 11.8.
 - Start menu (`start.spec.js`): see 11.3.
+- Win98 apps (`windows.spec.js`, `desktop.spec.js`, `notepad.spec.js`, `paint.spec.js`): see 11.9.
 - Video embeds (`video.spec.js`): a stub page stands in for the YouTube player and answers its `postMessage` protocol, so CI never loads YouTube. The tests: no request to another host before the click, one click that loads and plays, the frame address and attributes, the Win98 buttons, seek bar, volume, and status, a message from another origin that changes nothing, Pause, Stop, and a mode change before a late answer, the 10 s handshake limit, the end of the video, one video at a time with two embeds, a volume change before the answer, MS-DOS text mode and its keys, the phone LCD tint and keys, a mode change that pauses a hidden video, and the editor preview.
 
 ### 7.6 Formal verification (Aeneas)
 
 Charon reads the Rust code. Aeneas translates it into a pure Lean 4 model. Each function returns `ok v`, or `fail` (panic, overflow, out of bounds). Theorems about the model are theorems about the Rust code.
 
-Scope: `logbook-core` only. Its rules: no I/O, no async, no `dyn`, no `String` (bytes only), plain structs, enums, loops, `Option`, `Result`, `Vec`.
+Scope: `logbook-core` and `logbook-paint`. Their rules: no I/O, no async, no `dyn`, no `String` (bytes only), plain structs, enums, loops, `Option`, `Result`, `Vec`.
 
 **Verified API:**
 
@@ -1077,6 +1084,25 @@ T12 turns every "if `ok`" above into "always".
 | T6, T7, T8, T9 | Proved | `slug_plain`, `slug_fallback` (`decimal`), `slug_lower` (`upper`), `slug_idempotent` |
 | T18 | Proved | `youtube_id_spec` (`YouTube`, `IdAt`), `youtube_id_plain` |
 
+**Paint theorems** (`logbook-paint`, 11.9; Lean names in `proofs/Logbook/Paint/`, namespace `Logbook.Paint`). Each one also proves that the function returns `ok`. A canvas is valid if `1 ≤ w, h ≤ 4096` and `px.len = w · h`.
+
+| # | Name | Statement |
+|---|---|---|
+| P1 | `flood_fill_spec`, `adj_iff`, `flood_fill_unchanged` | Fill With Color changes exactly the pixels in `Filled c x y color` to `color`. Every other pixel stays. `Filled`: `(x, y)` is inside, its color is not `color`, and the pixel is in its 4-connected region of the same color. `adj_iff`: a step is exactly a 4-way neighbor in the rows and columns. |
+| P2 | `flood_fill_ok`, `stack_bound` | The fill ends for every input. The stack never holds more than `w · h` entries. |
+| P3 | `line_points_spec` | The line starts at the clamped first point and ends at the clamped second point. It has `max(dx, dy) + 1` points, each an 8-way neighbor of the one before, all in the bounding box. |
+| P4 | `rect_outline_spec`, `rect_outline_only` | The outline sets exactly the pixels of the rectangle that are less than `lw` from one of its edges. No other pixel changes. |
+| P5 | `flip_h_twice`, `flip_v_twice` | Each flip, done twice, gives the same canvas. Any canvas. |
+| P6 | `rotate90_four`, `rotate90_swap` | Four turns give the same canvas. One turn of a valid canvas swaps `w` and `h` and stays valid. |
+| P7 | `invert_twice`, `invert_alpha` | Invert twice gives the same canvas. Alpha does not change. |
+| P8 | `color_replace_spec` | The color eraser sets a pixel to `to` exactly when it is in the clipped rectangle and equals `from`. Every other pixel stays. |
+| P9 | `clip_rect_spec` | A clipped rectangle is inside the canvas and inside 4096 × 4096. |
+| P10 | `no_panic`, `invalid_unchanged` | All 25 public functions return `ok` for every input. The functions that change a canvas leave an invalid canvas as it is. |
+
+Status (2026-10-12): P1–P10 proved. The proofs found one bug: `clip_rect` cast `cw` and `ch` to `i64` before the clamp, so on a 64-bit machine a value above `i64::MAX` became negative. It now clamps first.
+
+**Not covered for Paint:** the undo history and the exported functions in `paint-wasm` (property tests and the `paint_ops` fuzz target), stretch, skew, `blit`, and `copy_region` beyond P10, and everything that Paint draws with Canvas 2D in the browser: ellipses, rounded rectangles, the round brush, text, the free-form mask, and PNG and JPEG files.
+
 `Logbook/Axioms.lean` makes the build fail if any proved theorem depends on an axiom other than `propext`, `Classical.choice`, and `Quot.sound`.
 
 **Not covered by proofs:** `render()` (property tests + fuzz), passkeys, SQL and route code (access matrix), the tools themselves (rustc, Charon, Aeneas, Lean). For T13–T17 the proofs cover the decision only. The server code that makes the inputs is not proved:
@@ -1095,9 +1121,9 @@ T12 turns every "if `ok`" above into "always".
 - `proofs/tools.sh` downloads pinned Charon and Aeneas release builds and checks their SHA-256. No Nix.
 - The Charon version must match the `charon-pin` of the Aeneas build. Aeneas refuses files from another Charon version.
 - Charon drives the Rust nightly in its `rust-toolchain` file (with `rustc-dev`, `llvm-tools`, `rust-src`).
-- `proofs/extract.sh`: Rust → Charon → Aeneas → `proofs/LogbookCore/{Types,Funs,FunsExternal}.lean`. These files are generated and committed.
+- `proofs/extract.sh`: Rust → Charon → Aeneas → `proofs/LogbookCore/{Types,Funs,FunsExternal}.lean` and `proofs/LogbookPaint/{Types,Funs}.lean`. These files are generated and committed. `logbook-paint` calls no external functions, so it has no `FunsExternal`.
 - `proofs/Logbook/*.lean` hold the theorems. `lean-toolchain` follows the Aeneas build. Mathlib comes from `lake exe cache get`.
-- CI: run `extract.sh`, fail on a diff in `proofs/LogbookCore`, then `lake build Logbook`, and fail on any `sorry`.
+- CI: run `extract.sh`, fail on a diff in `proofs/LogbookCore` or `proofs/LogbookPaint`, then `lake build Logbook`, and fail on any `sorry`.
 
 ### 7.7 Restore test
 
@@ -1131,7 +1157,7 @@ PR and push to `master`. A PR must pass before the merge. A merge deploys at onc
 4. Playwright.
 5. Restore test. It builds the release image, about 150 s of the 240 s. Caching the dependency build (cargo-chef) is open work.
 6. Fuzz, 60 s per target, one job per target.
-7. Proofs. Only when `crates/logbook-core/`, `proofs/`, `rust-toolchain.toml`, or `ci.yml` changes. Otherwise the job is skipped, and GitHub counts it as passed.
+7. Proofs. Only when `crates/logbook-core/`, `crates/logbook-paint/`, `proofs/`, `rust-toolchain.toml`, or `ci.yml` changes. Otherwise the job is skipped, and GitHub counts it as passed.
 8. Mutants `--in-diff` (not built yet).
 
 Measured 2026-10-05: about 6.5 min with proofs (proofs 392 s, restore 241 s, fuzz about 150 s). Without proofs, the restore test sets the time (about 4 min).
@@ -1232,10 +1258,11 @@ The Start button in the taskbar opens a Win98 Start menu. Files: `<start-menu>` 
 
 - **Start button.** A `<button>` with `aria-haspopup="menu"` and `aria-expanded`. It looks as before. It shows pressed while the menu is open.
 - **Menu.** A raised gray box right above the taskbar. A navy-to-blue band on the left with "Logbook 98" in vertical text. Rows with 24 px pixel icons (inline SVG). The row under the focus or the mouse is navy with white text.
-- **Items.** Home (`/`), Latest post (the newest post, the same `latest` path as the toolbar), Topics ▸, RSS feed (`/feed.xml`), a separator, Shut Down…. There is no About item.
+- **Items.** Programs ▸ (Accessories ▸ with Notepad and Paint, then Logbook), Documents, Home (`/`), Latest post (the newest post, the same `latest` path as the toolbar), Topics ▸, RSS feed (`/feed.xml`), a separator, Shut Down…. There is no About item. The app items are in 11.9.
+- **Cascades.** Programs, Accessories, and Topics open one level at a time. Programs opens without Accessories. The menu always opens with all cascades closed. Only Topics scrolls, so the Accessories cascade is never clipped.
 - **Topics ▸.** A submenu with the topic links of the page (`TOPICS`), in their order. Each goes to `/topics/{slug}`. On a wide screen it opens beside the menu and moves up so it ends above the taskbar. Below 520 px it opens inside the menu.
-- **Keyboard.** Enter, Space, or Down on Start opens the menu at the first item. Up opens it at the last item. Up and Down move, with wrap. Home and End go to the first and last item. Right opens Topics. Left and Escape close one level, and the focus goes back to Topics or Start. Enter activates. Tab closes the menu.
-- **Mouse and touch.** The highlight follows the mouse, and Topics opens on hover. A tap on Topics opens or closes it. A click outside the menu closes it. A view change or a mode change closes it.
+- **Keyboard.** Enter, Space, or Down on Start opens the menu at the first item. Up opens it at the last item. Up and Down move, with wrap. Home and End go to the first and last item. Right (or Enter) opens the cascade of the focused row and focuses its first item. Left and Escape close one level, and the focus goes back to the row of that cascade or to Start. Enter activates. Tab closes the menu.
+- **Mouse and touch.** The highlight follows the mouse, and a cascade opens on hover. The other cascades of the same menu close. A tap on a cascade row opens or closes it. A click outside the menu closes it. A view change or a mode change closes it.
 - **Phones (Win98 view).** The menu fits above the taskbar and scrolls if it is too tall. Rows are 44 px high.
 - **Shut Down dialog.** A native `<dialog>` with `showModal()`: focus trap, Escape, and the focus goes back to Start. Title "Shut Down Logbook", a monitor icon, and the question "What do you want the computer to do?". Choices:
   - "Stay in Windows" (the default): closes the dialog.
@@ -1245,7 +1272,7 @@ The Start button in the taskbar opens a Win98 Start menu. Files: `<start-menu>` 
 
   Buttons: OK and Cancel. A restart shows a black screen for 0.7 s first. With `prefers-reduced-motion` the mode changes at once.
 - **End screen.** A full-screen native `<dialog>`, black, with "It's now safe to turn off your computer." in large bold orange (`#ff8c00`). The text shows after 0.8 s (at once with `prefers-reduced-motion`). Its label is "Shut down screen". A hint for screen readers only says "Press any key to return.". Any key, click, or tap closes it. The page stays at the same scroll position, and the focus goes back to Start. The saved mode does not change.
-- **Tests** (`start.spec.js`): open and close (click, Escape, a click outside), keyboard navigation, Topics to a topic page, Latest post, Stay and Cancel, MS-DOS mode that persists after a reload, the black screen, the end screen and a key press back, no phone choice on a desktop, and the phone choice in the Win98 view of an iPhone context. `layout.spec.js` checks the open menu, the submenu, the dialog, and the end screen at 390, 768, and 1280 px.
+- **Tests** (`start.spec.js`): open and close (click, Escape, a click outside), keyboard navigation, one-level cascades on hover and with the keyboard, Paint from the keyboard, Notepad for a guest and Compose for the owner, Documents and Programs ▸ Logbook, Topics to a topic page, Latest post, Stay and Cancel, MS-DOS mode that persists after a reload, the black screen, the end screen and a key press back, no phone choice on a desktop, and the phone choice in the Win98 view of an iPhone context. `layout.spec.js` checks the open menu, the Topics submenu, the Programs and Accessories cascades, the dialog, and the end screen at 390, 768, and 1280 px.
 
 ### 11.4 Security proofs T13–T17 [done]
 
@@ -1294,3 +1321,20 @@ On phones, the site looks and works like a monochrome phone from 2000: the page 
 - **History.** Each screen change is a history entry. Screens without their own address (Menu, Posts, Topics, Now, Surf, Profiles, Games) live at `/` with their name in `history.state`. Read on standby adds Menu and Posts before the post, so Back goes to Posts. A screen opened from a shared link has no earlier entry. Then Back goes to its parent screen: a post to Posts, a topic to Topics, the others to Menu.
 - **Build.** `mode.js` sets `<html data-mode="phone">` and `<html data-device="phone">` before paint. One `<phone-shell>` element (`static/js/phone.js`) sits next to the Win98 views. It uses the same data code: `Api`, `TOPICS`, `matchRoute`, and the `<blog-app>` router. All styles are in `static/css/phone.css`. The battery and the scroll bar change through CSSOM. No inline styles or scripts (CSP), no Google Fonts. `/write` and `/setup` keep the Win98 view.
 - **Tests** (`phone.spec.js`, iPhone 13 context in Chromium): phone mode is the default, Read opens the newest post, Back, menu keys 1–6, Options and Jump to section, Snake start and pause, Profiles to General and Night and back, the GitHub and X links left of the battery on every screen, no horizontal scroll at 390 px, one scroll container (touch swipes at the edge scroll the page). A desktop context shows no phone mode and no switch to it.
+
+### 11.9 Win98 apps: Paint, Notepad, Documents, Recycle Bin [built]
+
+The Win98 view is a desktop with apps. Files: the apps layer, the app taskbar buttons, and the Programs cascade in `index.html`; `static/js/apps.js` and `static/css/apps.css` (always loaded); `static/js/paint.js` and `static/css/paint.css` (loaded with Paint); `paint-wasm` and `crates/logbook-paint` (the pixel core); `e2e/tests/windows.spec.js`, `desktop.spec.js`, `notepad.spec.js`, `paint.spec.js`. Design: the mockup "Logbook Paint" (no "view as" switch, no balloon tip).
+
+- **Win98 view only.** CSS shows the icons and the app windows only under `html[data-mode="general"]`. A mode change hides them, and the keys of the apps do nothing in the other modes. A mode change shows the Logbook window again.
+- **Windows.** Documents, Recycle Bin, Notepad, and Paint are fixed Win98 windows over the Logbook window. Each one has a taskbar button (only the icon below 620 px), Minimize, Maximize (or a double-click on the title bar), and Close. A click or the focus in a window brings it to the front. The other windows get a gray title bar. The title bar drags the window, which keeps 40 px on the screen. Below 620 px an app window opens maximized and does not drag. A maximized window ends at the top of the taskbar (`--tb-h`, measured with a `ResizeObserver`).
+- **Logbook window.** It stays in the page flow, with the same z-order as the other windows. Minimize hides it. Maximize removes the desktop margins. Close hides it and its taskbar buttons (Home, Latest post, Notepad for the owner). Any view change shows it again: Home and Latest post in the taskbar, Logbook.exe, Start ▸ Programs ▸ Logbook, and a post opened from Documents.
+- **Desktop icons.** Logbook.exe, Documents, and Recycle Bin, in a column on the left. Above 620 px the desktop keeps a 112 px column free for them. A click selects, a double-click or Enter opens, and a tap on a selected icon opens (touch). A drag moves an icon. Pointer events, so mouse, pen, and touch work.
+- **Documents.** An Explorer window: each public post as `<slug>.md`, from `/api/posts` (the public API, so a guest sees only public posts). View ▸ Large Icons or Details (size estimate from the word count, "Markdown File", the publish date). A double-click or Enter opens the post in the Logbook window through the router.
+- **Recycle Bin.** Drag a file or a desktop icon onto the bin icon or the bin window, or press Delete on a selected one. The icon shows a full bin, and the window lists the item. File ▸ Restore takes it out. File ▸ Empty Recycle Bin asks first (Win98 confirm box). Nothing is deleted or changed: the post, the file in Documents, and the desktop icon stay.
+- **Notepad (visitors).** For the owner, Start ▸ Programs ▸ Accessories ▸ Notepad opens Compose (`/write`), with no message. Menus: File (New, Open…, Save, Save As…, Exit), Edit (Undo, Cut, Copy, Paste, Delete, Select All, Time/Date F5, Word Wrap, Set Font…), Search (Find…, Find Next F3), Help (About). Save writes a `.md` or `.txt` download (a `Blob` and `<a download>`). Open reads a local file. New, Open, Exit, and Close ask about unsaved changes (Yes, No, Cancel). The empty text area shows only the placeholder "Write in Markdown". Nothing goes to the server.
+- **Paint.** The 16 Win98 tools, the tool options, the color box (left click: front color, right click: back color, double-click: Edit Colors), the text toolbar, resize handles, zoom and grid, and the menus File, Edit, View, Image, Colors, Help. Save writes PNG or JPEG (`canvas.toBlob` and `<a download>`). Open reads a picture (`createImageBitmap`) at its size, up to 4096 × 4096. Set As Wallpaper puts the picture behind the desktop. Closing with changes asks first.
+- **Paint core.** The picture lives in WASM memory (`paint-wasm`). Target 0 is the picture, target 1 the floating selection. The screen canvas is a copy of target 0 (`putImageData` on a view of the WASM memory, new after each call). WASM does pencil, lines, curves, polygon edges, the square brush, the eraser (`paint_fill_rect`), the color eraser (`paint_color_replace`), airbrush dots, fill (`paint_flood_fill`), rectangles, pick color (`paint_get`), flip, rotate (90° steps of `paint_rotate90`), invert, black and white, stretch, skew (numerator `round(tan(deg) × 1000)`), Attributes and the handles (`paint_resize`), select, move, paste, and commit (`paint_sel_copy`, `paint_blank`, `paint_sel_blit` with Draw Transparent as the key color), and Undo and Repeat (`paint_snapshot` before each change). Canvas 2D does the ellipse, the rounded rectangle, the round brush, the polygon fill, text, the free-form mask, and image files; the changed pixels then go back into WASM memory.
+- **Loading.** Paint loads on demand: the first open adds `paint.css`, `paint.js`, and `logbook_paint.wasm`. Their URLs come from `<meta name="asset-paint-css|asset-paint-js|asset-paint-wasm">`, so they get the version hash (6.9). The WASM instance has an empty import object. Before the first open, nothing of Paint loads.
+- **CSP.** No inline styles or scripts. Positions, sizes, and colors go through CSSOM. Text goes in with `textContent`; icons are SVG from a `<template>` or `createElementNS`.
+- **Tests.** `start.spec.js` (11.3). `windows.spec.js`: taskbar buttons, focus and z-order, gray title bars, minimize, maximize, close, a drag, the Logbook window, a mode change, and maximized windows at 390 px. `desktop.spec.js`: icons (select, open, move, touch), Documents lists the public posts only and opens one, the Recycle Bin (drag a file and an icon, Delete, Restore, Empty) with no change on the server. `notepad.spec.js`: Save downloads `.md` and `.txt` with the text, Open reads a fixture `.md`, Find and Find Next, unsaved changes, Time/Date and Word Wrap. `paint.spec.js`: nothing loads before the first open, pencil, fill, Undo and Repeat change the pixels, a selection moves, rotate, stretch, skew, and Attributes change the size, Save downloads a PNG (the PNG signature), Open loads a fixture PNG at its size, and closing asks about changes. `layout.spec.js`: the apps, the icons, and the cascades at 390, 768, and 1280 px.

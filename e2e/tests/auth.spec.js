@@ -6,7 +6,7 @@ test('guests see no owner controls, and /write sends them home', async ({ page }
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'Block-level access lists and parallel execution' })).toBeVisible();
   await expect(page.locator('.tb', { hasText: 'Compose' })).toBeHidden();
-  await expect(page.locator('.task', { hasText: 'Notepad' })).toBeHidden();
+  await expect(page.locator('.task[data-nav="write"]')).toBeHidden();
   await expect(page.locator('#now-open')).toBeHidden();
   await page.goto('/write');
   await expect(page).toHaveURL('/');
