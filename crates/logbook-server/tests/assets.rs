@@ -46,9 +46,9 @@ async fn every_static_url_in_the_page_has_a_version() {
             if file.is_file() {
                 assert_eq!(v.len(), HASH_LEN, "{page}: {url}");
             } else {
-                // The WASM file exists only after editor-wasm/build.sh.
+                // The WASM files exist only after editor-wasm/build.sh and paint-wasm/build.sh.
                 assert!(
-                    path.ends_with("/logbook_render.wasm"),
+                    path.ends_with("/logbook_render.wasm") || path.ends_with("/logbook_paint.wasm"),
                     "{page}: {url} names no file"
                 );
             }
