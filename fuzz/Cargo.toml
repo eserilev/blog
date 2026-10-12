@@ -11,6 +11,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 logbook-core = { path = "../crates/logbook-core" }
+logbook-paint = { path = "../crates/logbook-paint" }
+logbook-paint-wasm = { path = "../paint-wasm" }
 logbook-render = { path = "../crates/logbook-render" }
 logbook-server = { path = "../crates/logbook-server" }
 scraper = "0.27"
@@ -71,6 +73,20 @@ bench = false
 [[bin]]
 name = "image"
 path = "fuzz_targets/image.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "paint_ops"
+path = "fuzz_targets/paint_ops.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "paint_canvas"
+path = "fuzz_targets/paint_canvas.rs"
 test = false
 doc = false
 bench = false
