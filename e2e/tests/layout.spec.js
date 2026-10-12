@@ -29,6 +29,12 @@ const ROWS = [
   ['.dos-keys', ':scope > button'],
   ['.ph-soft', ':scope > button'],
   ['.start-item', ':scope > *'],
+  ['.mbar', ':scope > button'],
+  ['.ex-addr', ':scope > *'],
+  ['.ex-status', ':scope > *'],
+  ['.p-status', ':scope > *'],
+  ['.p-colorbar', ':scope > *'],
+  ['.dlg-btns', ':scope > *'],
   ['.shutdown-buttons', ':scope > *'],
   ['.ve-buttons', ':scope > *'],
   ['.ve-keys', ':scope > button'],
@@ -132,6 +138,52 @@ for (const [size, viewport] of Object.entries(WIDTHS)) {
       await check(page, `${size}-safe-off`);
       await page.keyboard.press('Enter');
       expect(errors.filter(e => !e.includes('404')), errors.join('\n')).toEqual([]);
+    });
+
+    test('Win98: apps, icons, and the Programs cascade', async ({ page }) => {
+      const errors = watchErrors(page);
+      const startItem = name => page.getByRole('menu', { name: 'Start' }).getByRole('menuitem', { name, exact: true });
+      const open = async (...path) => {
+        await page.getByRole('button', { name: 'Start' }).click();
+        for (const name of path) await startItem(name).click();
+      };
+      const win = name => page.getByRole('region', { name, exact: true });
+      await go(page, '/', p => p.locator('#ns-rows a.ttl').first());
+
+      await page.getByRole('button', { name: 'Start' }).click();
+      await startItem('Programs').click();
+      await startItem('Accessories').click();
+      await expect(page.getByRole('menu', { name: 'Accessories' })).toBeVisible();
+      await check(page, `${size}-start-programs`);
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+
+      await open('Documents');
+      await expect(win('Documents').locator('.ex-file').first()).toBeVisible();
+      await check(page, `${size}-documents`);
+      await win('Documents').getByRole('button', { name: 'View', exact: true }).click();
+      await page.getByRole('menuitemcheckbox', { name: 'Details' }).click();
+      await check(page, `${size}-documents-details`);
+      await open('Programs', 'Accessories', 'Notepad');
+      await win('Notepad').getByLabel('Notepad text').fill('# Notes\n\nA long line: ' + 'word '.repeat(80));
+      await check(page, `${size}-notepad`);
+      await win('Notepad').getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Find…' }).click();
+      await expect(page.getByRole('dialog', { name: 'Find' })).toBeVisible();
+      await check(page, `${size}-notepad-find`);
+      await page.keyboard.press('Escape');
+      await open('Programs', 'Accessories', 'Paint');
+      await expect(win('Paint').locator('.p-status')).toContainText('560 × 340');
+      await check(page, `${size}-paint`);
+      await win('Paint').getByRole('button', { name: 'Image', exact: true }).click();
+      await check(page, `${size}-paint-menu`);
+      await page.keyboard.press('Escape');
+      // On a phone, Paint covers the icons: open the bin with the keyboard.
+      await page.locator('.dicon[data-icon="bin"]').press('Enter');
+      await expect(win('Recycle Bin')).toBeVisible();
+      await check(page, `${size}-recycle-bin`);
+      expect(errors, errors.join('\n')).toEqual([]);
     });
   });
 

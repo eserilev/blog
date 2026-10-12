@@ -1,0 +1,145 @@
+/* Win98 apps (spec 11.9): desktop icons, app windows over the Logbook window
+   (Documents, Recycle Bin, Notepad, Paint), pull-down menus, and message boxes.
+   Only html[data-mode="general"] shows them. Paint has its own file, paint.css,
+   which loads the first time Paint opens. Positions and sizes from the scripts go
+   through CSSOM (CSP, 6.9). */
+:root { --tb-h: 34px; }
+:root:not([data-mode="general"]) .apps, :root:not([data-mode="general"]) .app-task { display: none !important; }
+
+/* The Logbook window: it takes part in the window order (z-index from apps.js). */
+:root[data-mode="general"] .desktop > .window { position: relative; }
+.inactive > .titlebar { background: linear-gradient(90deg, #808080, #b5b5b5); color: var(--chrome); }
+button.ctl { cursor: default; }
+button.ctl:active { box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo), inset -2px -2px var(--chrome-mid); }
+button.ctl:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
+.ctl[data-close] { margin-left: 2px; }
+/* MS-DOS mode keeps the Win98 editor, but it has no taskbar to bring a window back. */
+:root:not([data-mode="general"]) [data-win="logbook"] > .titlebar .ctl { visibility: hidden; }
+/* Closed: the Logbook window and its taskbar buttons go. Minimized: only the window. */
+blog-app[data-logbook="closed"] .task[data-nav] { display: none; }
+:root[data-mode="general"] .desktop.max { max-width: none; padding: 0 0 var(--tb-h); }
+:root[data-mode="general"] .desktop.max > .window { min-height: calc(100vh - var(--tb-h)); }
+/* Wide screens: a column on the left for the desktop icons. */
+@media (min-width: 621px) { :root[data-mode="general"] .desktop:not(.max) { padding-left: 112px; } }
+
+/* Desktop icons. Drag to move. Drop anything on the Recycle Bin. */
+.wallpaper { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+.dicon { position: fixed; left: 12px; z-index: 1; width: 80px; display: grid; justify-items: center; gap: 4px; padding: 4px 2px; border: 0; background: none;
+  color: #fff; font: 12px/1.25 var(--f-ui); text-align: center; cursor: default; touch-action: none; user-select: none; -webkit-user-select: none; }
+.dicon[data-icon="logbook"] { top: 12px; }
+.dicon[data-icon="docs"] { top: 100px; }
+.dicon[data-icon="bin"] { top: 188px; }
+.dicon svg { width: 32px; height: 32px; shape-rendering: crispEdges; }
+.dicon span { padding: 1px 3px; overflow-wrap: anywhere; }
+.dicon.sel span, .dicon.drop-hot span { background: var(--title-a); }
+.dicon.sel span { outline: 1px dotted #fff; }
+.dicon.sel svg { filter: brightness(.6) sepia(1) hue-rotate(190deg) saturate(4); }
+.dicon:focus-visible { outline: none; }
+.dicon:focus-visible span { outline: 1px dotted #fff; }
+.dicon.gulp svg { animation: gulp .3s steps(3); }
+@keyframes gulp { 50% { transform: scale(1.18); } }
+/* Paint loads. */
+:root.wait, :root.wait * { cursor: progress; }
+.drag-ghost { position: fixed; z-index: 45; pointer-events: none; opacity: .65; margin: 0; }
+
+/* App windows. apps.js sets left, top, and z-index. */
+.app { position: fixed; z-index: 10; display: flex; flex-direction: column; min-width: 0; padding: 3px; color: #000; font: 13px var(--f-ui);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid), 3px 3px 0 rgba(0,0,0,.25); }
+.app:focus { outline: none; }
+.app > .titlebar { cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; }
+.app.max { left: 0 !important; top: 0 !important; width: 100% !important; height: calc(100% - var(--tb-h)) !important; }
+.app.max > .titlebar { cursor: default; }
+@media (prefers-reduced-motion: reduce) { .dicon.gulp svg { animation: none; } }
+.app-explorer { width: min(560px, calc(100% - 24px)); height: min(380px, calc(100% - var(--tb-h) - 24px)); }
+.app-notepad { width: min(580px, calc(100% - 24px)); height: min(400px, calc(100% - var(--tb-h) - 24px)); }
+
+/* Taskbar buttons of the app windows. */
+.task.app-task { display: flex; align-items: center; gap: 6px; }
+.task.app-task span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.task.app-task svg { flex: none; }
+.task.app-task[aria-pressed="true"] { font-weight: 700; background: repeating-conic-gradient(#fff 0 25%, var(--chrome) 0 50%) 0 0 / 2px 2px;
+  box-shadow: inset 1px 1px var(--chrome-dk), inset -1px -1px var(--chrome-hi), inset 2px 2px var(--chrome-lo), inset -2px -2px var(--chrome-mid); }
+
+/* Pull-down menus. */
+.mbar { position: relative; display: flex; gap: 2px; padding: 2px; flex-wrap: wrap; user-select: none; -webkit-user-select: none; }
+.mb { border: 0; background: none; font: 13px var(--f-ui); color: #000; padding: 2px 7px; cursor: default; }
+.mb:hover { box-shadow: inset -1px -1px var(--chrome-lo), inset 1px 1px var(--chrome-hi); }
+.mb.open { box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+.mb:focus-visible { outline: 1px dotted #000; outline-offset: -2px; }
+.mdrop { position: absolute; z-index: 30; display: grid; min-width: 200px; padding: 3px; }
+.mi { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 4px; padding: 4px 12px 4px 2px; border: 0; background: transparent;
+  font: 13px var(--f-ui); color: #000; text-align: left; white-space: nowrap; cursor: default; }
+.mi .ck { text-align: center; }
+.mi .ky { padding-left: 24px; }
+.mi:hover, .mi:focus { background: var(--title-a); color: #fff; outline: none; }
+.mi[aria-disabled="true"] { color: var(--chrome-lo); text-shadow: 1px 1px var(--chrome-hi); }
+.mi[aria-disabled="true"]:hover, .mi[aria-disabled="true"]:focus { color: var(--chrome-lo); text-shadow: none; }
+.mdrop .sep { height: 2px; margin: 3px 2px; box-shadow: inset 0 1px var(--chrome-lo), inset 0 -1px var(--chrome-hi); }
+
+/* Explorer: Documents and the Recycle Bin. */
+.ex-addr { display: flex; align-items: center; gap: 6px; padding: 3px 4px 5px; border-top: 1px solid var(--chrome-lo); box-shadow: inset 0 1px var(--chrome-hi); }
+.ex-addr .field { flex: 1; min-width: 0; background: #fff; padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-view { flex: 1; min-height: 0; overflow: auto; margin: 0 2px 2px; padding: 8px; background: #fff; align-content: start; }
+.ex-view.icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px 4px; }
+.ex-view.details { display: grid; padding: 2px; }
+.ex-view:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.ex-file { display: grid; justify-items: center; align-content: start; gap: 4px; padding: 4px 2px; border: 0; background: none; color: #000; font: 12px/1.25 var(--f-ui);
+  text-align: center; cursor: default; touch-action: none; user-select: none; -webkit-user-select: none; min-width: 0; }
+.ex-file svg { width: 32px; height: 32px; shape-rendering: crispEdges; }
+.ex-file span { padding: 1px 3px; overflow-wrap: anywhere; }
+.ex-file.sel span { background: var(--title-a); color: #fff; }
+.ex-file:focus-visible { outline: none; }
+.ex-file:focus-visible span { outline: 1px dotted #000; }
+.details .ex-file, .details .ex-hdr { display: grid; grid-template-columns: minmax(0, 2.4fr) 70px minmax(0, 1.2fr) minmax(0, 1fr); justify-items: start; align-items: center; gap: 0; padding: 2px 0; text-align: left; }
+.details .ex-file svg { width: 16px; height: 16px; }
+.details .ex-file .nm { display: flex; align-items: center; gap: 4px; padding: 0 4px; min-width: 0; }
+.details .ex-file .nm em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 3px; }
+.details .ex-file.sel .nm em { background: var(--title-a); color: #fff; }
+.details .ex-file span { padding: 1px 6px; }
+.details .ex-file.sel span:not(.nm) { background: none; color: #000; }
+.details .ex-file span:nth-child(2) { justify-self: end; font-variant-numeric: tabular-nums; }
+.details .ex-hdr span { width: 100%; padding: 2px 6px; background: var(--chrome); box-shadow: inset -1px -1px var(--chrome-lo), inset 1px 1px var(--chrome-hi); font: 12px var(--f-ui); }
+.empty-note { grid-column: 1 / -1; margin: 0; color: var(--muted); padding: 12px 6px; }
+.ex-status { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 180px); gap: 2px; padding: 2px; font-size: 12px; }
+.ex-status > span { min-height: 20px; padding: 2px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: inset 1px 1px var(--chrome-lo), inset -1px -1px var(--chrome-hi); }
+
+/* Notepad. */
+.np-wrap { flex: 1; min-height: 0; display: flex; padding: 2px; margin: 0 2px 2px; background: #fff; }
+.np-text { flex: 1; min-width: 0; border: 0; padding: 4px 6px; resize: none; outline: none; background: #fff; color: #000; font: 14px/1.45 var(--f-mono); white-space: pre-wrap; overflow: auto; }
+.np-text.nowrap { white-space: pre; }
+.np-text::placeholder { color: var(--chrome-lo); }
+
+/* Message boxes and the other dialogs of the apps. */
+.w98-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; }
+.w98-modal > .dlg { grid-area: 1 / 1; }
+.dlg { width: min(380px, 100%); display: flex; flex-direction: column; max-height: 100%; overflow: auto; padding: 3px; color: #000; font: 13px var(--f-ui);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-hi), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-mid), 3px 3px 0 rgba(0,0,0,.3); }
+.dlg-main { display: flex; gap: 14px; align-items: flex-start; padding: 14px 14px 6px; }
+.dlg-main > svg { width: 32px; height: 32px; flex: none; display: block; }
+.dlg-body { flex: 1; min-width: 0; display: grid; gap: 10px; line-height: 1.45; }
+.dlg-body p { margin: 0; }
+.dlg-btns { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; padding: 8px 14px 12px; }
+.dlg-btns .btn98 { min-width: 76px; }
+.frow { display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: center; gap: 8px; }
+.in98 { min-width: 0; padding: 3px 4px; border: 0; background: #fff; color: #000; font: 13px var(--f-ui);
+  box-shadow: inset -1px -1px var(--chrome-hi), inset 1px 1px var(--chrome-lo), inset -2px -2px var(--chrome-mid), inset 2px 2px var(--chrome-dk); }
+.in98:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
+input.in98[type="number"] { width: 72px; }
+.grp { margin: 0; padding: 6px 10px 10px; border: 2px groove var(--chrome-hi); display: grid; gap: 4px; min-width: 0; }
+.grp legend { padding: 0 4px; font: 13px var(--f-ui); }
+.rad { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.indent { display: flex; flex-wrap: wrap; gap: 0 14px; padding-left: 22px; }
+.indent.flush { padding-left: 0; }
+.pairs { display: grid; grid-template-columns: auto auto auto; align-items: center; gap: 6px 8px; justify-content: start; }
+.sample { background: #fff; padding: 6px 8px; }
+
+/* Narrow screens: app windows open maximized. Taskbar buttons show only the icon. */
+@media (max-width: 620px) {
+  .app { left: 0 !important; top: 0 !important; width: 100% !important; height: calc(100% - var(--tb-h)) !important; }
+  .app > .titlebar { cursor: default; }
+  .task.app-task { display: flex; flex: 0 0 44px; justify-content: center; }
+  .task.app-task span { display: none; }
+  .frow { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .details .ex-file, .details .ex-hdr { grid-template-columns: minmax(0, 1fr) 64px; }
+  .details .ex-file span:nth-child(n+3), .details .ex-hdr span:nth-child(n+3) { display: none; }
+}

@@ -1,6 +1,6 @@
 // The Start menu, the Shut Down dialog, and the end screen (spec 11.3).
 import { test, expect, devices } from '@playwright/test';
-import { watchErrors } from './helpers.js';
+import { signIn, watchErrors } from './helpers.js';
 
 // The project runs Chromium. Keep the iPhone screen, touch, and coarse pointer.
 const { defaultBrowserType: _, ...iPhone } = devices['iPhone 13'];
@@ -27,7 +27,7 @@ test('Start opens the menu; Escape, Start, and a click outside close it', async 
   await start(page).click();
   await expect(menu(page)).toBeVisible();
   await expect(start(page)).toHaveAttribute('aria-expanded', 'true');
-  for (const name of ['Home', 'Latest post', 'Topics', 'RSS feed', 'Shut Down…']) await expect(item(page, name)).toBeVisible();
+  for (const name of ['Programs', 'Documents', 'Home', 'Latest post', 'Topics', 'RSS feed', 'Shut Down…']) await expect(item(page, name)).toBeVisible();
   await expect(menu(page).getByRole('separator')).toHaveCount(1);
   await expect(menu(page).getByText('About')).toHaveCount(0);
 
@@ -52,19 +52,18 @@ test('the keyboard moves through the menu and opens Topics', async ({ page }) =>
   await page.goto('/posts/zero-copy-ssz-decoding-in-rust');
   await start(page).focus();
   await page.keyboard.press('Enter');
-  await expect(item(page, 'Home')).toBeFocused();
+  await expect(item(page, 'Programs')).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(item(page, 'Latest post')).toBeFocused();
+  await expect(item(page, 'Documents')).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await page.keyboard.press('ArrowUp');
   await expect(item(page, 'Shut Down…')).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(item(page, 'Home')).toBeFocused();
+  await expect(item(page, 'Programs')).toBeFocused();
   await page.keyboard.press('End');
   await expect(item(page, 'Shut Down…')).toBeFocused();
-  await page.keyboard.press('Home');
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
   await expect(item(page, 'Topics')).toBeFocused();
 
   // Right opens the submenu; Left closes it and goes back to Topics.
@@ -86,10 +85,135 @@ test('the keyboard moves through the menu and opens Topics', async ({ page }) =>
   await page.keyboard.press('ArrowUp');
   await expect(item(page, 'Shut Down…')).toBeFocused();
   await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect(item(page, 'Home')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL('/');
   await expect(menu(page)).toBeHidden();
   await expect(start(page)).toBeFocused();
+});
+
+const sub = (page, name) => page.getByRole('menu', { name, exact: true });
+
+test('a cascade opens one level at a time on hover, and the menu opens collapsed', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/');
+  await start(page).click();
+  await item(page, 'Programs').hover();
+  await expect(sub(page, 'Programs')).toBeVisible();
+  await expect(item(page, 'Programs')).toHaveAttribute('aria-expanded', 'true');
+  // Hovering Programs does not open Accessories.
+  await expect(sub(page, 'Accessories')).toBeHidden();
+  await item(page, 'Accessories').hover();
+  await expect(sub(page, 'Accessories')).toBeVisible();
+  for (const name of ['Notepad', 'Paint']) await expect(sub(page, 'Accessories').getByRole('menuitem', { name })).toBeVisible();
+  // Back on Logbook in Programs: Accessories closes, Programs stays.
+  await item(page, 'Logbook').hover();
+  await expect(sub(page, 'Accessories')).toBeHidden();
+  await expect(sub(page, 'Programs')).toBeVisible();
+  // Another row of the Start menu closes Programs.
+  await item(page, 'Documents').hover();
+  await expect(sub(page, 'Programs')).toBeHidden();
+  await item(page, 'Topics').hover();
+  await expect(sub(page, 'Topics')).toBeVisible();
+  await item(page, 'Programs').hover();
+  await expect(sub(page, 'Topics')).toBeHidden();
+  await item(page, 'Accessories').hover();
+  await expect(sub(page, 'Accessories')).toBeVisible();
+
+  // Close and open again: every cascade is closed.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(menu(page)).toBeHidden();
+  await start(page).click();
+  await expect(menu(page)).toBeVisible();
+  for (const name of ['Programs', 'Accessories', 'Topics']) await expect(sub(page, name)).toBeHidden();
+  // A click outside closes it too, and the next open is collapsed again.
+  await item(page, 'Programs').hover();
+  await item(page, 'Accessories').hover();
+  await page.locator('.masthead h1').click();
+  await start(page).click();
+  for (const name of ['Programs', 'Accessories']) await expect(sub(page, name)).toBeHidden();
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('the keyboard opens Programs and Accessories, and Paint starts', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/');
+  await start(page).focus();
+  await page.keyboard.press('Enter');
+  await expect(item(page, 'Programs')).toBeFocused();
+  // Right opens one level and focuses its first item.
+  await page.keyboard.press('ArrowRight');
+  await expect(sub(page, 'Programs')).toBeVisible();
+  await expect(item(page, 'Accessories')).toBeFocused();
+  await expect(sub(page, 'Accessories')).toBeHidden();
+  await page.keyboard.press('ArrowDown');
+  await expect(item(page, 'Logbook')).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(item(page, 'Accessories')).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(item(page, 'Notepad')).toBeFocused();
+  // Left and Escape close one level each.
+  await page.keyboard.press('ArrowLeft');
+  await expect(sub(page, 'Accessories')).toBeHidden();
+  await expect(item(page, 'Accessories')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(sub(page, 'Programs')).toBeHidden();
+  await expect(item(page, 'Programs')).toBeFocused();
+  await expect(menu(page)).toBeVisible();
+  // Enter on a cascade opens it too.
+  await page.keyboard.press('Enter');
+  await expect(item(page, 'Accessories')).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await expect(item(page, 'Paint')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(menu(page)).toBeHidden();
+  await expect(page.getByRole('region', { name: 'Paint' })).toBeVisible();
+  await expect(page.locator('.taskbar [data-task="paint"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('Notepad: a guest gets Notepad; the owner gets Compose', async ({ page }) => {
+  await page.goto('/');
+  const notepad = page.getByRole('region', { name: 'Notepad' });
+  await start(page).click();
+  await item(page, 'Programs').click();
+  await item(page, 'Accessories').click();
+  await item(page, 'Notepad').click();
+  await expect(notepad).toBeVisible();
+  await expect(notepad.getByLabel('Notepad text')).toBeFocused();
+  await expect(notepad.getByLabel('Notepad text')).toHaveAttribute('placeholder', 'Write in Markdown');
+  await notepad.getByRole('button', { name: 'Close' }).click();
+  await expect(notepad).toBeHidden();
+
+  await signIn(page);
+  await page.goto('/');
+  await expect(page.locator('blog-app')).toHaveAttribute('data-owner', '');
+  await start(page).click();
+  await item(page, 'Programs').click();
+  await item(page, 'Accessories').click();
+  await item(page, 'Notepad').click();
+  await expect(page).toHaveURL('/write');
+  await expect(page.locator('post-files')).toBeVisible();
+  await expect(notepad).toBeHidden();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('Documents and Programs ▸ Logbook open their windows', async ({ page }) => {
+  await page.goto('/');
+  await start(page).click();
+  await item(page, 'Documents').click();
+  await expect(page.getByRole('region', { name: 'Documents' })).toBeVisible();
+  await page.locator('[data-win="logbook"]').getByRole('button', { name: 'Close' }).click();
+  await expect(page.locator('[data-win="logbook"]')).toBeHidden();
+  await start(page).click();
+  await item(page, 'Programs').click();
+  await item(page, 'Logbook').click();
+  await expect(page.locator('[data-win="logbook"]')).toBeVisible();
 });
 
 test('Topics lists the topics and opens a topic page', async ({ page }) => {
@@ -107,8 +231,9 @@ test('Topics lists the topics and opens a topic page', async ({ page }) => {
   // The keyboard: Enter on Topics opens it, Enter on a topic opens the page.
   await start(page).focus();
   await page.keyboard.press('Enter');
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Enter');
   await expect(sub.getByRole('menuitem').first()).toBeFocused();
   await page.keyboard.press('ArrowDown');
@@ -208,7 +333,7 @@ test('Shut Down: Shut down shows the end screen; a key goes back', async ({ page
 
   // A click goes back too.
   await (await shutDownDialog(page)).getByLabel('Shut down', { exact: true }).check();
-  await page.getByRole('button', { name: 'OK' }).click();
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(text).toBeVisible();
   await screen.click();
   await expect(screen).toBeHidden();
@@ -238,6 +363,16 @@ test.describe('phone, Win98 view', () => {
     expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
     await item(page, 'Topics').tap();
     await expect(page.getByRole('menu', { name: 'Topics' })).toBeHidden();
+    // Programs and Accessories open inside the menu too, one level at a time.
+    await item(page, 'Programs').tap();
+    await expect(page.getByRole('menu', { name: 'Programs' })).toBeVisible();
+    await expect(page.getByRole('menu', { name: 'Accessories' })).toBeHidden();
+    await item(page, 'Accessories').tap();
+    const paint = await item(page, 'Paint').boundingBox();
+    expect(paint.x + paint.width).toBeLessThanOrEqual(width);
+    expect(paint.height).toBeGreaterThanOrEqual(44);
+    await item(page, 'Programs').tap();
+    await expect(page.getByRole('menu', { name: 'Programs' })).toBeHidden();
 
     await item(page, 'Shut Down…').tap();
     const dialog = page.getByRole('dialog', { name: 'Shut Down Logbook' });
