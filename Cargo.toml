@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/logbook-core", "crates/logbook-render", "crates/logbook-server", "editor-wasm"]
+members = ["crates/logbook-core", "crates/logbook-paint", "crates/logbook-render", "crates/logbook-server", "editor-wasm", "paint-wasm"]
 exclude = ["fuzz"]
 
 [workspace.package]

@@ -1698,6 +1698,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "logbook-paint"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+]
+
+[[package]]
+name = "logbook-paint-wasm"
+version = "0.1.0"
+dependencies = [
+ "logbook-paint",
+ "proptest",
+]
+
+[[package]]
 name = "logbook-render"
 version = "0.1.0"
 dependencies = [
