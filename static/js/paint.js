@@ -97,12 +97,17 @@ const PaintApp = (() => {
     sizeEl.textContent = `${cv.width} × ${cv.height}`;
     if (tbox) placeText();
   };
-  /* The screen canvas shows target 0. */
-  const draw = () => {
-    const [w, hh] = dims(0);
-    if (cv.width !== w || cv.height !== hh) { cv.width = ov.width = w; cv.height = ov.height = hh; applyZoom(); }
-    ctx.putImageData(new ImageData(view(0), w, hh), 0, 0);
+  /* The screen canvas shows target 0. With a rectangle, only that part is copied:
+     a freehand stroke on a big picture then costs a few pixels per move, not the whole picture. */
+  const draw = (x, y, w, hh) => {
+    const [cw, ch] = dims(0);
+    const img = new ImageData(view(0), cw, ch);
+    if (cv.width !== cw || cv.height !== ch) { cv.width = ov.width = cw; cv.height = ov.height = ch; applyZoom(); x = undefined; }
+    if (x === undefined) ctx.putImageData(img, 0, 0);
+    else ctx.putImageData(img, 0, 0, x, y, w, hh);
   };
+  /* Draws the box around the segment a–b, `r` pixels wider on each side. */
+  const drawSeg = (a, b, r) => draw(Math.min(a[0], b[0]) - r, Math.min(a[1], b[1]) - r, Math.abs(b[0] - a[0]) + 2 * r + 1, Math.abs(b[1] - a[1]) + 2 * r + 1);
   /* Copies a rectangle of the screen canvas back into target 0, after Canvas 2D drew on it. */
   const pull = (x, y, w, hh) => {
     const [cw, ch] = dims(0);
@@ -111,7 +116,7 @@ const PaintApp = (() => {
     if (x1 <= x0 || y1 <= y0) return;
     const src = ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data, dst = view(0), row = (x1 - x0) * 4;
     for (let r = 0; r < y1 - y0; r++) dst.set(src.subarray(r * row, (r + 1) * row), ((y0 + r) * cw + x0) * 4);
-    draw();
+    // No draw(): the screen canvas already shows these pixels.
   };
   const setZoom = (z, p) => {
     P.zoom = z;
@@ -143,7 +148,7 @@ const PaintApp = (() => {
   const line2d = (c, a, b, w, col) => { c.fillStyle = col; const o = Math.floor((w - 1) / 2); walk(a, b, (x, y) => c.fillRect(x - o, y - o, w, w)); };
   const brushAt = (a, b, col) => {
     const [s, shape] = P.brush;
-    if (shape === 'square' || s <= 2) { X.paint_line(a[0], a[1], b[0], b[1], s, px(col)); draw(); return; }
+    if (shape === 'square' || s <= 2) { X.paint_line(a[0], a[1], b[0], b[1], s, px(col)); drawSeg(a, b, s); return; }
     ctx.fillStyle = col;
     walk(a, b, (x, y) => { ctx.beginPath(); ctx.arc(x + 0.5, y + 0.5, s / 2, 0, Math.PI * 2); ctx.fill(); });
     pull(Math.min(a[0], b[0]) - s, Math.min(a[1], b[1]) - s, Math.abs(b[0] - a[0]) + 2 * s + 1, Math.abs(b[1] - a[1]) + 2 * s + 1);
@@ -155,7 +160,7 @@ const PaintApp = (() => {
       if (colorOnly) X.paint_color_replace(x - o, y - o, s, s, f, bk);
       else X.paint_fill_rect(x - o, y - o, s, s, bk);
     });
-    draw();
+    drawSeg(a, b, s);
   };
   const spray = (p, col) => {
     const r = P.spray, c = px(col);
@@ -163,7 +168,7 @@ const PaintApp = (() => {
       const a = Math.random() * Math.PI * 2, d = Math.random() * r;
       X.paint_fill_rect(Math.round(p[0] + Math.cos(a) * d), Math.round(p[1] + Math.sin(a) * d), 1, 1, c);
     }
-    draw();
+    drawSeg(p, p, r + 1);
   };
   /* Ellipse and rounded rectangle: Canvas 2D. Fill style: 0 outline, 1 outline with back-color fill, 2 solid. */
   const shape2d = (c, kind, a, b, col, alt) => {
@@ -476,18 +481,19 @@ const PaintApp = (() => {
   const setCtl = p => { if (curve.stage === 1) { curve.c1 = p; curve.c2 = p; } else curve.c2 = p; previewCurve(); };
   cv.addEventListener('contextmenu', e => e.preventDefault());
   cv.addEventListener('pointerdown', e => {
-    if (e.button !== 0 && e.button !== 2) return;
+    // One stroke at a time: a second finger or pen does nothing until the first one lifts.
+    if ((e.button !== 0 && e.button !== 2) || act) return;
     e.preventDefault();
     cv.setPointerCapture(e.pointerId);
     const p = pos(e), right = e.button === 2, col = right ? P.bg : P.fg, alt = right ? P.fg : P.bg, t = P.tool;
     if (t !== 'text' && tbox) commitText();
     if (t !== 'select' && t !== 'free') commitSel();
-    act = { t, a: p, last: p, col, alt, right };
+    act = { t, a: p, last: p, col, alt, right, id: e.pointerId };
     switch (t) {
-      case 'pencil': snap(); X.paint_line(p[0], p[1], p[0], p[1], 1, px(col)); draw(); break;
+      case 'pencil': snap(); X.paint_line(p[0], p[1], p[0], p[1], 1, px(col)); drawSeg(p, p, 1); break;
       case 'brush': snap(); brushAt(p, p, col); break;
       case 'eraser': snap(); eraseAt(p, p, right); break;
-      case 'spray': snap(); spray(p, col); sprayT = setInterval(() => act && spray(act.last, col), 30); break;
+      case 'spray': snap(); spray(p, col); clearInterval(sprayT); sprayT = setInterval(() => act && spray(act.last, col), 30); break;
       case 'fill': snap(); X.paint_flood_fill(p[0], p[1], px(col)); draw(); act = null; break;
       case 'picker': {
         const v = X.paint_get(p[0], p[1]) >>> 0;
@@ -512,12 +518,13 @@ const PaintApp = (() => {
     }
   });
   cv.addEventListener('pointermove', e => {
+    if (act && e.pointerId !== act.id) return;
     const p = pos(e);
     xyEl.textContent = `${p[0]},${p[1]}`;
     if (!act) { hover(p); return; }
     const { t, a, col } = act;
     switch (t) {
-      case 'pencil': X.paint_line(act.last[0], act.last[1], p[0], p[1], 1, px(col)); draw(); break;
+      case 'pencil': X.paint_line(act.last[0], act.last[1], p[0], p[1], 1, px(col)); drawSeg(act.last, p, 1); break;
       case 'brush': brushAt(act.last, p, col); break;
       case 'eraser': eraseAt(act.last, p, act.right); hover(p); break;
       case 'select': case 'free':
@@ -549,11 +556,13 @@ const PaintApp = (() => {
   });
   const closePoly = () => { if (!poly) return; clr(); snap(); drawPoly(poly.pts, true, poly.col, poly.alt, true); poly = null; };
   const up = e => {
+    if (act && e.pointerId !== act.id) return;
     clearInterval(sprayT);
     if (!act) return;
     const a0 = act;
     act = null;
-    const p = e.type === 'pointercancel' ? a0.last : pos(e), { t, a, col, alt } = a0;
+    // A cancel or a lost capture ends the stroke at its last point.
+    const p = e.type === 'pointerup' ? pos(e) : a0.last, { t, a, col, alt } = a0;
     const [cw, ch] = dims(0);
     switch (t) {
       case 'line': case 'rect': case 'ellipse': case 'rrect': clr(); commitShape(t, a, constrain(a, p, e, t), col, alt); break;
@@ -591,6 +600,7 @@ const PaintApp = (() => {
   };
   cv.addEventListener('pointerup', up);
   cv.addEventListener('pointercancel', up);
+  cv.addEventListener('lostpointercapture', up);
   cv.addEventListener('dblclick', closePoly);
   cv.addEventListener('pointerleave', () => { xyEl.textContent = ''; if (!act && P.tool === 'eraser') clr(); });
 
@@ -660,6 +670,7 @@ const PaintApp = (() => {
     if (src instanceof ImageData) return src;
     const c = mkCanvas(Math.min(MAX, src.width), Math.min(MAX, src.height)), x = c.getContext('2d');
     x.drawImage(src, 0, 0);
+    src.close?.();
     return x.getImageData(0, 0, c.width, c.height);
   };
   const pasteImage = async src => {
@@ -862,7 +873,11 @@ const PaintApp = (() => {
   };
   /* A new white picture, with no history. */
   const resetPaint = (w = 560, hh = 340) => {
+    clearInterval(sprayT);
     sel = null; act = null; curve = null; poly = null; tbox = null; txt.hidden = true;
+    // Copies and floating selections can be up to 64 MB each. paint_init frees the WASM side.
+    clip = null;
+    floatCv.width = floatCv.height = 0;
     P.zoom = 1;
     P.grid = false;
     X.paint_init(w, hh, WHITE);
@@ -884,6 +899,7 @@ const PaintApp = (() => {
     x.fillStyle = '#ffffff';
     x.fillRect(0, 0, c.width, c.height);
     x.drawImage(img, 0, 0);
+    img.close();
     resetPaint(c.width, c.height);
     view(0).set(x.getImageData(0, 0, c.width, c.height).data);
     draw();

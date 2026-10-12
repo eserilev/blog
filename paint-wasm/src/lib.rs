@@ -6,7 +6,9 @@
 //! call can move the buffer or grow the memory.
 //!
 //! There are two canvases. Target 0 is the picture. Target 1 is the floating
-//! selection. Undo keeps whole copies of the picture, at most [`UNDO_LIMIT`].
+//! selection. Undo keeps whole copies of the picture: at most [`UNDO_LIMIT`] steps,
+//! and at most [`UNDO_BYTES`] in total. WASM memory never shrinks, so the byte cap
+//! sets the most memory that Paint can use for undo.
 //!
 //! No bindings generator: the interface is plain `extern "C"` functions of integers.
 
@@ -18,6 +20,9 @@ use logbook_paint::Canvas;
 
 /// The most undo steps that Paint keeps.
 pub const UNDO_LIMIT: usize = 30;
+/// The most bytes that the undo and repeat steps hold together: 128 MiB. A small
+/// picture keeps all 30 steps. A 4096 × 4096 picture (64 MiB) keeps 2.
+pub const UNDO_BYTES: usize = 128 << 20;
 /// Opaque white.
 pub const WHITE: u32 = 0xFFFF_FFFF;
 
@@ -60,13 +65,29 @@ impl Paint {
         &mut self.canvases[0]
     }
 
-    /// Saves the picture before a change. A new change clears Repeat.
+    /// Saves the picture before a change. A new change clears Repeat. The oldest
+    /// steps go first when the history passes [`UNDO_LIMIT`] or [`UNDO_BYTES`]. The
+    /// newest step always stays.
     pub fn snapshot(&mut self) {
-        self.undo.push(self.canvases[0].clone());
-        if self.undo.len() > UNDO_LIMIT {
+        self.redo.clear();
+        // Make room first, so the new copy can reuse the memory of the oldest one.
+        let incoming = self.canvases[0].px.len() * 4;
+        while !self.undo.is_empty()
+            && (self.undo.len() >= UNDO_LIMIT || self.history_bytes() + incoming > UNDO_BYTES)
+        {
             self.undo.remove(0);
         }
-        self.redo.clear();
+        self.undo.push(self.canvases[0].clone());
+    }
+
+    /// The bytes of pixels that the undo and repeat steps hold.
+    #[must_use]
+    pub fn history_bytes(&self) -> usize {
+        self.undo
+            .iter()
+            .chain(&self.redo)
+            .map(|c| c.px.len() * 4)
+            .sum()
     }
 
     /// Goes back one step. Returns false if there is nothing to undo.
@@ -400,6 +421,35 @@ mod tests {
         let mut p = small();
         assert!(!p.undo());
         assert!(!p.redo());
+    }
+
+    #[test]
+    fn a_big_picture_keeps_fewer_steps() {
+        let mut p = Paint::new();
+        ops::blank(&mut p, 0, 4096, 4096, WHITE);
+        for _ in 0..10 {
+            p.snapshot();
+            assert!(p.history_bytes() <= UNDO_BYTES);
+        }
+        let mut n = 0;
+        while p.undo() {
+            n += 1;
+        }
+        assert_eq!(n, UNDO_BYTES / (4096 * 4096 * 4));
+    }
+
+    #[test]
+    fn a_picture_over_the_cap_still_keeps_one_step() {
+        let mut p = Paint::new();
+        p.canvases[0] = logbook_paint::Canvas {
+            w: 1,
+            h: 1,
+            px: vec![0; UNDO_BYTES / 4 + 1],
+        };
+        p.snapshot();
+        p.snapshot();
+        assert!(p.undo());
+        assert!(!p.undo());
     }
 
     #[test]

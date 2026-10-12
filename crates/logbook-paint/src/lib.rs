@@ -138,26 +138,15 @@ pub fn clamp_dim(n: usize) -> usize {
     }
 }
 
-/// `n` copies of `v`.
+/// `n` copies of `v`. `vec!` allocates once: a `push` loop grows by doubling and can
+/// briefly need almost twice the memory, and WASM memory never shrinks.
 fn filled(n: usize, v: u32) -> Vec<u32> {
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < n {
-        out.push(v);
-        i += 1;
-    }
-    out
+    vec![v; n]
 }
 
 /// `n` zeros.
 fn zeros(n: usize) -> Vec<usize> {
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < n {
-        out.push(0);
-        i += 1;
-    }
-    out
+    vec![0; n]
 }
 
 // ---- Canvases and pixels ----

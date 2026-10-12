@@ -932,7 +932,7 @@ Post pages show the post through the scripts (6.3). Google runs the scripts. The
 - **Head tags:** for any title and summary, the output `<head>` parses with exactly the expected elements.
 - **Server = core:** for any post set, the public API returns exactly `filter_public` of it.
 - **Paint core** (`logbook-paint`): the same rules as P1–P10 (7.6) on small random canvases. Flood fill equals a breadth-first reference fill. Lines start and end at their points, have no gaps, and stay in their box. Flips, invert, and four rotations give the first canvas. The color eraser and the outline change only the pixels they own. Copy then paste at the same place, neutral stretch, and zero skew change nothing. No function panics on any canvas, also one whose fields do not agree.
-- **Paint undo** (`paint-wasm`): any 0–30 actions, then the same number of undos, give the first picture. Undo all then repeat all gives the last picture. Both canvases stay valid after every action. The history keeps at most 30 steps.
+- **Paint undo** (`paint-wasm`): any 0–30 actions, then the same number of undos, give the first picture. Undo all then repeat all gives the last picture. Both canvases stay valid after every action. The history keeps at most 30 steps and at most 128 MiB (`UNDO_BYTES`): a 4096 × 4096 picture keeps 2 steps. WASM memory never shrinks, so this cap sets the most memory that undo can take.
 
 ### 7.3 Fuzz targets
 

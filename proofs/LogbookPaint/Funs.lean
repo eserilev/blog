@@ -297,72 +297,18 @@ def clamp_dim (n : Std.Usize) : Result Std.Usize := do
        then ok MAX_DIM
        else ok n
 
-/-- [logbook_paint::filled]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 145:4-148:5 -/
-@[rust_loop_body]
-def filled_loop.body
-  (n : Std.Usize) (v : Std.U32) (out : alloc.vec.Vec Std.U32) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Std.U32) × Std.Usize) (alloc.vec.Vec
-    Std.U32))
-  := do
-  if i < n
-  then
-    let out1 ← alloc.vec.Vec.push out v
-    let i1 ← i + 1#usize
-    ok (cont (out1, i1))
-  else ok (done out)
-
-/-- [logbook_paint::filled]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 145:4-148:5 -/
-@[rust_loop]
-def filled_loop
-  (n : Std.Usize) (v : Std.U32) (out : alloc.vec.Vec Std.U32) (i : Std.Usize) :
-  Result (alloc.vec.Vec Std.U32)
-  := do
-  loop
-    (fun (out1, i1) => filled_loop.body n v out1 i1)
-    (out, i)
-
 /-- [logbook_paint::filled]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 142:0-150:1 -/
-@[reducible]
+    Source: 'crates/logbook-paint/src/lib.rs', lines 143:0-145:1 -/
 def filled (n : Std.Usize) (v : Std.U32) : Result (alloc.vec.Vec Std.U32) := do
-  filled_loop n v (alloc.vec.Vec.new Std.U32) 0#usize
-
-/-- [logbook_paint::zeros]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 156:4-159:5 -/
-@[rust_loop_body]
-def zeros_loop.body
-  (n : Std.Usize) (out : alloc.vec.Vec Std.Usize) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Std.Usize) × Std.Usize) (alloc.vec.Vec
-    Std.Usize))
-  := do
-  if i < n
-  then
-    let out1 ← alloc.vec.Vec.push out 0#usize
-    let i1 ← i + 1#usize
-    ok (cont (out1, i1))
-  else ok (done out)
-
-/-- [logbook_paint::zeros]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 156:4-159:5 -/
-@[rust_loop]
-def zeros_loop
-  (n : Std.Usize) (out : alloc.vec.Vec Std.Usize) (i : Std.Usize) :
-  Result (alloc.vec.Vec Std.Usize)
-  := do
-  loop
-    (fun (out1, i1) => zeros_loop.body n out1 i1)
-    (out, i)
+  alloc.vec.from_elem core.clone.CloneU32 v n
 
 /-- [logbook_paint::zeros]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 153:0-161:1 -/
-@[reducible]
+    Source: 'crates/logbook-paint/src/lib.rs', lines 148:0-150:1 -/
 def zeros (n : Std.Usize) : Result (alloc.vec.Vec Std.Usize) := do
-  zeros_loop n (alloc.vec.Vec.new Std.Usize) 0#usize
+  alloc.vec.from_elem core.clone.CloneUsize 0#usize n
 
 /-- [logbook_paint::new_canvas]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 167:0-175:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 156:0-164:1
     Visibility: public -/
 def new_canvas
   (w : Std.Usize) (h : Std.Usize) (color : Std.U32) : Result Canvas := do
@@ -373,7 +319,7 @@ def new_canvas
   ok { w := w1, h := h1, px := v }
 
 /-- [logbook_paint::index]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 179:0-189:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 168:0-178:1
     Visibility: public -/
 def index
   (c : Canvas) (x : Std.I32) (y : Std.I32) : Result (Option Std.Usize) := do
@@ -399,7 +345,7 @@ def index
   else ok none
 
 /-- [logbook_paint::get]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 193:0-198:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 182:0-187:1
     Visibility: public -/
 def get (c : Canvas) (x : Std.I32) (y : Std.I32) : Result Std.U32 := do
   let o ← index c x y
@@ -409,7 +355,7 @@ def get (c : Canvas) (x : Std.I32) (y : Std.I32) : Result Std.U32 := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.U32) c.px i
 
 /-- [logbook_paint::set]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 201:0-205:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 190:0-194:1
     Visibility: public -/
 def set
   (c : Canvas) (x : Std.I32) (y : Std.I32) (color : Std.U32) :
@@ -426,7 +372,7 @@ def set
     ok { c with px := v }
 
 /-- [logbook_paint::clip_rect]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 210:0-228:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 199:0-217:1
     Visibility: public -/
 def clip_rect
   (x : Std.I32) (y : Std.I32) (w : Std.I32) (h : Std.I32) (cw : Std.Usize)
@@ -468,7 +414,7 @@ def clip_rect
   ok { x := i10, y := i11, w := i13, h := i15 }
 
 /-- [logbook_paint::fill_rect]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 239:8-242:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 228:8-231:9
     Visibility: public -/
 @[rust_loop_body]
 def fill_rect_loop0_loop0.body
@@ -491,7 +437,7 @@ def fill_rect_loop0_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::fill_rect]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 239:8-242:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 228:8-231:9
     Visibility: public -/
 @[rust_loop]
 def fill_rect_loop0_loop0
@@ -504,7 +450,7 @@ def fill_rect_loop0_loop0
     (v, xx1)
 
 /-- [logbook_paint::fill_rect]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 237:4-244:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 226:4-233:5
     Visibility: public -/
 @[rust_loop_body]
 def fill_rect_loop0.body
@@ -523,7 +469,7 @@ def fill_rect_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::fill_rect]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 237:4-244:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 226:4-233:5
     Visibility: public -/
 @[rust_loop]
 def fill_rect_loop0
@@ -537,7 +483,7 @@ def fill_rect_loop0
     (v, yy1)
 
 /-- [logbook_paint::fill_rect]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 231:0-245:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 220:0-234:1
     Visibility: public -/
 def fill_rect
   (c : Canvas) (x : Std.I32) (y : Std.I32) (w : Std.I32) (h : Std.I32)
@@ -553,7 +499,7 @@ def fill_rect
   else ok c
 
 /-- [logbook_paint::rect_outline]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 249:0-265:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 238:0-254:1
     Visibility: public -/
 def rect_outline
   (c : Canvas) (x : Std.I32) (y : Std.I32) (w : Std.I32) (h : Std.I32)
@@ -587,7 +533,7 @@ def rect_outline
       fill_rect c3 i3 y1 tx h1 color
 
 /-- [logbook_paint::line_points]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 289:4-301:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 278:4-290:5
     Visibility: public -/
 @[rust_loop_body]
 def line_points_loop.body
@@ -620,7 +566,7 @@ def line_points_loop.body
   else ok (done out)
 
 /-- [logbook_paint::line_points]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 289:4-301:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 278:4-290:5
     Visibility: public -/
 @[rust_loop]
 def line_points_loop
@@ -635,7 +581,7 @@ def line_points_loop
     (err, x, y, out, k)
 
 /-- [logbook_paint::line_points]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 273:0-303:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 262:0-292:1
     Visibility: public -/
 def line_points
   (x0 : Std.I32) (y0 : Std.I32) (x1 : Std.I32) (y1 : Std.I32) :
@@ -666,7 +612,7 @@ def line_points
   line_points_loop dx dy sx sy n err x01 y01 out 0#i32
 
 /-- [logbook_paint::line]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 315:4-319:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 304:4-308:5
     Visibility: public -/
 @[rust_loop_body]
 def line_loop.body
@@ -688,7 +634,7 @@ def line_loop.body
   else ok (done c)
 
 /-- [logbook_paint::line]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 315:4-319:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 304:4-308:5
     Visibility: public -/
 @[rust_loop]
 def line_loop
@@ -701,7 +647,7 @@ def line_loop
     (c, i)
 
 /-- [logbook_paint::line]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 307:0-320:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 296:0-309:1
     Visibility: public -/
 def line
   (c : Canvas) (x0 : Std.I32) (y0 : Std.I32) (x1 : Std.I32) (y1 : Std.I32)
@@ -719,7 +665,7 @@ def line
   else ok c
 
 /-- [logbook_paint::flood_fill]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-378:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-367:5
     Visibility: public -/
 @[rust_loop_body]
 def flood_fill_loop.body
@@ -826,7 +772,7 @@ def flood_fill_loop.body
   else ok (done v)
 
 /-- [logbook_paint::flood_fill]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-378:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-367:5
     Visibility: public -/
 @[rust_loop]
 def flood_fill_loop
@@ -841,7 +787,7 @@ def flood_fill_loop
     (v, stack, top)
 
 /-- [logbook_paint::flood_fill]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 328:0-379:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 317:0-368:1
     Visibility: public -/
 def flood_fill
   (c : Canvas) (x : Std.I32) (y : Std.I32) (color : Std.U32) :
@@ -871,7 +817,7 @@ def flood_fill
       ok { c with px := v1 }
 
 /-- [logbook_paint::color_replace]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 391:8-397:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 380:8-386:9
     Visibility: public -/
 @[rust_loop_body]
 def color_replace_loop0_loop0.body
@@ -902,7 +848,7 @@ def color_replace_loop0_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::color_replace]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 391:8-397:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 380:8-386:9
     Visibility: public -/
 @[rust_loop]
 def color_replace_loop0_loop0
@@ -917,7 +863,7 @@ def color_replace_loop0_loop0
     (v, xx1)
 
 /-- [logbook_paint::color_replace]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 389:4-399:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 378:4-388:5
     Visibility: public -/
 @[rust_loop_body]
 def color_replace_loop0.body
@@ -936,7 +882,7 @@ def color_replace_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::color_replace]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 389:4-399:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 378:4-388:5
     Visibility: public -/
 @[rust_loop]
 def color_replace_loop0
@@ -951,7 +897,7 @@ def color_replace_loop0
     (v, yy1)
 
 /-- [logbook_paint::color_replace]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 383:0-400:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 372:0-389:1
     Visibility: public -/
 def color_replace
   (c : Canvas) (x : Std.I32) (y : Std.I32) (w : Std.I32) (h : Std.I32)
@@ -967,7 +913,7 @@ def color_replace
   else ok c
 
 /-- [logbook_paint::flip_h]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 414:8-420:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 403:8-409:9
     Visibility: public -/
 @[rust_loop_body]
 def flip_h_loop0_loop0.body
@@ -998,7 +944,7 @@ def flip_h_loop0_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::flip_h]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 414:8-420:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 403:8-409:9
     Visibility: public -/
 @[rust_loop]
 def flip_h_loop0_loop0
@@ -1011,7 +957,7 @@ def flip_h_loop0_loop0
     (v, a, b)
 
 /-- [logbook_paint::flip_h]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 410:4-422:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 399:4-411:5
     Visibility: public -/
 @[rust_loop_body]
 def flip_h_loop0.body
@@ -1029,7 +975,7 @@ def flip_h_loop0.body
   else ok (done (c.w, c.h, c.px))
 
 /-- [logbook_paint::flip_h]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 410:4-422:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 399:4-411:5
     Visibility: public -/
 @[rust_loop]
 def flip_h_loop0
@@ -1041,7 +987,7 @@ def flip_h_loop0
     (c, y)
 
 /-- [logbook_paint::flip_h]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 405:0-423:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 394:0-412:1
     Visibility: public -/
 def flip_h (c : Canvas) : Result Canvas := do
   let b ← valid c
@@ -1052,7 +998,7 @@ def flip_h (c : Canvas) : Result Canvas := do
   else ok c
 
 /-- [logbook_paint::flip_v]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 434:8-441:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 423:8-430:9
     Visibility: public -/
 @[rust_loop_body]
 def flip_v_loop0_loop0.body
@@ -1084,7 +1030,7 @@ def flip_v_loop0_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::flip_v]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 434:8-441:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 423:8-430:9
     Visibility: public -/
 @[rust_loop]
 def flip_v_loop0_loop0
@@ -1097,7 +1043,7 @@ def flip_v_loop0_loop0
     (v, x)
 
 /-- [logbook_paint::flip_v]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 432:4-444:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 421:4-433:5
     Visibility: public -/
 @[rust_loop_body]
 def flip_v_loop0.body
@@ -1114,7 +1060,7 @@ def flip_v_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::flip_v]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 432:4-444:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 421:4-433:5
     Visibility: public -/
 @[rust_loop]
 def flip_v_loop0
@@ -1126,7 +1072,7 @@ def flip_v_loop0
     (v, a, b)
 
 /-- [logbook_paint::flip_v]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 426:0-445:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 415:0-434:1
     Visibility: public -/
 def flip_v (c : Canvas) : Result Canvas := do
   let b ← valid c
@@ -1138,7 +1084,7 @@ def flip_v (c : Canvas) : Result Canvas := do
   else ok c
 
 /-- [logbook_paint::rotate90]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 463:8-466:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 452:8-455:9
     Visibility: public -/
 @[rust_loop_body]
 def rotate90_loop0_loop0.body
@@ -1167,7 +1113,7 @@ def rotate90_loop0_loop0.body
   else ok (done v1)
 
 /-- [logbook_paint::rotate90]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 463:8-466:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 452:8-455:9
     Visibility: public -/
 @[rust_loop]
 def rotate90_loop0_loop0
@@ -1181,7 +1127,7 @@ def rotate90_loop0_loop0
     (v1, x)
 
 /-- [logbook_paint::rotate90]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 461:4-468:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 450:4-457:5
     Visibility: public -/
 @[rust_loop_body]
 def rotate90_loop0.body
@@ -1198,7 +1144,7 @@ def rotate90_loop0.body
   else ok (done v1)
 
 /-- [logbook_paint::rotate90]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 461:4-468:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 450:4-457:5
     Visibility: public -/
 @[rust_loop]
 def rotate90_loop0
@@ -1211,7 +1157,7 @@ def rotate90_loop0
     (v1, y)
 
 /-- [logbook_paint::rotate90]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 449:0-470:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 438:0-459:1
     Visibility: public -/
 def rotate90 (c : Canvas) : Result Canvas := do
   let b ← valid c
@@ -1224,7 +1170,7 @@ def rotate90 (c : Canvas) : Result Canvas := do
   else Canvas.Insts.CoreCloneClone.clone c
 
 /-- [logbook_paint::invert]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 478:4-481:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 467:4-470:5
     Visibility: public -/
 @[rust_loop_body]
 def invert_loop.body
@@ -1245,7 +1191,7 @@ def invert_loop.body
   else ok (done (c.w, c.h, c.px))
 
 /-- [logbook_paint::invert]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 478:4-481:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 467:4-470:5
     Visibility: public -/
 @[rust_loop]
 def invert_loop
@@ -1257,7 +1203,7 @@ def invert_loop
     (c, i)
 
 /-- [logbook_paint::invert]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 473:0-482:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 462:0-471:1
     Visibility: public -/
 def invert (c : Canvas) : Result Canvas := do
   let b ← valid c
@@ -1267,7 +1213,7 @@ def invert (c : Canvas) : Result Canvas := do
   else ok c
 
 /-- [logbook_paint::to_black_white]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 490:4-499:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 479:4-488:5
     Visibility: public -/
 @[rust_loop_body]
 def to_black_white_loop.body
@@ -1305,7 +1251,7 @@ def to_black_white_loop.body
   else ok (done (c.w, c.h, c.px))
 
 /-- [logbook_paint::to_black_white]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 490:4-499:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 479:4-488:5
     Visibility: public -/
 @[rust_loop]
 def to_black_white_loop
@@ -1317,7 +1263,7 @@ def to_black_white_loop
     (c, i)
 
 /-- [logbook_paint::to_black_white]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 485:0-500:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 474:0-489:1
     Visibility: public -/
 def to_black_white (c : Canvas) : Result Canvas := do
   let b ← valid c
@@ -1328,7 +1274,7 @@ def to_black_white (c : Canvas) : Result Canvas := do
   else ok c
 
 /-- [logbook_paint::copy_region]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 518:8-521:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 507:8-510:9
     Visibility: public -/
 @[rust_loop_body]
 def copy_region_loop0_loop0.body
@@ -1355,7 +1301,7 @@ def copy_region_loop0_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::copy_region]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 518:8-521:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 507:8-510:9
     Visibility: public -/
 @[rust_loop]
 def copy_region_loop0_loop0
@@ -1368,7 +1314,7 @@ def copy_region_loop0_loop0
     (v, xx)
 
 /-- [logbook_paint::copy_region]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 516:4-523:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 505:4-512:5
     Visibility: public -/
 @[rust_loop_body]
 def copy_region_loop0.body
@@ -1385,7 +1331,7 @@ def copy_region_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::copy_region]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 516:4-523:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 505:4-512:5
     Visibility: public -/
 @[rust_loop]
 def copy_region_loop0
@@ -1398,7 +1344,7 @@ def copy_region_loop0
     (v, yy)
 
 /-- [logbook_paint::copy_region]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 505:0-525:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 494:0-514:1
     Visibility: public -/
 def copy_region
   (c : Canvas) (x : Std.I32) (y : Std.I32) (w : Std.I32) (h : Std.I32) :
@@ -1424,7 +1370,7 @@ def copy_region
   ok { w := w1, h := h1, px := v1 }
 
 /-- [logbook_paint::blit]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-545:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-534:9
     Visibility: public -/
 @[rust_loop_body]
 def blit_loop0_loop0.body
@@ -1467,7 +1413,7 @@ def blit_loop0_loop0.body
   else ok (done dst)
 
 /-- [logbook_paint::blit]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-545:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-534:9
     Visibility: public -/
 @[rust_loop]
 def blit_loop0_loop0
@@ -1481,7 +1427,7 @@ def blit_loop0_loop0
     (dst, sx)
 
 /-- [logbook_paint::blit]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-547:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-536:5
     Visibility: public -/
 @[rust_loop_body]
 def blit_loop0.body
@@ -1497,7 +1443,7 @@ def blit_loop0.body
   else ok (done dst)
 
 /-- [logbook_paint::blit]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-547:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-536:5
     Visibility: public -/
 @[rust_loop]
 def blit_loop0
@@ -1510,7 +1456,7 @@ def blit_loop0
     (dst, sy)
 
 /-- [logbook_paint::blit]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 530:0-548:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 519:0-537:1
     Visibility: public -/
 def blit
   (dst : Canvas) (src : Canvas) (x : Std.I32) (y : Std.I32) (use_key : Bool)
@@ -1530,7 +1476,7 @@ def blit
   else ok dst
 
 /-- [logbook_paint::resize]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 562:8-565:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 551:8-554:9
     Visibility: public -/
 @[rust_loop_body]
 def resize_loop0_loop0.body
@@ -1557,7 +1503,7 @@ def resize_loop0_loop0.body
   else ok (done v1)
 
 /-- [logbook_paint::resize]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 562:8-565:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 551:8-554:9
     Visibility: public -/
 @[rust_loop]
 def resize_loop0_loop0
@@ -1571,7 +1517,7 @@ def resize_loop0_loop0
     (v1, x)
 
 /-- [logbook_paint::resize]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 560:4-567:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 549:4-556:5
     Visibility: public -/
 @[rust_loop_body]
 def resize_loop0.body
@@ -1589,7 +1535,7 @@ def resize_loop0.body
   else ok (done v1)
 
 /-- [logbook_paint::resize]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 560:4-567:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 549:4-556:5
     Visibility: public -/
 @[rust_loop]
 def resize_loop0
@@ -1603,7 +1549,7 @@ def resize_loop0
     (v1, y)
 
 /-- [logbook_paint::resize]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 552:0-569:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 541:0-558:1
     Visibility: public -/
 def resize
   (c : Canvas) (w : Std.Usize) (h : Std.Usize) (bg : Std.U32) :
@@ -1624,7 +1570,7 @@ def resize
   else ok out
 
 /-- [logbook_paint::stretch]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 588:8-592:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 577:8-581:9
     Visibility: public -/
 @[rust_loop_body]
 def stretch_loop0_loop0.body
@@ -1652,7 +1598,7 @@ def stretch_loop0_loop0.body
   else ok (done v1)
 
 /-- [logbook_paint::stretch]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 588:8-592:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 577:8-581:9
     Visibility: public -/
 @[rust_loop]
 def stretch_loop0_loop0
@@ -1666,7 +1612,7 @@ def stretch_loop0_loop0
     (v1, x)
 
 /-- [logbook_paint::stretch]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 585:4-594:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 574:4-583:5
     Visibility: public -/
 @[rust_loop_body]
 def stretch_loop0.body
@@ -1685,7 +1631,7 @@ def stretch_loop0.body
   else ok (done v)
 
 /-- [logbook_paint::stretch]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 585:4-594:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 574:4-583:5
     Visibility: public -/
 @[rust_loop]
 def stretch_loop0
@@ -1698,7 +1644,7 @@ def stretch_loop0
     (v, y)
 
 /-- [logbook_paint::stretch]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 573:0-596:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 562:0-585:1
     Visibility: public -/
 def stretch
   (c : Canvas) (nw : Std.Usize) (nh : Std.Usize) : Result Canvas := do
@@ -1714,7 +1660,7 @@ def stretch
   else Canvas.Insts.CoreCloneClone.clone c
 
 /-- [logbook_paint::skew_x]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-627:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-616:9
     Visibility: public -/
 @[rust_loop_body]
 def skew_x_loop0_loop0.body
@@ -1755,7 +1701,7 @@ def skew_x_loop0_loop0.body
   else ok (done out)
 
 /-- [logbook_paint::skew_x]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-627:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-616:9
     Visibility: public -/
 @[rust_loop]
 def skew_x_loop0_loop0
@@ -1768,7 +1714,7 @@ def skew_x_loop0_loop0
     (out, x)
 
 /-- [logbook_paint::skew_x]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-629:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-618:5
     Visibility: public -/
 @[rust_loop_body]
 def skew_x_loop0.body
@@ -1788,7 +1734,7 @@ def skew_x_loop0.body
   else ok (done out)
 
 /-- [logbook_paint::skew_x]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-629:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-618:5
     Visibility: public -/
 @[rust_loop]
 def skew_x_loop0
@@ -1801,7 +1747,7 @@ def skew_x_loop0
     (out, y)
 
 /-- [logbook_paint::skew_x]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 601:0-631:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 590:0-620:1
     Visibility: public -/
 def skew_x (c : Canvas) (num : Std.I32) (bg : Std.U32) : Result Canvas := do
   let b ← valid c
@@ -1833,7 +1779,7 @@ def skew_x (c : Canvas) (num : Std.I32) (bg : Std.U32) : Result Canvas := do
   else Canvas.Insts.CoreCloneClone.clone c
 
 /-- [logbook_paint::skew_y]: loop body 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-661:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-650:9
     Visibility: public -/
 @[rust_loop_body]
 def skew_y_loop0_loop0.body
@@ -1874,7 +1820,7 @@ def skew_y_loop0_loop0.body
   else ok (done out)
 
 /-- [logbook_paint::skew_y]: loop 1:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-661:9
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-650:9
     Visibility: public -/
 @[rust_loop]
 def skew_y_loop0_loop0
@@ -1887,7 +1833,7 @@ def skew_y_loop0_loop0
     (out, y)
 
 /-- [logbook_paint::skew_y]: loop body 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-663:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-652:5
     Visibility: public -/
 @[rust_loop_body]
 def skew_y_loop0.body
@@ -1907,7 +1853,7 @@ def skew_y_loop0.body
   else ok (done out)
 
 /-- [logbook_paint::skew_y]: loop 0:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-663:5
+    Source: 'crates/logbook-paint/src/lib.rs', lines 1:0-652:5
     Visibility: public -/
 @[rust_loop]
 def skew_y_loop0
@@ -1920,7 +1866,7 @@ def skew_y_loop0
     (out, x)
 
 /-- [logbook_paint::skew_y]:
-    Source: 'crates/logbook-paint/src/lib.rs', lines 635:0-665:1
+    Source: 'crates/logbook-paint/src/lib.rs', lines 624:0-654:1
     Visibility: public -/
 def skew_y (c : Canvas) (num : Std.I32) (bg : Std.U32) : Result Canvas := do
   let b ← valid c
