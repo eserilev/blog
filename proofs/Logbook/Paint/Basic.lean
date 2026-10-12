@@ -105,32 +105,14 @@ theorem clampW_bounds (v : Int) : 1 ≤ clampW v ∧ clampW v ≤ 64 := by
 @[step]
 theorem filled_spec (n : Std.Usize) (v : Std.U32) :
     filled n v ⦃ r => r.val = List.replicate n.val v ⦄ := by
-  unfold filled filled_loop
-  apply loop.spec_decr_nat
-    (measure := fun (x : alloc.vec.Vec Std.U32 × Std.Usize) => n.val - x.2.val)
-    (inv := fun x => x.2.val ≤ n.val ∧ x.1.val = List.replicate x.2.val v)
-  · rintro ⟨out, i⟩ ⟨hi, hout⟩
-    unfold filled_loop.body
-    simp only at hi hout
-    step*
-    · refine ⟨by scalar_tac, ?_, by scalar_tac⟩
-      simp [*, List.replicate_succ']
-  · simp
+  unfold filled
+  step*
 
 @[step]
 theorem zeros_spec (n : Std.Usize) :
     zeros n ⦃ r => r.val = List.replicate n.val 0#usize ⦄ := by
-  unfold zeros zeros_loop
-  apply loop.spec_decr_nat
-    (measure := fun (x : alloc.vec.Vec Std.Usize × Std.Usize) => n.val - x.2.val)
-    (inv := fun x => x.2.val ≤ n.val ∧ x.1.val = List.replicate x.2.val 0#usize)
-  · rintro ⟨out, i⟩ ⟨hi, hout⟩
-    unfold zeros_loop.body
-    simp only at hi hout
-    step*
-    · refine ⟨by scalar_tac, ?_, by scalar_tac⟩
-      simp [*, List.replicate_succ']
-  · simp
+  unfold zeros
+  step*
 
 @[step]
 theorem clone_spec (c : Canvas) : Canvas.Insts.CoreCloneClone.clone c ⦃ r => r = c ⦄ := by

@@ -24,3 +24,10 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Paint runs pixel loops on up to 4096 × 4096 pictures: speed matters more than size.
+[profile.wasm.package.logbook-paint]
+opt-level = 3
+
+[profile.wasm.package.logbook-paint-wasm]
+opt-level = 3
