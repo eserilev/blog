@@ -201,7 +201,11 @@ customElements.define('blog-app', class extends HTMLElement {
     this.dataset.current = route.view;
     this.route = route;
     this.dispatchEvent(new CustomEvent('viewchange', { detail: route }));
-    if (scroll) window.scrollTo({ top: 0 });
+    if (scroll) {
+      window.scrollTo({ top: 0 });
+      // In the Win98 view the page scrolls inside the window.
+      this.querySelector('.viewport')?.scrollTo({ top: 0 });
+    }
   }
 });
 

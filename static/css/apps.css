@@ -17,8 +17,32 @@ button.ctl:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
 :root:not([data-mode="general"]) [data-win="logbook"] > .titlebar .ctl { visibility: hidden; }
 /* Closed: the Logbook window and its taskbar buttons go. Minimized: only the window. */
 blog-app[data-logbook="closed"] .task[data-nav] { display: none; }
+/* The Logbook window fits above the taskbar. The page scrolls inside the window, like
+   a 1998 browser, and the desktop itself never scrolls. */
+:root[data-mode="general"] .desktop { display: flex; flex-direction: column; height: 100vh; height: 100dvh; padding-bottom: calc(var(--tb-h) + 16px); }
+:root[data-mode="general"] .desktop > .window { flex: 1; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+/* A border, not the inset shadow of .sunken: the scroll bar paints over a shadow. */
+:root[data-mode="general"] .desktop > .window > .viewport { overflow-y: auto; overscroll-behavior: contain; box-shadow: none;
+  border: 2px solid; border-color: var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo); }
 :root[data-mode="general"] .desktop.max { max-width: none; padding: 0 0 var(--tb-h); }
-:root[data-mode="general"] .desktop.max > .window { min-height: calc(100vh - var(--tb-h)); }
+
+/* Win98 scroll bars: a checkered track, a raised thumb, and arrow buttons. Firefox has no
+   scroll bar parts, so it gets the colors only. Chrome ignores the parts if scrollbar-color is set.
+   No :root[data-mode] prefix: Chrome then drops the rules of the button states. Only the
+   Win98 view scrolls the viewport, so the plain selector is enough. */
+.viewport::-webkit-scrollbar { width: 16px; height: 16px; }
+.viewport::-webkit-scrollbar-track { background: repeating-conic-gradient(var(--chrome) 0 25%, var(--chrome-hi) 0 50%) 0 0 / 2px 2px; }
+.viewport::-webkit-scrollbar-thumb,
+.viewport::-webkit-scrollbar-button { background-color: var(--chrome);
+  box-shadow: inset -1px -1px var(--chrome-dk), inset 1px 1px var(--chrome-mid), inset -2px -2px var(--chrome-lo), inset 2px 2px var(--chrome-hi); }
+.viewport::-webkit-scrollbar-button:active { box-shadow: inset 0 0 0 1px var(--chrome-lo); }
+.viewport::-webkit-scrollbar-button:single-button { width: 16px; height: 16px; background-repeat: no-repeat; background-position: center; }
+.viewport::-webkit-scrollbar-button:vertical:decrement { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 4h8L4 0z'/%3E%3C/svg%3E"); }
+.viewport::-webkit-scrollbar-button:vertical:increment { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h8L4 4z'/%3E%3C/svg%3E"); }
+.viewport::-webkit-scrollbar-corner { background: var(--chrome); }
+@supports not selector(::-webkit-scrollbar) {
+  .viewport { scrollbar-color: var(--chrome) var(--chrome-mid); }
+}
 /* Wide screens: a column on the left for the desktop icons. */
 @media (min-width: 621px) { :root[data-mode="general"] .desktop:not(.max) { padding-left: 112px; } }
 

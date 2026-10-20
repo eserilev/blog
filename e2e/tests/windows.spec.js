@@ -130,6 +130,31 @@ test('a mode change hides the apps; Windows shows them again', async ({ page }) 
   await expect(logbook(page)).toBeVisible();
 });
 
+test('a long post scrolls inside the Logbook window, which stops above the taskbar', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/posts/block-level-access-lists-and-parallel-execution');
+  const view = logbook(page).locator('.viewport');
+  const fit = () => page.evaluate(() => ({
+    page: document.documentElement.scrollHeight - innerHeight,
+    gap: document.querySelector('.taskbar').getBoundingClientRect().top - document.querySelector('[data-win="logbook"]').getBoundingClientRect().bottom,
+  }));
+  const f = await fit();
+  expect(f.page).toBe(0);
+  expect(f.gap).toBeGreaterThanOrEqual(0);
+  expect(await view.evaluate(v => v.scrollHeight > v.clientHeight)).toBe(true);
+  await view.hover();
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => view.evaluate(v => v.scrollTop)).toBeGreaterThan(0);
+  // A new page starts at the top.
+  await logbook(page).getByRole('button', { name: 'Home' }).click();
+  await expect.poll(() => view.evaluate(v => v.scrollTop)).toBe(0);
+  // Maximized: the window fills the screen above the taskbar.
+  await logbook(page).getByRole('button', { name: 'Maximize' }).click();
+  expect((await fit()).gap).toBeGreaterThanOrEqual(0);
+  expect((await fit()).page).toBe(0);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test.describe('narrow screen', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
