@@ -155,6 +155,20 @@ test('a long post scrolls inside the Logbook window, which stops above the taskb
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test.describe('tall screen', () => {
+  test.use({ viewport: { width: 1280, height: 2000 } });
+
+  test('the Logbook window is only as tall as a short page; maximized, it fills the screen', async ({ page }) => {
+    await page.goto('/posts/block-level-access-lists-and-parallel-execution');
+    const view = logbook(page).locator('.viewport');
+    const gap = () => page.evaluate(() => document.querySelector('.taskbar').getBoundingClientRect().top - document.querySelector('[data-win="logbook"]').getBoundingClientRect().bottom);
+    expect(await view.evaluate(v => v.scrollHeight - v.clientHeight)).toBe(0);
+    expect(await gap()).toBeGreaterThan(100);
+    await logbook(page).getByRole('button', { name: 'Maximize' }).click();
+    expect(await gap()).toBe(0);
+  });
+});
+
 test.describe('narrow screen', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

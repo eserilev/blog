@@ -17,10 +17,13 @@ button.ctl:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
 :root:not([data-mode="general"]) [data-win="logbook"] > .titlebar .ctl { visibility: hidden; }
 /* Closed: the Logbook window and its taskbar buttons go. Minimized: only the window. */
 blog-app[data-logbook="closed"] .task[data-nav] { display: none; }
-/* The Logbook window fits above the taskbar. The page scrolls inside the window, like
-   a 1998 browser, and the desktop itself never scrolls. */
-:root[data-mode="general"] .desktop { display: flex; flex-direction: column; height: 100vh; height: 100dvh; padding-bottom: calc(var(--tb-h) + 16px); }
-:root[data-mode="general"] .desktop > .window { flex: 1; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+/* The Logbook window is as tall as its page, up to the top of the taskbar. A longer page
+   scrolls inside the window, like a 1998 browser. The desktop itself never scrolls. */
+:root[data-mode="general"] .desktop { display: flex; flex-direction: column; max-height: 100vh; max-height: 100dvh; padding-bottom: calc(var(--tb-h) + 16px); }
+:root[data-mode="general"] .desktop > .window { flex: 0 1 auto; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+/* Maximized: the window fills the screen above the taskbar, for any page. */
+:root[data-mode="general"] .desktop.max { height: 100vh; height: 100dvh; }
+:root[data-mode="general"] .desktop.max > .window { flex-grow: 1; }
 /* A border, not the inset shadow of .sunken: the scroll bar paints over a shadow. */
 :root[data-mode="general"] .desktop > .window > .viewport { overflow-y: auto; overscroll-behavior: contain; box-shadow: none;
   border: 2px solid; border-color: var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo); }
