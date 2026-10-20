@@ -669,6 +669,39 @@ const Win98 = (() => {
     },
   });
 
+  // ---------- Wallpaper: set from Paint, kept in this browser ----------
+  /* IndexedDB, not localStorage: a big picture is more than the 5 MB of localStorage.
+     The picture is a data: URL, because the CSP blocks blob: images. Storage can fail
+     (private windows, blocked site data). Then the wallpaper lasts for this page only. */
+  const wallEl = layer.querySelector('[data-wallpaper]');
+  const showWallpaper = ({ url, tiled }) => {
+    const w = wallEl.style;
+    w.backgroundImage = `url("${url}")`;
+    w.backgroundRepeat = tiled ? 'repeat' : 'no-repeat';
+    w.backgroundPosition = tiled ? '0 0' : 'center';
+  };
+  const wallStore = mode => new Promise((ok, fail) => {
+    const req = indexedDB.open('logbook', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('desktop');
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction('desktop', mode);
+      tx.oncomplete = () => db.close();
+      ok(tx.objectStore('desktop'));
+    };
+    req.onerror = () => fail(req.error);
+  });
+  const setWallpaper = (url, tiled) => {
+    const wp = { url, tiled };
+    showWallpaper(wp);
+    wallStore('readwrite').then(s => s.put(wp, 'wallpaper')).catch(() => { /* This page only. */ });
+  };
+  wallStore('readonly').then(s => {
+    const req = s.get('wallpaper');
+    // A wallpaper set on this page before the read wins.
+    req.onsuccess = () => { if (req.result && !wallEl.style.backgroundImage) showWallpaper(req.result); };
+  }).catch(() => { /* No saved wallpaper. */ });
+
   // ---------- Paint: loads on demand ----------
   let paintLoad = null;
   const asset = (name, path) => document.querySelector(`meta[name="${name}"]`)?.content || path;
@@ -715,5 +748,5 @@ const Win98 = (() => {
     w.keys(e);
   });
 
-  return { h, svg, icon, dialog, tell, OKBTN, OKCANCEL, YNC, saveAsDialog, saveFile, pickFile, menubar, layer, modal, general, narrow, isActive, closeWin };
+  return { h, svg, icon, dialog, tell, OKBTN, OKCANCEL, YNC, saveAsDialog, saveFile, pickFile, menubar, layer, modal, general, narrow, isActive, closeWin, setWallpaper };
 })();

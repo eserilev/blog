@@ -15,7 +15,7 @@
    Rules: text goes in with textContent. Sizes go through CSSOM (CSP). A view on WASM
    memory is new after each call, because a call can move the buffers. */
 const PaintApp = (() => {
-  const { h, svg, dialog, tell, OKBTN, OKCANCEL, YNC, saveAsDialog, saveFile, pickFile, menubar, layer, modal, isActive, closeWin } = Win98;
+  const { h, svg, dialog, tell, OKBTN, OKCANCEL, YNC, saveAsDialog, saveFile, pickFile, menubar, layer, modal, isActive, closeWin, setWallpaper } = Win98;
   let X = null;
 
   // ---------- Colors and the WASM core ----------
@@ -837,10 +837,7 @@ const PaintApp = (() => {
   };
   const wallpaper = tiled => {
     endPending();
-    const w = layer.querySelector('[data-wallpaper]').style;
-    w.backgroundImage = `url("${cv.toDataURL()}")`;
-    w.backgroundRepeat = tiled ? 'repeat' : 'no-repeat';
-    w.backgroundPosition = tiled ? '0 0' : 'center';
+    setWallpaper(cv.toDataURL(), tiled);
   };
 
   // ---------- Files ----------

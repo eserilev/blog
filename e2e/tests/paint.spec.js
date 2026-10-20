@@ -171,3 +171,16 @@ test('closing with changes asks to save; No closes and the next open is new', as
   await openPaint(page);
   expect(await pixel(page, 40, 40)).toEqual([255, 255, 255, 255]);
 });
+
+test('Set As Wallpaper puts the picture behind the desktop, and it stays after a reload', async ({ page }) => {
+  const errors = watchErrors(page);
+  const wall = () => page.locator('[data-wallpaper]').evaluate(w => [w.style.backgroundImage.slice(0, 27), w.style.backgroundRepeat]);
+  await page.goto('/');
+  await openPaint(page);
+  await drag(page, [20, 20], [60, 60]);
+  await menu(page, 'File', 'Set As Wallpaper (Centered)');
+  expect(await wall()).toEqual(['url("data:image/png;base64,', 'no-repeat']);
+  await page.reload();
+  await expect.poll(wall).toEqual(['url("data:image/png;base64,', 'no-repeat']);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
